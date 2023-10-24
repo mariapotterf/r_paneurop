@@ -13,11 +13,11 @@ library(rnaturalearthdata)
 library(sf)
 
 
-setwd('C:/Users/ge45lep/Documents/2023_PanEuropean/r_paneurop/rawData/collected')
-
 
 # list all field data collected; get paths
-all_gpkg <- list.files(pattern = "*.gpkg")
+all_gpkg <- list.files(path = "rawData/collected", 
+                       pattern = "*.gpkg$", 
+                       full.names = TRUE)  # read the full path to read the files properly
 
 # load gpkgs
 all_gpkg.ls <- lapply(all_gpkg, function(name) {vect(name)})
@@ -25,7 +25,7 @@ all_gpkg.ls <- lapply(all_gpkg, function(name) {vect(name)})
 # merge them all in one file
 merged_gpkg <- do.call("rbind", all_gpkg.ls)
 
-# set as sf
+# convert to sf
 merged_gpkg <- sf::st_as_sf(merged_gpkg)
 
 
@@ -40,8 +40,8 @@ pl <- ne_countries(country = "poland",      type = "countries", returnclass = 's
 cz <- ne_countries(country = "czech republic", type = "countries", returnclass = 'sf', scale = 'medium')
 it <- ne_countries(country = "italy",       type = "countries", returnclass = 'sf', scale = 'medium')
 
-# merge EU countries
-#mrg_cntrs <- dplyr::bind_rows(list(ge, at, sk, sl,fr, ch, pl, cz, it))
+# rename czechia:
+cz$sovereignt[cz$sovereignt == "Czech Republic"] <- "Czechia"
 
 # list cuntrues for a lapply loop
 cntrs_ls <- list(ge, at, sk, sl,fr, ch, pl, cz, it)
@@ -82,7 +82,7 @@ clip_dat <- function(x, ...) {
   x_proj <-st_transform(x, crs(merged_gpkg)) 
   
   # get country name
-  name = x$sovereignt 
+  name = tolower(x$sovereignt) 
   print(name)
   
   # split the gpkgs by countries, export as individual gpkg per country
