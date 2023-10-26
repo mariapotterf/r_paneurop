@@ -9,22 +9,7 @@
 # data from the Cornelius: disturbances
 #    - year
 #    - agent
-#    - distance to nearest edge (merge 2028-2020 into one!)
-
-
-# how to run this effectively on server?
-# access to rasters 
-#
-# how to share my script?
-# where is my output data?
-# paths issues?
-
-# to do:
-# download all data
-# split the gpkg points by country
-# loop everything on the level of country or th eminimal bounding box
-# get shps from Cornelius
-
+#    - distance to nearest edge (merge 2018-2020 into one!)
 
 
 library(terra)
