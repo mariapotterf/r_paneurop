@@ -233,12 +233,16 @@ df_ref %>%
                 width = 0.2, color = 'red') +
   # Add error bars for min and max of tmp
   geom_errorbarh(data = df_summary, 
-                 aes(#x = tmp_mean, 
+                 aes(x = tmp_mean, 
                      y = prec_mean, 
                      xmin = tmp_min, 
                      xmax = tmp_max, 
                      group = grp), height = 0.2, color = 'red') +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1),  # Black rectangle around the plot
+    aspect.ratio = 1  # This also sets the aspect ratio to be square
+  )
 
 
 
