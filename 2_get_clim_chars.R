@@ -19,6 +19,7 @@ library(zoo)                # for as.Date() specification
 
 library(ggplot2)
 library(ggpubr)
+library(stringr)
 
 # get data from Franconia ------------------------------------------------
 franconia <- vect("rawData/franconia/new_GPS/sites_final_updPassau.shp")
@@ -54,26 +55,26 @@ crs(xy_proj) == crs(dat_ras)
 crs(franconia_proj) == crs(dat_ras)
 
 # get unique IDs and names
-xy_proj$ID = paste0('xy', 1:nrow(xy_proj)) #1:nrow(xy_proj)
+xy_proj$name = paste0('xy', 1:nrow(xy_proj)) #1:nrow(xy_proj)
 #xy_proj$name = 'xy'
 
-franconia_proj$ID = paste0('fr', 1:nrow(franconia_proj))
+franconia_proj$name = paste0('fr', 1:nrow(franconia_proj))
 #franconia_proj$name = 'franconia'
 
 
 # simlify spatial data: keep only location, name and id;
 # remove unnecesary columns
-xy    <- xy_proj[c("ID")] #
-franc <- franconia_proj[c("ID")] # , "name"
+xy    <- xy_proj[c("name")] #
+franc <- franconia_proj[c("name")] # , "name"
 
 # merge both shps together
 xy <- rbind(xy, franc)
 
 # extract all values to the xy coordinates:
-dat_ext_df <- terra::extract(dat_ras, xy, df = TRUE)
+dat_ext_df <- terra::extract(dat_ras, xy)
 
 # add group indication
-dat_ext_df$name <- xy$ID
+dat_ext_df$name <- xy$name
 # Check the variables of interest:
 (var_names <- varnames(dat_ras))    # 7 vars: "d2m"   "t2m"   "tp"    "swvl1" "swvl2" "swvl3" "swvl4"
 (ras_time  <- time(dat_ras))        #
@@ -95,7 +96,7 @@ df_melt <- dat_ext_df %>%
 # Add time  to df and split in months:
 df <- 
   df_melt %>% 
-  arrange(ID, variable) %>%
+  arrange(ID, name, variable) %>%
   dplyr::mutate(time = rep(ras_time, nrow(dat_ext_df))) %>% 
   tidyr::separate(variable, 
            c("var", "time_num", 'xx'), "_") %>% 
@@ -108,7 +109,7 @@ df <-
 
 # check values for precipitation?
 df %>% 
-  filter(var == 'tp'& ID == 5) %>%   # in meters depth, and day!!, monthly averages -> multiply the average by 365 to get yearly value! 
+  filter(var == 'tp'& name == 'xy5') %>%   # in meters depth, and day!!, monthly averages -> multiply the average by 365 to get yearly value! 
   na.omit() %>%                      # see days per each month for more precice: https://stackoverflow.com/questions/6243088/find-out-the-number-of-days-of-a-month-in-r 
   group_by(year) %>% 
   mutate(prcp = value*1000) %>% 
@@ -129,7 +130,7 @@ df_mean <-
   dplyr::select(-c(time_num, xx)) %>% # remove unnecessary cols
   spread(var, value) %>%
   mutate(t2m = t2m - temp_convert) %>% 
-  group_by(ID, year) %>% 
+  group_by(ID, name, year) %>% 
   summarize(tmp = mean(t2m),# mean annual temp
             prec = mean(tp)*1000*365)  # sum annual precip (it is mothly means), convert from meters to mm
   
@@ -154,32 +155,135 @@ df_mean_sub <- df_mean2 %>%
 # get data fr reference
 df_ref <- df_mean2 %>%
   filter(cat == 'ref') %>% 
-  slice_sample(n = 5000)
-# get data for warm years
-df_warm <- df_mean2 %>%
-  filter(cat == 'dist') 
-#dplyr::sample_n(2) #(n = 1000)# %>% # subset number of rows to speed up lotting
+  filter(str_starts(name, "xy")) #%>% 
+  #slice_sample(n = 5000)
 
+# get data for warm years
+df_dist <- df_mean2 %>%
+  filter(cat == 'dist')  %>% 
+  filter(str_starts(name, "xy")) 
+
+# get data for warm years
+df_franc <- df_mean2 %>%
+  filter(cat == 'dist')  %>% 
+  filter(str_starts(name, "fr")) %>% 
+  ungroup() %>% 
+  mutate(grp = factor(rep(1:42, each = 9)))
 
 
 
 windows()
+
+rescale_density <- function(x) {
+  scales::rescale(x, to = c(0.001, 1))
+}
+
+# get summary table for franconia
+df_summary <- df_franc %>%
+  group_by(grp) %>%
+  summarize(
+    tmp_mean = mean(tmp),
+    tmp_min = min(tmp),
+    tmp_max = max(tmp),
+    prec_mean = mean(prec),
+    prec_min = min(prec),
+    prec_max = max(prec),
+    .groups = 'drop'
+  )
+
+# Define a custom function for ymin and ymax
+min_max_fun <- function(x) {
+  return(data.frame(y = mean(x), ymin = min(x), ymax = max(x)))
+}
+
+# Define a custom function for xmin and xmax
+min_max_fun_x <- function(x) {
+  return(data.frame(x = mean(x), xmin = min(x), xmax = max(x)))
+}
+
+
+# get final plot
 df_ref %>%
   ggplot(aes(x = tmp,
-             y = prec,
-             color = cat)) +
+             y = prec)) +
   stat_density_2d(
-    aes(fill = after_stat(density)), # Use density directly
+    aes(fill = after_stat(rescale_density(density))), # Use density directly
     geom = "raster", 
     contour = FALSE
   ) +
-  
   scale_fill_gradient2(
     low = "white", 
    # mid = "white", 
     high = "forestgreen", 
    # midpoint = 4e-04
   ) +
- geom_point(data = df_warm, aes(x = tmp,
-                         y = prec), color = 'black', size = 0.5) +
+ geom_point(data = df_dist, 
+            aes(x = tmp,
+                y = prec), color = 'black', size = 0.5) +
+  # Add points for franconia: means, min, max
+  geom_point(data = df_summary, 
+             aes(x = tmp_mean, 
+                 y = prec_mean, 
+                 group = grp), color = 'red', size = 2) +
+  # Add error bars for min and max of prec
+  geom_errorbar(data = df_summary, 
+                aes(x = tmp_mean, y = prec_mean, 
+                    ymin = prec_min, ymax = prec_max, 
+                    group = grp), 
+                width = 0.2, color = 'red') +
+  # Add error bars for min and max of tmp
+  geom_errorbarh(data = df_summary, 
+                 aes(#x = tmp_mean, 
+                     y = prec_mean, 
+                     xmin = tmp_min, 
+                     xmax = tmp_max, 
+                     group = grp), height = 0.2, color = 'red') +
   theme_minimal()
+
+
+
+# check just for the CI Franconia
+
+# Plot using the df_summary data frame
+ggplot(df_franc, aes(x = tmp, y = prec)) +
+  #geom_point(color = 'red', size = 0.5) +
+  # Add points for mean
+  geom_point(data = df_summary, 
+             aes(x = tmp_mean, 
+                 y = prec_mean, 
+                 group = grp), color = 'red', size = 2) +
+  # Add error bars for min and max of prec
+  geom_errorbar(data = df_summary, 
+                aes(x = tmp_mean, y = prec_mean, 
+                    ymin = prec_min, ymax = prec_max, 
+                    group = grp), width = 0.2, color = 'red') +
+  # Add error bars for min and max of tmp
+  geom_errorbarh(data = df_summary, 
+                 aes(x = tmp_mean, 
+                     y = prec_mean, 
+                     xmin = tmp_min, 
+                     xmax = tmp_max, 
+                     group = grp), height = 0.2, color = 'red') +
+  theme_minimal()
+
+
+df_franc %>%
+  ggplot(aes(x = tmp,
+             y = prec)) +
+   geom_point( color = 'red', size = 0.5) +
+  stat_summary(
+    data = df_franc,
+    aes(group = grp),  # Use 'grp' for grouping
+    fun = mean,  # Replace 'mean' with the desired summary function for point
+    geom = "point",
+    size = 2
+  ) +
+  stat_summary(
+    data = df_franc,
+    aes(group = grp),  # Use 'grp' for grouping
+    fun.data = "mean_se",  # Replace 'mean_se' with your summary function for vertical whiskers
+    geom = "errorbar",
+    width = 0.2
+  ) +
+  theme_minimal()
+
