@@ -49,6 +49,7 @@ dat_ras <- terra::rast("rawData/ERA_NET/data.nc")
 # Get spatial data for each trap
 xy_proj        <- terra::project(merged_gpkg, crs(dat_ras))
 franconia_proj <- terra::project(franconia, crs(dat_ras))
+franconia_proj <- franconia_proj[order(franconia_proj$Name), ]
       
 # correct                    
 crs(xy_proj) == crs(dat_ras)
@@ -56,10 +57,7 @@ crs(franconia_proj) == crs(dat_ras)
 
 # get unique IDs and names
 xy_proj$name = paste0('xy', 1:nrow(xy_proj)) #1:nrow(xy_proj)
-#xy_proj$name = 'xy'
-
 franconia_proj$name = paste0('fr', 1:nrow(franconia_proj))
-#franconia_proj$name = 'franconia'
 
 
 # simlify spatial data: keep only location, name and id;
@@ -202,7 +200,7 @@ min_max_fun_x <- function(x) {
 }
 
 
-# get final plot
+# get final plot --------------------------------------------------------------
 df_ref %>%
   ggplot(aes(x = tmp,
              y = prec)) +
@@ -224,7 +222,7 @@ df_ref %>%
   geom_point(data = df_summary, 
              aes(x = tmp_mean, 
                  y = prec_mean, 
-                 group = grp), color = 'red', size = 2) +
+                 group = grp), color = 'red', size = 1) +
   # Add error bars for min and max of prec
   geom_errorbar(data = df_summary, 
                 aes(x = tmp_mean, y = prec_mean, 
@@ -246,7 +244,7 @@ df_ref %>%
 
 
 
-# check just for the CI Franconia
+# check just for the CI Franconia -----------------------------------------------
 
 # Plot using the df_summary data frame
 ggplot(df_franc, aes(x = tmp, y = prec)) +
