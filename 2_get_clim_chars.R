@@ -24,14 +24,20 @@ library(stringr)
 # get data from Franconia ------------------------------------------------
 franconia <- vect("rawData/franconia/new_GPS/sites_final_updPassau.shp")
 
+franconia_clim_space <- vect("rawData/franconia/extra/climate_hotspots2.gpkg")
+
 # get data from Pan-Europe 
 #list all field data collected; get paths
 all_gpkg <- list.files(path = "rawData/collected", 
                        pattern = "*.gpkg$", 
                        full.names = TRUE)  # read the full path to read the files properly
 
+
+# remove Italy, Szitzerland, slovenia
+filtered_gpkg <- all_gpkg[!grepl("it_|sw_", all_gpkg)]
+
 # load gpkgs
-all_gpkg.ls <- lapply(all_gpkg, function(name) {vect(name)})
+all_gpkg.ls <- lapply(filtered_gpkg, function(name) {vect(name)})
 
 # merge them all in one file
 merged_gpkg <- do.call("rbind", all_gpkg.ls)
@@ -50,23 +56,28 @@ dat_ras <- terra::rast("rawData/ERA_NET/data.nc")
 xy_proj        <- terra::project(merged_gpkg, crs(dat_ras))
 franconia_proj <- terra::project(franconia, crs(dat_ras))
 franconia_proj <- franconia_proj[order(franconia_proj$Name), ]
-      
+
+franconia_clim_space_proj <- terra::project(franconia_clim_space, crs(dat_ras))
 # correct                    
 crs(xy_proj) == crs(dat_ras)
 crs(franconia_proj) == crs(dat_ras)
+crs(franconia_clim_space_proj) == crs(dat_ras)
 
 # get unique IDs and names
 xy_proj$name = paste0('xy', 1:nrow(xy_proj)) #1:nrow(xy_proj)
 franconia_proj$name = paste0('fr', 1:nrow(franconia_proj))
+franconia_clim_space_proj$name = paste0('extra', 1:nrow(franconia_clim_space_proj))
+
 
 
 # simlify spatial data: keep only location, name and id;
 # remove unnecesary columns
 xy    <- xy_proj[c("name")] #
 franc <- franconia_proj[c("name")] # , "name"
+franc_extra <- franconia_clim_space_proj[c("name")] # , "name"
 
 # merge both shps together
-xy <- rbind(xy, franc)
+xy <- rbind(xy, franc, franc_extra)
 
 # extract all values to the xy coordinates:
 dat_ext_df <- terra::extract(dat_ras, xy)
@@ -147,21 +158,19 @@ df_mean2 <- df_mean %>%
 df_mean_sub <- df_mean2 %>%
   ungroup(.) %>% 
   slice_sample(n = 1000)
-  #dplyr::sample_n(2) #(n = 1000)# %>% # subset number of rows to speed up lotting
-  
+
 
 # get data fr reference
 df_ref <- df_mean2 %>%
   filter(cat == 'ref') %>% 
   filter(str_starts(name, "xy")) #%>% 
-  #slice_sample(n = 5000)
+
 
 # get data for warm years
 df_dist <- df_mean2 %>%
-  filter(cat == 'dist')  %>% 
-  filter(str_starts(name, "xy")) 
+  filter(year %in% c(2018:2020))
 
-# get data for warm years
+# get data for warm years !!!!
 df_franc <- df_mean2 %>%
   filter(cat == 'dist')  %>% 
   filter(str_starts(name, "fr")) %>% 
@@ -189,103 +198,98 @@ df_summary <- df_franc %>%
     .groups = 'drop'
   )
 
-# Define a custom function for ymin and ymax
-min_max_fun <- function(x) {
-  return(data.frame(y = mean(x), ymin = min(x), ymax = max(x)))
-}
-
-# Define a custom function for xmin and xmax
-min_max_fun_x <- function(x) {
-  return(data.frame(x = mean(x), xmin = min(x), xmax = max(x)))
-}
-
 
 # get final plot --------------------------------------------------------------
-df_ref %>%
-  ggplot(aes(x = tmp,
-             y = prec)) +
-  stat_density_2d(
-    aes(fill = after_stat(rescale_density(density))), # Use density directly
-    geom = "raster", 
-    contour = FALSE
-  ) +
-  scale_fill_gradient2(
-    low = "white", 
-   # mid = "white", 
-    high = "forestgreen", 
-   # midpoint = 4e-04
-  ) +
- geom_point(data = df_dist, 
-            aes(x = tmp,
-                y = prec), color = 'black', size = 0.5) +
-  # Add points for franconia: means, min, max
+
+library(MASS)
+
+# Function to calculate levels
+calculate_levels <- function(density, percentages) {
+  sorted_density <- sort(density, decreasing = TRUE)
+  cum_density <- cumsum(sorted_density) / sum(sorted_density)
+  sapply(percentages, function(p) {
+    sorted_density[max(which(cum_density <= p))]
+  })
+}
+
+# Calculate 2D density
+d <- kde2d(df_dist$tmp, df_dist$prec, n = 500)
+density_values <- d$z
+
+# Set densities outside the range of your data to zero
+density_values[density_values < 1e-6] <- 0
+
+# Calculate the levels for specified percentages
+levels <- calculate_levels(as.vector(density_values), c(0.50, 0.75, 0.90, 0.99, 1))
+
+# Prepare data for ggplot
+plot_data <- expand.grid(tmp = d$x, prec = d$y)
+plot_data$density <- as.vector(density_values)
+
+# Use cut to create factor levels, including one for zero density
+plot_data$level <- cut(plot_data$density, breaks = c(-Inf, levels, Inf), labels = FALSE, include.lowest = TRUE)
+
+# Define colors (from red to yellow, plus white for zero density)
+
+library(RColorBrewer)
+blue_colors <- brewer.pal(5, "Blues")
+
+# Add 'white' at the beginning
+my_colors <- c("white", blue_colors)
+
+
+# Create the plot
+p<-
+  ggplot(plot_data) +
+  geom_raster(aes(x = tmp, y = prec, fill = factor(level)), alpha = 0.6) +
+  scale_fill_manual(values = my_colors,
+                    labels = c("", rev(c("50%", "75%", "90%", "99%", "100%"))),
+                    name = "Density") +
   geom_point(data = df_summary, 
-             aes(x = tmp_mean, 
-                 y = prec_mean, 
-                 group = grp), color = 'red', size = 1) +
-  # Add error bars for min and max of prec
+             aes(x = tmp_mean, y = prec_mean, group = grp), color = 'white', size = 2) +
+  geom_point(data = df_summary, 
+             aes(x = tmp_mean, y = prec_mean, group = grp), color = 'black', size = 1.5) +
   geom_errorbar(data = df_summary, 
-                aes(x = tmp_mean, y = prec_mean, 
-                    ymin = prec_min, ymax = prec_max, 
-                    group = grp), 
-                width = 0.2, color = 'red') +
-  # Add error bars for min and max of tmp
+                aes(x = tmp_mean, 
+                    #y = prec_mean, 
+                    ymin = prec_min, 
+                    ymax = prec_max, group = grp), 
+                width = 0.1, 
+                linewidth = 0.2,
+                color = 'black') +
   geom_errorbarh(data = df_summary, 
-                 aes(x = tmp_mean, 
+                 aes(#x = tmp_mean, 
                      y = prec_mean, 
                      xmin = tmp_min, 
-                     xmax = tmp_max, 
-                     group = grp), height = 0.2, color = 'red') +
+                     xmax = tmp_max, group = grp),
+                 height =20, 
+                 linewidth = 0.2,
+                 color = 'black') +
+  ylab('Mean annual precipitation [mm]') +
+  xlab(bquote('Mean annual temperature [' * degree * 'C]')) +
   theme_minimal() +
-  theme(
-    panel.border = element_rect(color = "black", fill = NA, linewidth = 1),  # Black rectangle around the plot
-    aspect.ratio = 1  # This also sets the aspect ratio to be square
-  )
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
+        panel.grid.major = element_blank(),  # Remove major grid lines
+        panel.grid.minor = element_blank(),  # Remove minor grid lines
+        panel.background = element_rect(fill = "white", colour = NA),
+        aspect.ratio = 1,
+        axis.title.x = element_text(size = 10),  # X-axis label
+        axis.title.y = element_text(size = 10),  # Y-axis label
+        legend.title = element_text(size = 10),  # Legend title
+        legend.text = element_text(size = 10),   #   # Legend item text)
+        legend.key.size = unit(0.3, "cm"))  
 
+ggsave("franc_in_clim_space.pdf", 
+       plot = p, 
+       device = "pdf", 
+       units = "cm",
+       dpi = 300,
+       width = 12, height = 10)
 
-
-# check just for the CI Franconia -----------------------------------------------
-
-# Plot using the df_summary data frame
-ggplot(df_franc, aes(x = tmp, y = prec)) +
-  #geom_point(color = 'red', size = 0.5) +
-  # Add points for mean
-  geom_point(data = df_summary, 
-             aes(x = tmp_mean, 
-                 y = prec_mean, 
-                 group = grp), color = 'red', size = 2) +
-  # Add error bars for min and max of prec
-  geom_errorbar(data = df_summary, 
-                aes(x = tmp_mean, y = prec_mean, 
-                    ymin = prec_min, ymax = prec_max, 
-                    group = grp), width = 0.2, color = 'red') +
-  # Add error bars for min and max of tmp
-  geom_errorbarh(data = df_summary, 
-                 aes(x = tmp_mean, 
-                     y = prec_mean, 
-                     xmin = tmp_min, 
-                     xmax = tmp_max, 
-                     group = grp), height = 0.2, color = 'red') +
-  theme_minimal()
-
-
-df_franc %>%
-  ggplot(aes(x = tmp,
-             y = prec)) +
-   geom_point( color = 'red', size = 0.5) +
-  stat_summary(
-    data = df_franc,
-    aes(group = grp),  # Use 'grp' for grouping
-    fun = mean,  # Replace 'mean' with the desired summary function for point
-    geom = "point",
-    size = 2
-  ) +
-  stat_summary(
-    data = df_franc,
-    aes(group = grp),  # Use 'grp' for grouping
-    fun.data = "mean_se",  # Replace 'mean_se' with your summary function for vertical whiskers
-    geom = "errorbar",
-    width = 0.2
-  ) +
-  theme_minimal()
+ggsave("franc_in_clim_space.png", 
+       plot = p, 
+       device = "png", 
+       units = "cm",
+       dpi = 300,
+       width = 12, height = 10)
 
