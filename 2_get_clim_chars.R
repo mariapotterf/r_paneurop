@@ -175,8 +175,24 @@ df_franc <- df_mean2 %>%
   filter(cat == 'dist')  %>% 
   filter(str_starts(name, "fr")) %>% 
   ungroup() %>% 
-  mutate(grp = factor(rep(1:42, each = 9)))
+  mutate(grp = factor(rep(1:42, each = 9))) %>% 
+  ungroup(.)
 
+
+df_franc %>% 
+  as.data.frame() %>% 
+  ungroup(.) %>% 
+  group_by(year) %>% 
+  reframe(temp = mean(tmp),
+          prec = mean(prec))# %>% 
+ # View()
+
+# A tibble: 3 x 3
+# year  temp  prec
+# <dbl> <dbl> <dbl>
+#   1  2018  10.5  787.
+# 2  2019  10.0  886.
+# 3  2020  10.1  884.
 
 
 windows()
