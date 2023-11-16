@@ -232,7 +232,7 @@ plot_data$level <- cut(plot_data$density, breaks = c(-Inf, levels, Inf), labels 
 # Define colors (from red to yellow, plus white for zero density)
 
 library(RColorBrewer)
-blue_colors <- brewer.pal(5, "Blues")
+blue_colors <- brewer.pal(5, "Greys")
 
 # Add 'white' at the beginning
 my_colors <- c("white", blue_colors)
@@ -275,9 +275,11 @@ p<-
         aspect.ratio = 1,
         axis.title.x = element_text(size = 10),  # X-axis label
         axis.title.y = element_text(size = 10),  # Y-axis label
-        legend.title = element_text(size = 10),  # Legend title
+        legend.title = element_blank(),  # Legend title
         legend.text = element_text(size = 10),   #   # Legend item text)
         legend.key.size = unit(0.3, "cm"))  
+
+(p)
 
 ggsave("franc_in_clim_space.pdf", 
        plot = p, 
@@ -292,4 +294,12 @@ ggsave("franc_in_clim_space.png",
        units = "cm",
        dpi = 300,
        width = 12, height = 10)
+
+ggsave("franc_in_clim_space.svg", 
+       plot = p, 
+       device = "svg", 
+       units = "cm",
+       dpi = 300,
+       width = 10, height = 8)
+
 
