@@ -183,8 +183,16 @@ df_franc %>%
   as.data.frame() %>% 
   ungroup(.) %>% 
   group_by(year) %>% 
-  reframe(temp = mean(tmp),
-          prec = mean(prec))# %>% 
+  reframe(
+    min_temp = min(tmp),
+          mean_temp = mean(tmp),
+          max_temp = max(tmp),
+          sd_temp = sd(tmp),
+          
+          min_prec = min(prec),
+          mean_prec = mean(prec),
+          max_prec = max(prec),
+          sd_prec = sd(prec))# %>% 
  # View()
 
 # A tibble: 3 x 3
