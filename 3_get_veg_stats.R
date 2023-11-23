@@ -15,15 +15,17 @@
 
 # what predictors to get? 
 # IVI - species importance value, need to get BA
-# 
+# # include management
 
 
-# ask Christinan - included empty plots?
-# what is 'cluster?  = group?
+# ask Christinan - included empty plots? YES
+# what is 'cluster?  = region +group?
 # country = '
+# management = fill in missing values correctly: based on the first estimation per plot (without completed species)
 
 library(data.table)
 library(dplyr)
+library(ggplot2)
 
 dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 
@@ -128,9 +130,26 @@ table(dat$ID, dat$Species)# YES - 7 records per plot, for each species
 (n_countries   <- length(unique(dat$country)))
 
 
-# get stem density per species and height category
-df_density <- dat %>% 
-  group_by()
+# get stem density per species and height category - get vegetation matrixes for that - on cluster level???
+# keep the NA for species as 0 - consistently across the dataset!!!
+df_density_as0 <- dat %>% 
+  dplyr::filter(Variable == 'n') %>% 
+  mutate(n = ifelse(is.na(n), 0, n)) %>% 
+  group_by(country, cluster, point, VegType, Species ) %>% 
+  summarize(sum_n = sum(n, na.rm = T))
+
+# plot: what is the density of regeneration per plot & country?
+df_density_as0 %>% 
+  ungroup(.) %>% 
+  filter(VegType == 'Regeneration') %>% 
+  dplyr::select(-Species) %>% 
+  filter(sum_n !=0) %>% 
+  ggplot(aes(x = as.factor(country),
+             y = sum_n,
+             group = country)) +
+  geom_jitter()
+  
+  # get average per cluuster
   
 
 
