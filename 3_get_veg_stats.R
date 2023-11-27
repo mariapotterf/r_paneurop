@@ -46,7 +46,7 @@ dim(dat)
 # "region"          - 
 # "group"           - cluster
 # "point"           - 1-5 - check, only 5 per cluster?, max is 7
-# "dist"            - disturbed? T, F - part of the Cerneliuses map? 
+# "dist"            - disturbed? T, F - part of the Cornelius' map? 
 # "clear" - cleared? T, F
 # "grndwrk"        - T,F
 # "logging_trail"  - T/F
@@ -104,7 +104,7 @@ dplyr::filter(is.na(n)) #%>%
 
 # get 
 
-unique(dat$Species)  # 
+sort(unique(dat$Species))  # 
 
 #[1] "piab" "pisy" "lade" "abal" "psme" "taba" "fasy" "quro" "acca" "acpl" "acps" "algl" "alin" "alvi"
 #[15] "potr" "posp" "besp" "frex" "tisp" "prav" "soau" "soto" "soar" "casa" "aehi" "cabe" "ulsp" "rops"
@@ -112,10 +112,32 @@ unique(dat$Species)  #
 
 # get density per plot and species - create vegetation matrixes
 
+data <- data.frame(
+  plot = c('A', 'A', 'A', 'B', 'B'),
+  sub_plot = c(1, 1, 1, 1, 1),
+  type = c(NA, 'manag', NA, NA, 'unmanag')
+)
+
+# Replace NA by the non-NA value in the group
+#data <- 
+  data %>%
+  group_by(plot, sub_plot) %>%
+  mutate(type = ifelse(is.na(type), first(type[!is.na(type)]), type)) %>%
+  ungroup()
+
+
+
+# try t replace NA values to cefine the managed sites: needs some more work!
+  # eg make sure that each ID has at least one management indication(i.e. planted, ground work, fencing...)
 dat <- dat %>% 
   mutate(cluster = paste(region, group, sep = '_'), # create unique ID per cluster
-         area = 4)                        # add recording area: 4 m2 to calculae the density for hectar
-
+         area = 4)  %>%                       # add recording area: 4 m2 to calculae the density for hectar
+  group_by(ID) %>% 
+ # mutate(clear = ifelse(is.na(clear), 
+#                       max(clear, na.rm = TRUE),  # Use max for logical
+#                       clear)) %>%
+  ungroup(.)
+  
 # does every point has all species?
 table(dat$ID, dat$Species)# YES - 7 records per plot, for each species
 
@@ -128,6 +150,12 @@ table(dat$ID, dat$Species)# YES - 7 records per plot, for each species
 (n_clusters    <- length(unique(dat$cluster)))
 (n_regions     <- length(unique(dat$region)))
 (n_countries   <- length(unique(dat$country)))
+
+
+
+
+
+
 
 
 # get stem density per species and height category - get vegetation matrixes for that - on cluster level???
@@ -147,9 +175,9 @@ df_density_as0 %>%
   ggplot(aes(x = as.factor(country),
              y = sum_n,
              group = country)) +
-  geom_jitter()
+  geom_boxplot()
   
-  # get average per cluuster
+  # get average per cluster?
   
 
 
