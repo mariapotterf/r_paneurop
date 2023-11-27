@@ -97,18 +97,10 @@ dat %>%
 # check if there are any clusters without any vegetation on them:
 dat %>% 
 group_by(country, group, point) %>% 
-dplyr::filter(is.na(n)) #%>% 
+dplyr::filter(is.na(n)) %>% 
   dplyr::select(c(ID, country, group, point, value, VegType, Variable, Species, n)) %>%
   arrange(point)
 
-
-# get 
-
-sort(unique(dat$Species))  # 
-
-#[1] "piab" "pisy" "lade" "abal" "psme" "taba" "fasy" "quro" "acca" "acpl" "acps" "algl" "alin" "alvi"
-#[15] "potr" "posp" "besp" "frex" "tisp" "prav" "soau" "soto" "soar" "casa" "aehi" "cabe" "ulsp" "rops"
-#[29] "saca" "juni" "jure" "qusp" "sasp" "aial" "osca" "fror" "ilaq" "pist"
 
 # get density per plot and species - create vegetation matrixes
 
