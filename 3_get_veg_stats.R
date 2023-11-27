@@ -38,6 +38,24 @@ names(dat)
 
 dim(dat)
 
+
+# correct management based on Christians scrips
+dat2 <- dat %>% 
+  mutate(
+    logging_trail = ifelse(!is.na(logging_trail) & logging_trail == "true", 1, 0),
+    clear = ifelse(!is.na(clear) & clear == "true", 1, 0),
+    grndwrk = ifelse(!is.na(grndwrk) & grndwrk == "true", 1, 0),
+    planting = ifelse(!is.na(planting) & planting != 2, 1, 0),
+    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing != 2, 1, 0),
+    management = case_when(
+      logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 1,
+      TRUE ~ 0  # Default case
+    )
+  )
+
+
+
+
 # "V1"
 # "x_coord"
 # "y_coord"
