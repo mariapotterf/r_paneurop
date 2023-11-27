@@ -396,3 +396,40 @@ ggplot(mngmnt_plot, aes(x= mngmnt, y = mean.n, fill=as.factor(mngmnt)))+
   geom_violin(draw_quantiles = 0.5)+
   facet_grid(VegType~region)
 
+
+
+
+
+# preprocess tehdata : 11/27/2023
+
+# correct management indicatin per plot:
+crosssum <- function(x){
+  result <- 0
+  while (x>0){
+    result <- result + (x %% 10)
+    x <- floor(x/10)
+  }
+  return(result)
+}
+
+
+management <- cleaned_df_tidy %>%
+  dplyr::mutate(logging_trail = ifelse(is.na(logging_trail), 0, ifelse(logging_trail == "true", 1, 0))) %>%
+  dplyr::mutate(clear = ifelse(is.na(clear), 0, ifelse(clear == "true", 1, 0))) %>%
+  dplyr::mutate(grndwrk = ifelse(is.na(grndwrk), 0, ifelse(grndwrk == "true", 1, 0))) %>%
+  dplyr::mutate(planting = ifelse(is.na(planting), 0, ifelse(planting != 2, 0, 1))) %>%
+  dplyr::mutate(anti_browsing = ifelse(is.na(anti_browsing), 0, ifelse(anti_browsing != 2, 0, 1))) %>%
+  dplyr::mutate(management = ifelse(logging_trail == 1, 1, 
+                                    ifelse(clear == 1, 1, 
+                                           ifelse(grndwrk == 1, 1, 
+                                                  ifelse(planting == 1, 1, 
+                                                         ifelse(anti_browsing == 1, 1, 0)))))) %>%
+  dplyr::mutate(mngmnt_cat = 0) %>%
+  dplyr::mutate(mngmnt_cat = ifelse(logging_trail == 1, mngmnt_cat + 1, mngmnt_cat)) %>%
+  dplyr::mutate(mngmnt_cat = ifelse(clear == 1, mngmnt_cat + 10, mngmnt_cat)) %>%
+  dplyr::mutate(mngmnt_cat = ifelse(grndwrk == 1, mngmnt_cat + 100, mngmnt_cat)) %>%
+  dplyr::mutate(mngmnt_cat = ifelse(planting == 1, mngmnt_cat + 1000, mngmnt_cat)) %>%
+  dplyr::mutate(mngmnt_cat = ifelse(anti_browsing == 1, mngmnt_cat + 10000, mngmnt_cat)) %>% #.$mngmnt_cat %>% unique()
+  dplyr::rowwise() %>%
+  dplyr::mutate(crosssum = crosssum(mngmnt_cat)) #%>% View(.)
+
