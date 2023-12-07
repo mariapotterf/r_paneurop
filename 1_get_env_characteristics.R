@@ -55,7 +55,7 @@ country_names <- list( "austria", "czechia", "france", "germany", "italy", "pola
 
 # distances will contain the distance of each point to the nearest edge of its patch
 
-# small example ------------------------------------------------------------------
+# working example ------------------------------------------------------------------
 
 
 # Create a small example raster
@@ -93,14 +93,6 @@ point_distance <- extract(distance_to_na, point_vector)
 (point_distance)
 plot(distance_to_na, main="Distance to Nearest NA")
 plot(point_vector, main="", add = T)
-
-
-
-
-
-
-
-
 
 
 
@@ -182,22 +174,11 @@ process_point <- function(point, disturbance, buffer_dist) {
   
   return(data.frame(ID = point$ID, distance = point_distance))
 }
-# Example usage:
-# Assuming 'disturbance' is your raster and 'country_proj' is your SpatVector
-
-results <- lapply(1:nrow(country_proj), function(i) {
-  point_vector <- country_proj[i,]
-  process_point(point_vector, disturbance, buffer_dist)
-})
-
-# Combine all results into one dataframe
-final_results <- do.call(rbind, results)
-print(final_results)
 
 
-# Loop over countries
-buffer_dist = 500
-extract_env_info <- function(country_name, buffer_dist=500) {
+# Loop over all countries
+buffer_dist = 2000
+extract_env_info <- function(country_name, buffer_dist=2000) {
   print(paste("Processing", country_name))
   
   # Read field data
@@ -218,13 +199,13 @@ extract_env_info <- function(country_name, buffer_dist=500) {
   # Combine all results into one dataframe
   final_results <- do.call(rbind, results)
   final_results$country <- country_name
+  
+  # rename columns to fit
+  colnames(final_results) <- c("ID","dist_ID",  "distance", "country")
   return(final_results)
 }
 
-test1<-extract_env_info('slovakia')
-
-country_names = c('slovakia', 'poland')
-
+# run or all countries
 all_results <- lapply(country_names, function(cn) {
   extract_env_info(cn, buffer_dist)
 })
