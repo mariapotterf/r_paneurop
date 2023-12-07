@@ -30,15 +30,6 @@ country_name = c('austria')
 
 
 
-
-
-
-
-
-
-
-
-
 # read the plots by country
 # read respective rasters: DEM, disturbances...
 #    = stack them
@@ -63,11 +54,8 @@ country_names <- list( "austria", "czechia", "france", "germany", "italy", "pola
 
 
 # distances will contain the distance of each point to the nearest edge of its patch
-library(sf)
 
-library(terra)
-library(raster)
-
+# small example ------------------------------------------------------------------
 
 
 # Create a small example raster
@@ -106,55 +94,6 @@ point_distance <- extract(distance_to_na, point_vector)
 plot(distance_to_na, main="Distance to Nearest NA")
 plot(point_vector, main="", add = T)
 
-
-
-
-
-
-
-
-
-#  example with lines
-
-library(terra)
-set.seed(123)
-
-# Create an empty raster and set all values to NA initially
-raster <- rast(ext=c(401000, 402000, 4405000, 4406000), res = 30, crs="local")
-values(raster) <- NA
-
-# Define a patch area and set these cells to 2 (covering about 1/4 of the raster)
-patch_cells <- cells(raster, ext(c(401000, 401500, 4405000, 4405500)))
-raster[patch_cells] <- 2
-
-# Create points that fall within the patch
-points <- data.frame(
-  ID = 1:4,
-  x = runif(4, 401000, 401500),  # X coordinates within the patch
-  y = runif(4, 4405000, 4405500) # Y coordinates within the patch
-)
-
-points <- data.frame(
-  ID = 1,
-  x = 401200,  # X coordinates within the patch
-  y = 4405100 # Y coordinates within the patch
-)
-
-pts <- vect(points, geom=c("x", "y"), crs=crs(raster))
-
-# Plotting to visualize the raster and points
-plot(raster, main="Raster with Patch")
-plot(lns, add = TRUE, col = 'blue', lwd = 4)
-plot(pts, add=TRUE, col="red", pch=16)
-
-
-# convert raster patches to polygons and to lines to measure the distances
-lns <- as.lines(as.polygons(raster, dissolve=TRUE))
-
-nearest(pts, lns) |> values()
-
-x <- distance(raster>0)
-extract(x, pts)
 
 
 
@@ -243,18 +182,57 @@ process_point <- function(point, disturbance, buffer_dist) {
   
   return(data.frame(ID = point$ID, distance = point_distance))
 }
-
 # Example usage:
 # Assuming 'disturbance' is your raster and 'country_proj' is your SpatVector
 
 results <- lapply(1:nrow(country_proj), function(i) {
   point_vector <- country_proj[i,]
-  process_point(point_vector, disturbance, 500)
+  process_point(point_vector, disturbance, buffer_dist)
 })
 
 # Combine all results into one dataframe
 final_results <- do.call(rbind, results)
 print(final_results)
+
+
+# Loop over countries
+buffer_dist = 500
+extract_env_info <- function(country_name, buffer_dist=500) {
+  print(paste("Processing", country_name))
+  
+  # Read field data
+  country <- vect(paste0('outData/dat_', country_name, '.gpkg'))
+  country_proj <- project(country, "EPSG:3035")
+  
+  # Read disturbance raster data
+  disturb_name <- paste0('disturbance_year_', country_name, '.tif')
+  disturbance <- rast(paste0(dist_path, '/', country_name, '/', disturb_name))
+  disturbance <- project(disturbance, "EPSG:3035")
+  
+  # Process each point and collect results
+  results <- lapply(1:nrow(country_proj), function(i) {
+    point_vector <- country_proj[i,]
+    process_point(point_vector, disturbance, buffer_dist)
+  })
+  
+  # Combine all results into one dataframe
+  final_results <- do.call(rbind, results)
+  final_results$country <- country_name
+  return(final_results)
+}
+
+test1<-extract_env_info('slovakia')
+
+country_names = c('slovakia', 'poland')
+
+all_results <- lapply(country_names, function(cn) {
+  extract_env_info(cn, buffer_dist)
+})
+
+# Combine results from all countries
+final_results_all_countries <- do.call(rbind, all_results)
+print(final_results_all_countries)
+
 
 
 
