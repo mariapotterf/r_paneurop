@@ -26,6 +26,17 @@ country_name = c('austria')
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 # read the plots by country
 # read respective rasters: DEM, disturbances...
 #    = stack them
@@ -43,6 +54,120 @@ dist_path          <- "rawData/disturb_data" # for year and severity
 # list all countries
 country_names <- list( "austria", "czechia", "france", "germany", "italy", "poland", 
                        "slovakia", "slovenia", "switzerland") #austria" 
+
+
+
+
+# test distance to the nearest edge
+library(terra)
+
+
+# distances will contain the distance of each point to the nearest edge of its patch
+
+
+library(terra)
+
+# Create a small example raster
+mat <- matrix(c(1, 2, 2, 2, 2,
+                2, 2, 2, 2, 2,
+                2, 2, 2, 2, 2,
+                2, 2, 2, 2,2,
+                2, 2, 2, 2, 2), byrow = T, nrow=5, ncol=5)
+example_raster <- rast(nrows=5, ncols=5, vals=mat, crs = 'EPSG:3035')
+
+# Reclassify the raster - change values '2' to NA
+reclass_matrix <- matrix(c(1, NA), ncol=2, byrow=TRUE)
+reclassified_raster <- classify(example_raster, reclass_matrix)
+
+# Calculate the distance to the nearest NA
+distance_to_na <- distance(reclassified_raster, point_vector)
+
+
+
+library(raster)
+
+rRDist <- raster::distanceFromPoints(reclassified_raster, point_vector)
+rRDist <- raster::mask(rRDist, rR)
+raster::plot(rRDist)
+
+# Assuming reclassified_raster is your raster
+# Create a data frame with the coordinates of the point
+point_df <- data.frame(x = 150, y =-80)
+
+# Create a SpatVector from the data frame
+point_vector <- vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
+
+
+# Plotting to visualize the results
+plot(example_raster, main="example_raster")
+plot(reclassified_raster, main="Reclassified Raster")
+plot(distance_to_na, main="")
+plot(point_vector, main="", add = T)
+
+# Measure the distance from the point to the nearest NA
+point_distance <- extract(distance_to_na, point_vector)
+(point_distance)
+plot(distance_to_na, main="Distance to Nearest NA")
+plot(point_vector, main="", add = T)
+
+
+
+
+country_name = 'czechia'
+# distance to edge: test for austria -----------------------------------------------------------
+print(country_name)
+
+# read field data 
+country = vect(paste0('outData/dat_', country_name, '.gpkg'))
+country_proj <- project(country, "EPSG:3035")
+
+# disturbance year
+disturb_name = paste0('disturbance_year_', country_name, '.tif')
+disturbance  = rast(paste(dist_path, country_name, disturb_name, sep = '/'))
+
+# read raster data
+desired_crs <- crs(disturbance)
+
+
+
+# Reclassify the raster - change values '2' to NA
+reclass_matrix <- matrix(c(1985, 2017.1, NA,
+                           2017.5, 2021, 1), ncol=3, byrow=TRUE)
+reclassified_raster <- classify(disturbance, reclass_matrix)
+
+# Calculate the distance to the nearest NA
+distance_to_na <- distance(reclassified_raster)
+
+# Plotting to visualize the results
+plot(example_raster, main="example_raster")
+plot(reclassified_raster, main="Reclassified Raster")
+plot(distance_to_na, main="Distance to Nearest NA")
+
+# Assuming reclassified_raster is your raster
+# Create a data frame with the coordinates of the point
+#point_df <- country_proj#data.frame(x = 100, y =60)
+
+# Create a SpatVector from the data frame
+point_vector <- country_proj# vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
+
+# Measure the distance from the point to the nearest NA
+point_distance <- extract(distance_to_na, point_vector)
+(point_distance)
+plot(distance_to_na, main="Distance to Nearest NA")
+plot(point_vector, main="", add = T)
+
+plot(point_vector)
+plot(disturbance, add = T)
+plot(reclassified_raster, add = T, col = 'red')
+
+
+
+
+
+
+
+
+
 
 
 # function to extract all data
