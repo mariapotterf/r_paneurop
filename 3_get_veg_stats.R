@@ -95,6 +95,13 @@ dat <- dat %>%
   filter(n_plots > 4)
   
 
+dat_few_points <- dat %>% 
+  right_join(df_master, by = join_by(country, region, group, cluster)) %>%
+  filter(n_plots < 4)
+
+unique(dat_few_points$ID)
+
+write.csv(dat_few_points, 'outData/few_points_check.csv')
 
 #!!!! skip !!!! export XY as gpkg -----------------------------------------------------------------
 
@@ -274,9 +281,10 @@ df_density_as0 %>%
     position = position_dodge(0.9),  # Match the dodge width of the bars
     width = .2
   ) +
-  ggtitle("Stem density (per cluster)") + 
+  xlab('') +
+  ggtitle("Median stem density/cluster") + 
   theme_bw() +
-  labs(fill = "Management Type") 
+  labs(fill = "") 
 
 
 # need to accounto for zeros here!!!!------------------------------------------ 
@@ -290,7 +298,7 @@ median(c(5,6,1))
 # 
 
 # Richness  ---------------------------------------------------------------
-df_richness <- dat_sub %>% 
+df_richness <- dat %>% 
   dplyr::filter(Variable == 'n') %>% # counts, not other variables
   # filter only plots with some density
   dplyr::filter(n>0) %>% 
@@ -302,14 +310,24 @@ df_richness <- dat_sub %>%
 
 
 
+# check summary as my plot looks a bit weird
+df_richness %>% 
+  group_by(country, manag) %>% 
+  summarise(med = median(richness, na.rm = T),
+            q_25 = quantile(richness, probs = 0.25, na.rm = TRUE),
+            q_75 = quantile(richness, probs = 0.75, na.rm = TRUE)
+            )
+
+
+
 df_richness %>% 
   ungroup(.) %>%
   ggplot(aes(x = reorder(as.factor(country), -richness, FUN = median),
              y = richness,
              fill = as.factor(manag),  # Use 'fill' for differentiating groups
              group = interaction(as.factor(country), as.factor(manag)))) +
-  stat_summary(fun = "median", 
-               geom = "bar", 
+  stat_summary(fun = "median",
+               geom = "bar",
                position = position_dodge(),  # Use 'position_dodge' to place bars next to each other
                alpha = .7) +
   stat_summary(
@@ -324,9 +342,10 @@ df_richness %>%
     position = position_dodge(0.9),  # Match the dodge width of the bars
     width = .2
   ) +
+  xlab('') +
   ggtitle("Richness (per cluster)") + 
   theme_bw() +
-  labs(fill = "Management Type") 
+  labs(fill = "") 
 
 
 
@@ -387,8 +406,8 @@ ggplot(df_org_space) +
                 aes(x = rich_mean, 
                     ymin = dens_min, 
                     ymax = dens_max, 
-                    color = factor(manag)), 
-                width = 0.1, 
+                    color = factor(manag)),
+                width = 0.3, 
                 linewidth = 0.2) +
   geom_errorbarh(data = df_summary, 
                  aes(y = dens_mean, 
@@ -396,10 +415,12 @@ ggplot(df_org_space) +
                      xmax = rich_max, 
                      color = factor(manag)),
                  height = 2, 
+                 width = 2,
                  linewidth = 0.2) +
   ylab('Mean stem density') +
   xlab(bquote('Mean richness')) +
   theme_minimal() +
+  facet_wrap(.~country, scales = 'free') + 
   theme(panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
