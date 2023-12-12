@@ -15,7 +15,7 @@
 # 3 = other disturbances, mostly harvest but might include salvage logging go small-scale natural disturbances and infrequent other natural agents (e.g., defoliation, avalanches, etc.)
 
 
-#    - distance to nearest edge ? (merge 2018-2020 into one!)
+#    - distance to nearest edge  (merge 2018-2020 into one!)
 
 
 library(terra)
@@ -99,8 +99,8 @@ plot(point_vector, main="", add = T)
 
 
 
-# distance to edge: test for slovakia -----------------------------------------------------------
-country_name = 'slovakia'
+# distance to edge: test for single country -----------------------------------------------------------
+country_name = 'switzerland'
 
 print(country_name)
 
@@ -116,11 +116,11 @@ disturbance  = rast(paste(dist_path, country_name, disturb_name, sep = '/'))
 desired_crs <- crs(disturbance)
 
 # Create a SpatVector from the data frame
-point_vector <- country_proj[1,]# vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
+point_vector <- country_proj[115,]# vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
 
 
 # get buffer
-buff <- buffer(point_vector, 100)
+buff <- buffer(point_vector, 1500)
 
 # crop data and then mask them to have a circle
 disturbance_crop <- crop(disturbance, buff)
@@ -177,8 +177,8 @@ process_point <- function(point, disturbance, buffer_dist) {
 
 
 # Loop over all countries
-buffer_dist = 2000
-extract_env_info <- function(country_name, buffer_dist=2000) {
+buffer_dist = 1500
+extract_distance_to_edge <- function(country_name, buffer_dist=buffer_dist) {
   print(paste("Processing", country_name))
   
   # Read field data
@@ -206,41 +206,13 @@ extract_env_info <- function(country_name, buffer_dist=2000) {
 }
 
 # run or all countries
+
 all_results <- lapply(country_names, function(cn) {
-  extract_env_info(cn, buffer_dist)
+  extract_distance_to_edge(cn, buffer_dist)
 })
 
 # Combine results from all countries
-final_results_all_countries <- do.call(rbind, all_results)
-print(final_results_all_countries)
-
-
-
-
-
-# Assuming reclassified_raster is your raster
-# Create a data frame with the coordinates of the point
-point_df <- data.frame(x = 150, y =-80)
-
-# Create a SpatVector from the data frame
-point_vector <- vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
-
-
-# Calculate the distance to the nearest NA
-distance_to_na <- distance(reclassified_raster) # , point_vector
-
-
-# Plotting to visualize the results
-plot(example_raster, main="example_raster")
-plot(reclassified_raster, main="Reclassified Raster")
-plot(distance_to_na, main="")
-plot(point_vector, main="", add = T)
-
-# Measure the distance from the point to the nearest NA
-point_distance <- extract(distance_to_na, point_vector)
-(point_distance)
-plot(distance_to_na, main="Distance to Nearest NA")
-plot(point_vector, main="", add = T)
+final_results_distance <- do.call(rbind, all_results)
 
 
 
@@ -248,13 +220,18 @@ plot(point_vector, main="", add = T)
 
 
 
+# Extract disturbance and elevation data --------------------------
 
 
 
+
+
+
+country_names
 
 
 # function to extract all data
-extract_env_info <- function(country_name) {
+extract_disturb_info <- function(country_name) {
    print(country_name)
  
    # read field data 
@@ -298,18 +275,23 @@ extract_env_info <- function(country_name) {
    
  }
 
-out <- extract_env_info('austria')
+out <- extract_disturb_info('austria')
 
 # list all countries
-country_names <- list( "austria", "czechia") #austria" 
+#country_names <- list( "austria", "czechia") #austria" 
 
-out_ls <- lapply(country_names, extract_env_info)
+out_ls <- lapply(country_names, extract_disturb_info)
 
 # merge them all in one file
-merged_ls <- do.call("rbind", out_ls)
+disturbance_ls <- do.call("rbind", out_ls)
+
+disturbance_df <- data.frame(disturbance_ls)
 
 # export final table
-save(merged_ls, file="outData/plots_env.Rdata")
+save(#disturbance_ls,          # disturbance data, elevation 
+     disturbance_df,
+     final_results_distance,  # distance to edge
+     file="outData/plots_env.Rdata")
 
 
 
