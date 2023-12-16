@@ -37,7 +37,6 @@ merged_gpkg <- do.call("rbind", all_gpkg.ls)
 # convert to sf
 merged_gpkg <- sf::st_as_sf(merged_gpkg)
 
-lapply(merged_gpkg, function(x) {x$sovereignt})
 
 
 # get shp of european countries
@@ -50,12 +49,15 @@ ch <- ne_countries(country = "switzerland", type = "countries", returnclass = 's
 pl <- ne_countries(country = "poland",      type = "countries", returnclass = 'sf', scale = 'medium')
 cz <- ne_countries(country = "czech republic", type = "countries", returnclass = 'sf', scale = 'medium')
 it <- ne_countries(country = "italy",       type = "countries", returnclass = 'sf', scale = 'medium')
+# add?? lichtenstein is missing for agent attribution
+lu <- ne_countries(country = "luxembourg",     type = "countries", returnclass = 'sf', scale = 'medium')
+be <- ne_countries(country = "belgium",     type = "countries", returnclass = 'sf', scale = 'medium')
 
 # rename czechia:
 cz$sovereignt[cz$sovereignt == "Czech Republic"] <- "Czechia"
 
 # list cuntrues for a lapply loop
-cntrs_ls <- list(ge, at, sk, sl,fr, ch, pl, cz, it)
+cntrs_ls <- list(ge, at, sk, sl,fr, ch, pl, cz, it, lu, be) # 
 
 
 # for single country -----------------------------------------------------------
