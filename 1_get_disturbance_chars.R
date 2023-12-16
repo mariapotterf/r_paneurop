@@ -22,13 +22,6 @@ library(terra)
 library(raster)
 
 
-# list all countries
-country_name = c('austria')
-
-
-
-
-
 
 # read the plots by country
 # read respective rasters: DEM, disturbances...
@@ -45,7 +38,7 @@ dist_path          <- "rawData/disturb_data" # for year and severity
 
 
 # list all countries
-country_names <- list( "austria", "czechia", "france", "germany", "italy", "poland", 
+country_names <- list( "austria","belgium", "czechia", "france", "germany", "italy", "luxembourg", "poland", 
                        "slovakia", "slovenia", "switzerland") #austria" 
 
 
@@ -79,19 +72,19 @@ point_vector <- vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster
 
 
 # Calculate the distance to the nearest NA
-distance_to_na <- distance(reclassified_raster) # , point_vector
+distance_to_edge <- distance(reclassified_raster) # , point_vector
 
 
 # Plotting to visualize the results
 plot(example_raster, main="example_raster")
 plot(reclassified_raster, main="Reclassified Raster")
-plot(distance_to_na, main="")
+plot(distance_to_edge, main="")
 plot(point_vector, main="", add = T)
 
 # Measure the distance from the point to the nearest NA
-point_distance <- extract(distance_to_na, point_vector)
+point_distance <- extract(distance_to_edge, point_vector)
 (point_distance)
-plot(distance_to_na, main="Distance to Nearest NA")
+plot(distance_to_edge, main="Distance to Nearest NA")
 plot(point_vector, main="", add = T)
 
 
@@ -100,7 +93,7 @@ plot(point_vector, main="", add = T)
 
 
 # distance to edge: test for single country -----------------------------------------------------------
-country_name = 'switzerland'
+country_name = 'luxembourg'
 
 print(country_name)
 
@@ -116,7 +109,7 @@ disturbance  = rast(paste(dist_path, country_name, disturb_name, sep = '/'))
 desired_crs <- crs(disturbance)
 
 # Create a SpatVector from the data frame
-point_vector <- country_proj[115,]# vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
+point_vector <- country_proj[1,]# vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
 
 
 # get buffer
@@ -143,7 +136,7 @@ plot(reclassified_raster, main="Reclassified Raster")
 plot(distance_to_na, main="Distance to Nearest NA")
 
 # Measure the distance from the point to the nearest NA
-point_distance <- extract(distance_to_na, point_vector)
+point_distance <- terra::extract(distance_to_na, point_vector)
 (point_distance)
 plot(distance_to_na, main="Distance to Nearest NA")
 plot(point_vector, main="", add = T)
@@ -170,7 +163,7 @@ process_point <- function(point, disturbance, buffer_dist) {
   distance_to_na <- distance(reclassified_raster)
   
   # Extract the distance for the point
-  point_distance <- extract(distance_to_na, point)
+  point_distance <- terra::extract(distance_to_na, point)
   
   return(data.frame(ID = point$ID, distance = point_distance))
 }
@@ -224,35 +217,72 @@ final_results_distance <- do.call(rbind, all_results)
 
 
 
+# Function to read or create a dummy raster
+read_or_dummy_raster <- function(path, reference_raster) {
+  if (file.exists(path)) {
+    rast <- terra::rast(path)
+    terra::project(rast, desired_crs)
+  } else {
+    # Create a dummy raster with NA values
+    dummy_rast <- terra::rast(disturbance, nlyr = 1)
+    values(dummy_rast) <- NA
+    dummy_rast
+  }
+}
+
+
+country_name = 'luxembourg'
 
 
 
-country_names
 
 
 # function to extract all data
 extract_disturb_info <- function(country_name) {
    print(country_name)
  
+  read_or_dummy_raster <- function(path) {
+    if (file.exists(path)) {
+      rast <- terra::rast(path)
+      #terra::project(rast, "EPSG:3035")
+    } else {
+      # Create a dummy raster with NA values
+      dummy_rast <- terra::rast(disturbance, nlyr = 1)
+      values(dummy_rast) <- NA
+      dummy_rast
+    }
+  }
+  
+  
+  
    # read field data 
    country = vect(paste0('outData/dat_', country_name, '.gpkg'))
    country_proj <- project(country, "EPSG:3035")
-   
-   # read raster data
-   desired_crs <- crs(disturbance)
    
    # disturbance year
    disturb_name = paste0('disturbance_year_', country_name, '.tif')
    disturbance  = rast(paste(dist_path, country_name, disturb_name, sep = '/'))
    
+   # read raster data
+   desired_crs <- crs(disturbance)
+   
    # disturbace severity
    severity_name = paste0('disturbance_severity_', country_name, '.tif')
    severity      = rast(paste(dist_path, country_name, severity_name, sep = '/'))
+   severity_proj = terra::project(x = severity, y = disturbance,  method="near")
    
    # disturbance agent
+   #read_or_dummy_raster(paste(dist_path, agent_name, sep = '/'), country_proj)
    agent_name = paste0('fire_wind_barkbeetle_', country_name, '.tif')
-   agent      = rast(paste(dist_path, agent_name, sep = '/'))
+   agent      = read_or_dummy_raster(paste(dist_path, agent_name, sep = '/'))
    crs(agent) <-desired_crs
+   agent_proj = terra::project(x = agent, y = disturbance,  method="near")
+   
+   crs(country_proj)
+   crs(disturbance)
+   crs(severity_proj)
+   crs(agent_proj)
+   
    
    # elevation
    elev_name      <- paste0(toupper(substr(country_name, 1, 1)), tolower(substr(country_name, 2, nchar(country_name))))
@@ -261,21 +291,21 @@ extract_disturb_info <- function(country_name) {
    elevation_proj <- terra::resample(x = elevation_proj, y = disturbance, method="near")
    
    # create raster stacks
-   dist.stack <- c(disturbance, severity, agent, elevation_proj)
+   dist.stack <- c(disturbance, severity_proj, agent_proj, elevation_proj)
    names(dist.stack) <- c("disturbance_year", 
                           "disturbance_severity", 
                           "disturbance_agent", 
                           "elevation")
  
     # extract elevation for every point
-   plots.disturbance <- extract(dist.stack, country_proj, method = "simple", bind=TRUE)
+   plots.disturbance <- terra::extract(dist.stack, country_proj, method = "simple", bind=TRUE)
    
    # export plot
    return(plots.disturbance)
    
  }
 
-out <- extract_disturb_info('austria')
+out <- extract_disturb_info('luxembourg')
 
 # list all countries
 #country_names <- list( "austria", "czechia") #austria" 
@@ -287,7 +317,10 @@ disturbance_ls <- do.call("rbind", out_ls)
 
 disturbance_df <- data.frame(disturbance_ls)
 
-# export final table
+fwrite(disturbance_df, 'outData/disturbance_chars.csv')
+fwrite(final_results_distance, 'outData/distance_to_edge.csv')
+
+# export final table --------------------------------------------------------------------------
 save(#disturbance_ls,          # disturbance data, elevation 
      disturbance_df,
      final_results_distance,  # distance to edge
