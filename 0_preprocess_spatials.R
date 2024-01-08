@@ -12,6 +12,7 @@ library(rnaturalearth)
 library(rnaturalearthdata)
 library(sf)
 library(data.table)
+library(dplyr)
 
 
 
@@ -38,6 +39,30 @@ merged_gpkg <- do.call("rbind", all_gpkg.ls)
 merged_gpkg <- sf::st_as_sf(merged_gpkg)
 
 
+# create an ID and change again to spatial format
+# keep only IS and country indetifiers
+data_clean <- 
+  merged_gpkg %>% 
+  dplyr::select(country, region, group, point) %>% 
+  ungroup(.) %>% 
+  # correct country coding (missing for region 18, which is germany (11))
+  mutate(country = case_when(
+    region %in% c("11", "12", "14", "18", "19", "20", "25") ~ "11",  # Germany
+    region == "17" ~ "12",  # Poland
+    region %in% c("15", "26") ~ "13",  # Czech
+    region == "13" ~ "14",  # Austria
+    region == "16" ~ "15",  # Slovakia
+    region == "23" ~ "16",  # Slovenia
+    region == "21" ~ "17",  # Italy
+    region == "22" ~ "18",  # Switzerland
+    region %in% c("24", "27") ~ "19",  # France
+    TRUE ~ "NO"  # Default case for any other region
+  )) %>%
+  dplyr::mutate(group = group + 100) %>% 
+  dplyr::mutate(ID = paste(country, region, group, point, sep="_")
+  ) %>%  #dplyr::select(5:323) %>% names()
+  dplyr::select(ID, region, country)
+
 
 # get shp of european countries
 ge <- ne_countries(country = "germany",     type = "countries", returnclass = 'sf', scale = 'medium')
@@ -49,8 +74,7 @@ ch <- ne_countries(country = "switzerland", type = "countries", returnclass = 's
 pl <- ne_countries(country = "poland",      type = "countries", returnclass = 'sf', scale = 'medium')
 cz <- ne_countries(country = "czech republic", type = "countries", returnclass = 'sf', scale = 'medium')
 it <- ne_countries(country = "italy",       type = "countries", returnclass = 'sf', scale = 'medium')
-# add?? lichtenstein is missing for agent attribution
-lu <- ne_countries(country = "luxembourg",     type = "countries", returnclass = 'sf', scale = 'medium')
+lu <- ne_countries(country = "luxembourg",  type = "countries", returnclass = 'sf', scale = 'medium')
 be <- ne_countries(country = "belgium",     type = "countries", returnclass = 'sf', scale = 'medium')
 
 # rename czechia:
@@ -58,29 +82,6 @@ cz$sovereignt[cz$sovereignt == "Czech Republic"] <- "Czechia"
 
 # list cuntrues for a lapply loop
 cntrs_ls <- list(ge, at, sk, sl,fr, ch, pl, cz, it, lu, be) # 
-
-
-# for single country -----------------------------------------------------------
-# project vector data to the same crs
-x_proj <-st_transform(ge, crs(merged_gpkg)) 
-
-name = ge$sovereignt 
-
-# split the gpkgs by countries, export as individual gpkg per country
-data_clipped <- st_intersection(x_proj, merged_gpkg)
-
-# export only small data
-data_clean <- 
-  data_clipped %>% 
-  dplyr::mutate(group = group + 100) %>% 
-  dplyr::mutate(#country = name,
-                ID = paste(country, region, group, point, sep="_")) %>%  #dplyr::select(5:323) %>% names()
-  dplyr::select(ID, country)
-
-# export as gpkg
-outName = paste0('dat_', name,  '.gpkg')
-st_write(data_clipped, paste('C:/Users/ge45lep/Documents/2023_PanEuropean/r_paneurop/outData', outName, sep = "/"),
-         layer = 'dat', type = 'points', append=FALSE)
 
 
 
@@ -92,28 +93,20 @@ st_write(data_clipped, paste('C:/Users/ge45lep/Documents/2023_PanEuropean/r_pane
 clip_dat <- function(x, ...) {
   
   # change projection
-  x_proj <-st_transform(x, crs(merged_gpkg)) 
+  x_proj <-st_transform(x, crs(data_clean)) 
   
   # get country name
   name = tolower(x$sovereignt) 
   print(name)
   
   # split the gpkgs by countries, export as individual gpkg per country
-  data_clipped <- st_intersection(x_proj, merged_gpkg)
+  data_clipped <- st_intersection(x_proj, data_clean)
   
-  # keep only IS and country indetifiers
-  data_clean <- 
-    data_clipped %>% 
-    dplyr::mutate(group = group + 100) %>% 
-    dplyr::mutate(#country = name,
-                  ID = paste(country, region, group, point, sep="_")) %>%  #dplyr::select(5:323) %>% names()
-    dplyr::select(ID, country)
-  
-  
-  
+  data_clipped <- data_clipped %>% 
+    dplyr::select(ID, region, country)
   # export as gpkg
   outName = paste0('dat_', name,  '.gpkg')
-  st_write(data_clean, paste('outData', outName, sep = "/"),
+  st_write(data_clipped, paste('outData', outName, sep = "/"),
            layer = 'dat', append=FALSE)
   
  
@@ -124,5 +117,11 @@ clip_dat(cntrs_ls[[1]])
 
 # export gpkgs by individual countries
 lapply(cntrs_ls, clip_dat)
+
+
+
+
+
+
 
 
