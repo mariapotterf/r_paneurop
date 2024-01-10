@@ -20,6 +20,9 @@
 
 library(terra)
 library(raster)
+library(dplyr)
+library(tidyr)
+library(data.table)
 
 
 
@@ -102,7 +105,7 @@ country = vect(paste0('outData/dat_', country_name, '.gpkg'))
 country_proj <- project(country, "EPSG:3035")
 
 # disturbance year
-disturb_name = paste0('disturbance_year_', country_name, '.tif')
+disturb_name = paste0('disturbance_year_1986-2020', country_name, '.tif')
 disturbance  = rast(paste(dist_path, country_name, disturb_name, sep = '/'))
 
 # read raster data
@@ -179,7 +182,7 @@ extract_distance_to_edge <- function(country_name, buffer_dist=buffer_dist) {
   country_proj <- project(country, "EPSG:3035")
   
   # Read disturbance raster data
-  disturb_name <- paste0('disturbance_year_', country_name, '.tif')
+  disturb_name <- paste0('disturbance_year_1986-2020_', country_name, '.tif')
   disturbance <- rast(paste0(dist_path, '/', country_name, '/', disturb_name))
   disturbance <- project(disturbance, "EPSG:3035")
   
@@ -206,6 +209,9 @@ all_results <- lapply(country_names, function(cn) {
 
 # Combine results from all countries
 final_results_distance <- do.call(rbind, all_results)
+
+final_results_distance <- final_results_distance %>% 
+  mutate(distance = round(distance,0 ))
 
 
 
@@ -239,7 +245,9 @@ country_name = 'luxembourg'
 
 # function to extract all data
 extract_disturb_info <- function(country_name) {
-   print(country_name)
+ # country_name = 'germany' 
+  
+  print(country_name)
  
   read_or_dummy_raster <- function(path) {
     if (file.exists(path)) {
@@ -253,21 +261,19 @@ extract_disturb_info <- function(country_name) {
     }
   }
   
-  
-  
    # read field data 
    country = vect(paste0('outData/dat_', country_name, '.gpkg'))
    country_proj <- project(country, "EPSG:3035")
    
    # disturbance year
-   disturb_name = paste0('disturbance_year_', country_name, '.tif')
+   disturb_name = paste0('disturbance_year_1986-2020_', country_name, '.tif')
    disturbance  = rast(paste(dist_path, country_name, disturb_name, sep = '/'))
    
    # read raster data
    desired_crs <- crs(disturbance)
    
    # disturbace severity
-   severity_name = paste0('disturbance_severity_', country_name, '.tif')
+   severity_name = paste0('disturbance_severity_1986-2020_', country_name, '.tif')
    severity      = rast(paste(dist_path, country_name, severity_name, sep = '/'))
    severity_proj = terra::project(x = severity, y = disturbance,  method="near")
    
@@ -305,8 +311,8 @@ extract_disturb_info <- function(country_name) {
    
  }
 
-out <- extract_disturb_info('luxembourg')
-
+out <- extract_disturb_info('switzerland')
+View(as.data.frame(out))
 # list all countries
 #country_names <- list( "austria", "czechia") #austria" 
 
@@ -317,9 +323,42 @@ disturbance_ls <- do.call("rbind", out_ls)
 
 disturbance_df <- data.frame(disturbance_ls)
 
+
+# replace NA by the values in the same cluster (~ 20 points in total, lay at the edge of the pixel)
+disturbance_df <- disturbance_df %>%
+  mutate(ID_short = gsub('.{2}$', '', ID)) %>%
+  group_by(ID_short) %>%
+  arrange(ID_short, disturbance_year) %>% # Arrange if necessary to ensure the first value is non-NA
+  fill(disturbance_year,     .direction = "down") %>% 
+  fill(disturbance_severity, .direction = "down") %>% 
+  fill(disturbance_agent,    .direction = "down") %>% # Fill NAs downwards 
+  ungroup(.) %>% 
+  dplyr::select(-ID_short) %>% 
+  mutate(disturbance_year = if_else(ID == '11_19_137_4', 2019, disturbance_year))
+
+#11_19_137_4 - fallen outside of teh pixel, checked manually
+
+
 fwrite(disturbance_df, 'outData/disturbance_chars.csv')
 fwrite(final_results_distance, 'outData/distance_to_edge.csv')
 
+
+# If NA, fill disturbance values of remaining plots 
+load("outData/plots_env.Rdata")
+# length(unique(final_results_distance$ID))
+# 
+# IDs_distance <- unique(final_results_distance$ID)
+# IDs_climate <- unique(final_climate$ID)
+# 
+# setdiff(IDs_distance, IDs_climate)
+# 
+# setdiff(c('a', 'b'), c('b'))
+# 
+# 
+# final_climate %>% 
+#   filter(ID == "11_25_116_4")
+
+  #11_11_101
 # export final table --------------------------------------------------------------------------
 save(#disturbance_ls,          # disturbance data, elevation 
      disturbance_df,
@@ -360,17 +399,6 @@ elev_name      <- paste0(toupper(substr(country_name, 1, 1)), tolower(substr(cou
 elevation      <- rast(paste0(elev_path, '/dem_', elev_name, '.tif'))
 elevation_proj <- terra::project(x = elevation, y = disturbance,  method="near")
 #elevation_proj <- resample(x = elevation_proj, y = disturbance, method="near")
-
-
-
-# 
-# if (crs(severity) != desired_crs) {
-#   severity <- terra::project(severity, desired_crs)
-# }
-# 
-# if (crs(elevation_proj) != desired_crs) {
-#   elevation_proj <- terra::project(elevation_proj, desired_crs)
-# }
 
 crs(elevation_proj) == crs(disturbance)
 crs(elevation_proj) == crs(agent)
