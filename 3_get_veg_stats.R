@@ -27,13 +27,13 @@
 library(data.table)
 library(dplyr)
 library(ggplot2)
-library(sf)
 library(terra)
+library(tidyr)
 
 
 dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 
-table(dat$dist)
+#table(dat$dist)
 
 # create management based on Christians scrips
 dat<- dat %>% 
@@ -92,43 +92,9 @@ df_master <-
 # remove if there is less records
 dat <- dat %>% 
   right_join(df_master, by = join_by(country, region, group, cluster)) %>%
-  filter(n_plots > 4)
+  filter(n_plots > 3)
   
 
-dat_few_points <- dat %>% 
-  right_join(df_master, by = join_by(country, region, group, cluster)) %>%
-  filter(n_plots < 4)
-
-unique(dat_few_points$ID)
-
-write.csv(dat_few_points, 'outData/few_points_check.csv')
-
-#!!!! skip !!!! export XY as gpkg -----------------------------------------------------------------
-
-## remove unnecessary columns and duplicated rows
-# convert to 3035 crs
-# THIS DOES NOT WORK!!! THE COORDINATES ARE SHIFTED< NEED TO HECK WHY!
-# it seems to be multiplied by 100000 or something, check!
-austria <- vect("rawData/collected/austria_final.gpkg")
-
-crs(austria)
-head(austria$x_coord)
-head(austria$y_coord)
-
-dat_sf <- dat %>% 
-  filter(country == '14') %>% # austria
-  dplyr::select(c( x_coord, y_coord, country, cluster, manag )) %>% 
-  unique() %>% 
-  st_as_sf(coords = c("x_coord", "y_coord"), crs = crs(austria)) #%>% 
-
-head(dat_sf$geometry)
-
-  
-dat_sf_transformed <- st_transform(dat_sf, 'EPSG:3035') 
-
-st_write(dat_sf_transformed, 'outData/xy_3035.gpkg', append=FALSE)
-  
-# ------------------------------------------------------------------------------
 
 
 
@@ -236,27 +202,97 @@ dat %>%
 # seems that all clusters have at least one stem left
 
 
+# Dummy example: calculate stem density - convert to stems/ha ----------------------------------
+# accont for missing species
+
+# calculate from vegetation matrix 
+dd <- data.frame(cluster = c(rep('a',5),rep('b',3)),
+                 ID = c(1:5, 1:3),
+                 sp1 = c(0, 1,1,1,1, 0,0,0),
+                 sp2 = c(0, 0,5,0,0,0,0,1),
+                 sp3 = c(1, 0,0,0,4,0,0,16),
+                 sp4 = c(0, 0,0,0,0,0,0,0))
+
+(dd)
+
+# Exclude 'ID' and 'cluster' columns from summarization
+species_columns <- setdiff(names(dd), c("ID", "cluster"))
+
+# Calculate the total and average stems per species per hectare
+dd_summary <- 
+  dd %>%
+  group_by(cluster) %>%
+  summarize(across(all_of(species_columns), sum),
+            rows_per_cluster = n()) %>% # .groups = "drop"
+  mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>%
+    group_by(cluster) %>% 
+    mutate(across(all_of(species_columns), ~ .x * scaling_factor),
+         total_stems_all_species = sum(across(all_of(species_columns))))
+
+dd_summary
+
+
+# Get stem density - from vegetation matrix ------------------------------------
+veg_matrix_counts <- 
+  dat %>% 
+  dplyr::filter(Variable == 'n',
+                dist == 'TRUE') %>%
+  dplyr::select(ID, VegType, Species, cluster, manag, country, n) %>% 
+  mutate(n = ifelse(is.na(n), 0, n)) %>%
+  pivot_wider(values_from=n,names_from = Species)
+
+
+# Exclude 'ID', 'cluster', VegType columns from summarization
+species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'manag', 'country'))
+
+dat %>% 
+  filter(cluster == '15_110') %>%
+  View()
+  #distinct(point)
+
+length(unique(veg_matrix_counts$cluster))
+length(unique(stem_dens_ha_cluster_sum$cluster))
+
+# Calculate the total and average stems per species per hectare
+stem_dens_ha <- veg_matrix_counts %>%
+  group_by(cluster, VegType,  country, manag ) %>%
+  summarize(across(all_of(species_columns), sum),
+            rows_per_cluster = n()) %>% # .groups = "drop"
+  mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
+  ungroup(.) %>% 
+  group_by(cluster, VegType, country, manag) %>% 
+  mutate(across(all_of(species_columns), ~ .x * scaling_factor),
+         total_stems_all_species = sum(across(all_of(species_columns))))
+
+# stem density table
+stem_dens_ha_cluster <- stem_dens_ha %>% 
+  dplyr::select(cluster, country, manag, VegType, total_stems_all_species)
+
+stem_dens_ha_cluster_sum <- stem_dens_ha %>% 
+  group_by(cluster,  country, manag, ) %>% 
+  summarize(sum_stems = sum(total_stems_all_species)) #%>% 
+  #dplyr::select(cluster, total_stems_all_species)
+
+
+View(stem_dens_ha)
+View(stem_dens_ha_cluster)
+
+# cluster 21_143 has 21 of teh records!! - keep, 7 points in cluster
+dat %>% 
+  filter(cluster == '21_143') %>% 
+  dplyr::select(ID, VegType, dist, n) %>% 
+  distinct() %>% 
+  View()
 
 
 # get stem density per species and height category - get vegetation matrixes for that - on cluster level???
 # keep the NA for species as 0 - consistently across the dataset!!!
-df_density_as0 <- dat %>% 
-  dplyr::filter(Variable == 'n') %>% # counts, not other variables
-  # filter only plots with some density
-  dplyr::filter(n>0) %>% 
- # right_join(df_master) %>% # add clusters with no regeneration
-  #mutate(n = ifelse(is.na(n), 0, n)) %>% 
-  group_by(country, manag, cluster, n_plots) %>% # , Species 
-  summarize(sum_n    = sum(n, na.rm = T),
-            mean_n   = mean(n, na.rm = T),
-            sd_n     = sd(n, na.rm = T),
-            median_n = median(n, na.rm = T))
-
-
-# how many stems I have per cluster? Merge or not by species??? do not merge by species?
-# i need to account for empty plots, but not for empty species, as I have 27 species for each plot!!
-
-# recalculate for hectar! 5 plots, = 20 m2
+plot_density <- stem_dens_ha_cluster %>% 
+    group_by(country, manag, cluster) %>% # , Species 
+  summarize(sum_n    = sum(total_stems_all_species, na.rm = T),
+            mean_n   = mean(total_stems_all_species, na.rm = T),
+            sd_n     = sd(total_stems_all_species, na.rm = T),
+            median_n = median(total_stems_all_species, na.rm = T))
 
 
 df_density_as0 %>% 
