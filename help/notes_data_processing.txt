@@ -1,0 +1,53 @@
+
+
+Problesm ID:
+- maybe round the numbers? problems only with the roundings
+distance_to edge   
+14_13_101_3,1,120,austria -> solved, rounded numbers
+
+disturbance_chars
+- id cntains NA in name???
+- NA_18_163_5 - solved, correct country identification
+
+country 11 (germany)- missing disturbance year??? - solved, updated map
+
+country 13 ()- 13_15_104_1 - disturbance year 2004??? - can remove, just random sinlge point
+
+11_19_115_4 - no disturbance? only NAs
+
+nrow - 4647 rows in total
+
+missing from climate data: all region '25' in germany
+
+disturbance year < 2018: 
+11_25_110_1 - 1987 - does not have cluster, can be removed
+13_15_104_1 - 2004 - single point in CZ
+11_19_137_4 - 2006 - has a cluster, just lying outside of pixel; changed manually to 2019 as nearby pixels
+
+
+mutate(country = case_when(
+    country == 11 ~ "DE",  # Germany
+    country == 12 ~ "PL",  # Poland
+    country == 13 ~ "CZ",  # Czech Republic
+    country == 14 ~ "AT",  # Austria
+    country == 15 ~ "SK",  # Slovakia
+    country == 16 ~ "SI",  # Slovenia
+    country == 17 ~ "IT",  # Italy
+    country == 18 ~ "CH",  # Switzerland
+    country == 19 ~ "FR",  # France
+    TRUE ~ NA_character_    
+	
+	
+	
+	
+	
+#       country           regions
+#11   germany           11, 12, 14, 18, 19, 20, 25
+#12   poland            17
+#13   czech             15, 26
+#14   austria           13
+#15   slovakia          16
+#16   slovenia          23
+#17   italy             21
+#18   switzerland       22
+#19   france            24, 27
