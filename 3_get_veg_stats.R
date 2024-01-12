@@ -295,7 +295,7 @@ plot_density <- stem_dens_ha_cluster %>%
             median_n = median(total_stems_all_species, na.rm = T))
 
 
-df_density_as0 %>% 
+p_dens <-plot_density %>% 
   ungroup(.) %>%
   ggplot(aes(x = reorder(as.factor(country), -sum_n, FUN = median),
              y = sum_n,
@@ -306,7 +306,7 @@ df_density_as0 %>%
                position = position_dodge(),  # Use 'position_dodge' to place bars next to each other
                alpha = .7) +
   stat_summary(
-    data = df_density_as0,
+    data = plot_density,
     mapping = aes(x = reorder(as.factor(country), -sum_n, FUN = median), 
                   y = sum_n,
                   group = interaction(as.factor(country), as.factor(manag))),
@@ -323,28 +323,21 @@ df_density_as0 %>%
   labs(fill = "") 
 
 
-# need to accounto for zeros here!!!!------------------------------------------ 
-mean(c(0,0,0,0,5,6,1))
-mean(c(5,6,1))
-median(c(0,0,0,0,5,6,1))
-median(c(5,6,1))
-
-# check how not specifically calculating for 0 affects cluster results
-
-# 
 
 # Richness  ---------------------------------------------------------------
-df_richness <- dat %>% 
-  dplyr::filter(Variable == 'n') %>% # counts, not other variables
-  # filter only plots with some density
-  dplyr::filter(n>0) %>% 
-  group_by(country, cluster, manag) %>% 
-  # count number of individual Species per group
-  distinct(Species) %>% 
-  count() %>%
-  rename(richness = n)
+# Calculate species richness
+# update richness!!!!
+# Exclude 'ID', 'cluster', and 'layer' columns from species columns
+species_columns <- setdiff(names(veg_matrix_counts), c( "cluster",'manag', 'country',  "VegType"))
 
 
+df_richness <- veg_matrix_counts %>%
+  group_by(cluster, manag, country) %>%
+  summarise(across(all_of(species_columns), max), .groups = "drop") %>%
+  mutate(richness = rowSums(.[-1] > 0))
+
+#13569
+View(df_richness)
 
 # check summary as my plot looks a bit weird
 df_richness %>% 
