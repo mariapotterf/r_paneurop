@@ -186,12 +186,20 @@ final_climate_out <- final_climate %>%
   dplyr::filter(year %in% 2018:2020) %>% 
   dplyr::select(-tmp_mean, -tmp_sd)
 
+library(dplyr)
+final_climate_18_23 <- final_climate %>% 
+  ungroup(.) %>% 
+  dplyr::select(-name) %>% 
+  dplyr::filter(year %in% 2018:2023) %>% 
+  dplyr::select(-tmp_mean, -tmp_sd)
+
 length(unique(final_climate$ID))
 
 
 
 # Export data -------------------------------------------------------------
 fwrite(final_climate_out, 'outData/climate.csv')
+fwrite(final_climate_18_23, 'outData/climate_18_23.csv')
 
 
 save(
