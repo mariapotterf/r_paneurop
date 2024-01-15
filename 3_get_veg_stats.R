@@ -620,3 +620,49 @@ df_IVI <-
   full_join(df_BA, by = join_by(cluster, Species, country, manag)) %>% 
   mutate(rIVI = ( rel_dens +rel_BA)/2) %>%  # relative IVI
   replace_na(., list(rIVI = 0, rel_BA   = 0)) 
+
+
+dd <- data.frame(species = c('a','b','c','c','b','b','b', 'a','c' ),
+                 vert_layer = rep(c('reg', 'reg', 'mature'), 3),
+                 cluster = rep(c(1,2,3), each = 3),
+                 n = c(1,5,0,0,5,10, 0,0,0))
+
+
+(dd)
+
+
+dd %>%
+  group_by(cluster, vert_layer) %>%
+  summarise(non_zero_n = sum(n > 0), .groups = "drop") %>%
+  filter(non_zero_n > 0) %>%
+  group_by(cluster) %>%
+  summarise(layers_with_non_zero_n = n(), .groups = "drop")
+
+layer_counts <- dd %>%
+  group_by(cluster) %>%
+  summarise(n_layer = sum(sum(n > 0, na.rm = TRUE) > 0, na.rm = TRUE), .groups = "drop")
+
+# Ensure all clusters are represented, even those with 0 layers
+all_clusters <- data.frame(cluster = unique(dd$cluster))
+layer_counts <- merge(all_clusters, layer_counts, by = "cluster", all.x = TRUE)
+layer_counts[is.na(layer_counts)] <- 0
+
+
+# Vertical layers ---------------------------------------------------------
+df_vert <- 
+  stem_dens_species_long %>% 
+  dplyr::filter(stem_density>0) %>% 
+  ungroup(.) %>% 
+  dplyr::select(cluster, country, manag, VegType) %>%
+  group_by(cluster, country, manag) %>%
+  distinct(.) %>% 
+  summarize(n_layers = n()) #%>% 
+
+# amke sure that all clusters are present, add 0s
+all_clusters <- data.frame(cluster = unique(stem_dens_species_long$cluster))
+df_vert <- merge(all_clusters, df_vert, by = "cluster", all.x = TRUE)
+df_vert$n_layers[is.na(df_vert$n_layers)] <- 0
+
+
+
+  
