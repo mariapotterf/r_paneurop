@@ -44,11 +44,57 @@ table(df_IVI_max$cluster, df_IVI_max$manag) %>%
   View()
 
 # cluster level
-#df_cluster <-
+df_cluster <-
   df_IVI %>% 
   left_join(df_richness) %>%
   left_join(df_vert) %>%
   left_join(stem_dens_ha_cluster)# %>%
+
+
+# Analysis ------------------------------------------------------------
+# 1. How many clusters are only manag/unmanag/mixed?
+n_clust_manag <- stem_dens_species_long %>%
+  ungroup(.) %>% 
+  dplyr::select(cluster, manag) %>% 
+  group_by(cluster, manag) %>% 
+  distinct(.) %>%
+  ungroup(.) %>% 
+  group_by(cluster) %>% 
+  summarise(n_manag = n()) #%>% 
+  #View()
+  #filter(n_manag>1)
   
+table(n_clust_manag$n_manag)
+
+manag_types <- stem_dens_species_long %>%
+  ungroup(.) %>% 
+  dplyr::select(cluster, manag) %>% 
+  group_by(cluster, manag) %>% 
+  distinct(.) %>%
+  ungroup(.) %>% 
+  group_by(cluster) %>% 
+  summarise(type = case_when(
+    all(manag == 'Unmanaged') ~ 'Unmanaged',
+    all(manag == 'Managed') ~ 'Managed',
+    TRUE ~ 'Mixed'
+  )) %>%
+  ungroup(.) %>% 
+  dplyr::select(-cluster) %>% 
+  table()
+
+# 907 clusters in total
+# single manag type: 752 clusters
+# mixed manag type: 155 clusters
+
+
+## 2. species composition per stems: saplings vs juveniles?? --------------
+# how many plots with Mature trees?
+# 
+stem_dens_species_long %>% 
+  filter(VegType != 'Survivor' )  # 191
+
+
+# 3. how many clusters/plots has less then 2000 regen/ha?
+# 4. stems vs weather - mean 2019-2022
   
             
