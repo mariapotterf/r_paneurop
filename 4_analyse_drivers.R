@@ -91,10 +91,15 @@ manag_types <- stem_dens_species_long %>%
 # how many plots with Mature trees?
 # 
 stem_dens_species_long %>% 
-  filter(VegType != 'Survivor' )  # 191
+  filter(VegType != 'Survivor' )  # Survivors: on 191
 
 
 # 3. how many clusters/plots has less then 2000 regen/ha?
-# 4. stems vs weather - mean 2019-2022
+# which country is the most affected? (where they ccur most often?)
+
+
+# 4. stems vs weather - mean 2019-2022, or SPEI
+
+# 5. management effect: compare manag vs unmanaged stem densities
   
             
