@@ -259,6 +259,10 @@ fwrite(final_climate_out, 'outData/climate.csv')
 fwrite(final_climate_18_23, 'outData/climate_18_23.csv')
 fwrite(final_climate, 'outData/climate_1980_2023.csv')
 
+# export by months
+fwrite(final_climate_months, 'outData/climate_1980_2023_months.csv')
+
+
 
 save(
   final_climate,
