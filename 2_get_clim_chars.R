@@ -135,6 +135,64 @@ extract_clim_data <- function(country_name, ...) {
 }
 
 
+extract_clim_data_months <- function(country_name, ...) {
+  print(paste("Processing", country_name))
+  country <- vect(paste0('outData/dat_', country_name, '.gpkg'))
+  xy_clean <- project(country, "EPSG:3035")
+  
+  # Get spatial data for each trap
+  xy        <- terra::project(xy_clean, crs(dat_ras))
+  
+  # check projection
+  crs(xy) == crs(dat_ras) 
+  
+  # get unique IDs and names
+  xy$name = paste0(1:nrow(xy)) #1:nrow(xy_proj)
+  
+  # extract all values to the xy coordinates:
+  dat_ext_df <- terra::extract(dat_ras, xy)
+  
+  # add group indication
+  dat_ext_df$name <- xy$name
+  dat_ext_df$ID   <- xy$ID
+  
+  # Create a datatable for each site (ID), variable, and time
+  dat_ext_df <- as.data.table(dat_ext_df)
+  
+  # melt from wide to long format
+  df_melt <- dat_ext_df %>%
+    melt(id.vars = c('ID','name')) #', 
+  
+  # Add time  to df and split in months:
+  df <- 
+    df_melt %>% 
+    arrange(ID, name, variable) %>%
+    dplyr::mutate(time = rep(ras_time, nrow(dat_ext_df))) %>% 
+    tidyr::separate(variable, 
+                    c("var", "time_num", 'xx'), "_") %>% 
+    na.omit() %>% 
+    dplyr::filter(var %in% clim_vars ) %>% # filter only clim vars
+    dplyr::mutate(year  = lubridate::year(time), 
+                  month = lubridate::month(time), 
+                  doy   =  lubridate::yday(time) + 1) # %>%  # as POXIT data has January 1st at 0
+  
+  # keep only means per year
+  # df_mean <- 
+  #   df %>% 
+  #   #na.omit(.) %>% 
+  #   dplyr::select(-c(time_num, xx)) %>% # remove unnecessary cols
+  #   spread(var, value) %>%
+  #   mutate(t2m = t2m - temp_convert) %>% 
+  #   group_by(ID, name, year) %>% 
+  #   dplyr::summarize(tmp = mean(t2m),# mean annual temp
+  #                    prec = mean(tp)*1000*365)  # sum annual precip (it is mothly means), convert from meters to mm
+  # 
+  return(df)
+}
+
+
+
+
 
 # run for all---------------------------------------------------------------------------------------------------
 
@@ -152,6 +210,18 @@ all_climate <- lapply(country_names, function(cn) {
 
 # Combine results from all countries
 final_climate <- do.call(rbind, all_climate)
+
+
+# export months
+# loop over all countries
+all_climate_months <- lapply(country_names, function(cn) {
+  extract_clim_data_months(cn)
+})
+
+# Combine results from all countries
+final_climate_months <- do.call(rbind, all_climate_months)
+
+
 
 reference_period = 1980:2015
 
