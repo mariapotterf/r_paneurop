@@ -8,6 +8,7 @@
 library(data.table)
 library(dplyr)
 library(terra)
+library(ggplot2)
 
 climate           <- fread("outData/climate_18_23.csv")
 distance_to_edge  <- fread("outData/distance_to_edge.csv")
@@ -39,10 +40,6 @@ df_IVI_max <- df_IVI %>%
   filter(rIVI == max(rIVI)) %>% 
   slice(1)
 
-# how many clusters I haver only managed, only unmanaged and how many mixed??
-table(df_IVI_max$cluster, df_IVI_max$manag) %>% 
-  View()
-
 # cluster level
 df_cluster <-
   df_IVI %>% 
@@ -53,19 +50,6 @@ df_cluster <-
 
 # Analysis ------------------------------------------------------------
 # 1. How many clusters are only manag/unmanag/mixed?
-n_clust_manag <- stem_dens_species_long %>%
-  ungroup(.) %>% 
-  dplyr::select(cluster, manag) %>% 
-  group_by(cluster, manag) %>% 
-  distinct(.) %>%
-  ungroup(.) %>% 
-  group_by(cluster) %>% 
-  summarise(n_manag = n()) #%>% 
-  #View()
-  #filter(n_manag>1)
-  
-table(n_clust_manag$n_manag)
-
 manag_types <- stem_dens_species_long %>%
   ungroup(.) %>% 
   dplyr::select(cluster, manag) %>% 
@@ -82,16 +66,63 @@ manag_types <- stem_dens_species_long %>%
   dplyr::select(-cluster) %>% 
   table()
 
-# 907 clusters in total
-# single manag type: 752 clusters
-# mixed manag type: 155 clusters
-
+#Managed    Mixed Unmanaged 
+# 668       155        84 
 
 ## 2. species composition per stems: saplings vs juveniles?? --------------
 # how many plots with Mature trees?
 # 
-stem_dens_species_long %>% 
-  filter(VegType != 'Survivor' )  # Survivors: on 191
+dom_species <- stem_dens_species_long %>% 
+  filter(VegType != 'Survivor' ) %>%  # Survivors: on 191
+  group_by(Species, VegType, manag) %>% 
+  summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
+  ungroup(.) %>% 
+  group_by(VegType) %>% 
+  mutate(sum_vegType = sum(sum_stems),
+         share = sum_stems/sum_vegType*100) #%>% 
+  
+dom_species %>% 
+  dplyr::filter(share > 1) %>% 
+  ggplot(aes(x = VegType,
+             y = share,
+             fill = Species)) +
+  geom_col()
+  
+# see all species
+dom_species %>% 
+  #dplyr::filter(share > 1) %>% 
+  ggplot(aes(x = Species,
+             y = share,
+             fill = VegType)) +
+  geom_bar(position = "fill", stat = "identity")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  #geom_col('')
+
+
+
+# all species by aboundance
+dom_species %>% 
+  #dplyr::filter(share > 1) %>% 
+  ggplot(aes(x = Species,
+             y = share,
+             fill = VegType)) +
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+#geom_col('')
+
+
+
+# species by management
+dom_species %>% 
+  #dplyr::filter(VegType == 'Regeneration') %>% 
+  dplyr::filter(share > 0) %>% 
+  ggplot(aes(x = reorder(Species, -share),
+             y = share,
+             fill = VegType)) +
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  facet_grid(VegType~manag)
+#geom_col('')
 
 
 # 3. how many clusters/plots has less then 2000 regen/ha?
