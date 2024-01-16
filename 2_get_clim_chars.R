@@ -81,19 +81,6 @@ dat_ras <- terra::rast("rawData/ERA_NET/data2.nc")
 
 extract_clim_data <- function(country_name, ...) {
   print(paste("Processing", country_name))
-  #
-  #country_name = 'germany'
-  
-  #"11_25_116_4"
-  
-  #country <- vect(paste0('outData/dat_', country_name, '.gpkg'))
-  
-  #country_sf <- st_as_sf(country) 
-  #country_sf %>% 
-  #  filter(ID == "11_25_116_4")
-  
-  
-  
   country <- vect(paste0('outData/dat_', country_name, '.gpkg'))
   xy_clean <- project(country, "EPSG:3035")
   
@@ -200,11 +187,14 @@ length(unique(final_climate$ID))
 # Export data -------------------------------------------------------------
 fwrite(final_climate_out, 'outData/climate.csv')
 fwrite(final_climate_18_23, 'outData/climate_18_23.csv')
+fwrite(final_climate, 'outData/climate_1980_2023.csv')
 
 
 save(
   final_climate,
   file="outData/plots_env.Rdata")
+
+#load("outData/plots_env.Rdata")
 
 
 
