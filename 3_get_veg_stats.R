@@ -246,7 +246,7 @@ table(stem_dens_species_long$cluster, stem_dens_species_long$VegType      )
 
 # final stem density
 stem_dens_ha_cluster_sum <- stem_dens_ha %>% 
-  group_by(cluster,  country, new_manag, ) %>% 
+  group_by(cluster,  country, new_manag, VegType) %>% 
   summarize(total_stems = sum(total_stems_all_species)) #%>% 
   #dplyr::select(cluster, total_stems_all_species)
 
@@ -262,7 +262,7 @@ dat %>%
 
 # get stem density per species and height category - get vegetation matrixes for that - on cluster level???
 # keep the NA for species as 0 - consistently across the dataset!!!
-plot_density <- stem_dens_ha_cluster %>% 
+plot_density <- stem_dens_ha_cluster_sum %>% 
     group_by(country, new_manag, cluster) %>% # , Species 
   summarize(sum_n    = sum(total_stems_all_species, na.rm = T),
             mean_n   = mean(total_stems_all_species, na.rm = T),
@@ -457,7 +457,7 @@ save(
   df_IVI,  # species importance value
   df_richness, 
   df_vert,   # number of vertical layers
-  stem_dens_ha_cluster,   
+  stem_dens_ha_cluster_sum,   
   stem_dens_species_long,  # stem density per ID& species
   file="outData/veg.Rdata")
 
