@@ -15,7 +15,7 @@
 
 
 # what predictors to get? 
-# IVI - species importance value, need to get BA
+# IVI - species importance value, based on stem density and basal area
 # # include management
 
 
@@ -32,7 +32,9 @@ library(tidyr)
 
 dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 
-#table(dat$dist)
+# remove Italy and Vaia - windthrow
+dat <- dat %>% 
+  dplyr::filter( country != 17) #   ~ "IT",  # Italy)
 
 # create management based on Christians scrips
 dat<- dat %>% 
@@ -74,8 +76,17 @@ dat <- dat %>%
 #18 switzerland
 #19 france
 
+# Get 'mixed' management, if cluster contains both managed and non-managed 
+dat <- dat %>% 
+  group_by(cluster) %>% 
+  mutate(new_manag = case_when(
+    all(manag == "Managed")   ~ "MAN",
+    all(manag == "Unmanaged") ~ "UNM",
+    any(manag == "Managed") & any(manag == "Unmanaged") ~ "MIX"
+  ))
 
 
+# 13_123 - example of mixed cluster
 
 # Create master df with empty plots - eg no trees found on them
 df_master <- 
@@ -96,17 +107,6 @@ dat <- dat %>%
 
 
 
-
-
-#View(df_master)
-head(dat)
-
-summary(dat)
-names(dat)
-
-# data
-
-dim(dat)
 
 #11 germany
 #12 poland
@@ -161,8 +161,13 @@ dim(dat)
 # "Species" - tree species      
 # "n"        - count by species, by vertical layer
 
+dat <- ungroup(dat)
 # does every point has all species?
 table(dat$ID, dat$Species)# YES - 7 records per plot, for each species
+
+table(dat$cluster, dat$new_manag) %>% View()# YES - 7 records per plot, for each species
+table(dat$cluster, dat$manag)# YES - 7 records per plot, for each species
+
 
 # get summary info:
 # number of points
@@ -186,36 +191,7 @@ dat %>%
 
 
 # Dummy example: calculate stem density - convert to stems/ha ----------------------------------
-# accont for missing species
 
-# calculate from vegetation matrix 
-dd <- data.frame(cluster = c(rep('a',5),rep('b',3)),
-                 vert_layer = rep(c('up', 'dw'), 4),
-                 ID = c(1:5, 1:3),
-                 sp1 = c(10, 1,1,1,1, 0,0,0),
-                 sp2 = c(0, 0,5,0,0,0,0,1),
-                 sp3 = c(1, 0,0,0,4,0,0,16),
-                 sp4 = c(0, 0,0,0,0,0,0,0))
-
-(dd)
-
-
-
-# Exclude 'ID' and 'cluster' columns from summarization
-species_columns <- setdiff(names(dd), c("ID", "cluster"))
-
-# Calculate the total and average stems per species per hectare
-dd_summary <- 
-  dd %>%
-  group_by(cluster) %>%
-  summarize(across(all_of(species_columns), sum),
-            rows_per_cluster = n()) %>% # .groups = "drop"
-  mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>%
-    group_by(cluster) %>% 
-    mutate(across(all_of(species_columns), ~ .x * scaling_factor),
-         total_stems_all_species = sum(across(all_of(species_columns))))
-
-dd_summary
 
 
 # Get stem density - from vegetation matrix ------------------------------------
@@ -223,23 +199,23 @@ veg_matrix_counts <-
   dat %>% 
   dplyr::filter(Variable == 'n',
                 dist == 'TRUE') %>%
-  dplyr::select(ID, VegType, Species, cluster, manag, country, n) %>% 
+  dplyr::select(ID, VegType, Species, cluster, new_manag, country, n) %>% 
   mutate(n = ifelse(is.na(n), 0, n)) %>%
   pivot_wider(values_from=n,names_from = Species)
 
 
 # Exclude 'ID', 'cluster', VegType columns from summarization
-species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'manag', 'country'))
+species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'new_manag', 'country'))
 
 # Calculate the total and average stems per species per hectare
 stem_dens_ha <-
   veg_matrix_counts %>%
-  group_by(cluster, VegType,  country, manag ) %>%
+  group_by(cluster, VegType,  country, new_manag ) %>%
   summarize(across(all_of(species_columns), sum),
             rows_per_cluster = n()) %>% # .groups = "drop"
   mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
   ungroup(.) %>%
-  group_by(cluster, VegType, country, manag) %>%
+  group_by(cluster, VegType, country, new_manag) %>%
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns))))
 
@@ -247,16 +223,16 @@ stem_dens_ha <-
 # calculate density per plot&species
 stem_dens_species_long<- 
   veg_matrix_counts %>%
-  group_by(ID, cluster, VegType,  country, manag ) %>%
+  group_by(ID, cluster, VegType,  country, new_manag ) %>%
   summarize(across(all_of(species_columns), sum),
             rows_per_cluster = n()) %>% # .groups = "drop"
   mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
   ungroup(.) %>% 
-  group_by(cluster, VegType, country, manag) %>% 
+  group_by(cluster, VegType, country, new_manag) %>% 
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns)))) %>% 
   dplyr::select(-total_stems_all_species, -rows_per_cluster, -scaling_factor ) %>% 
-  pivot_longer(!c(ID, cluster, VegType, country, manag), names_to = 'Species', values_to = "stem_density")
+  pivot_longer(!c(ID, cluster, VegType, country, new_manag), names_to = 'Species', values_to = "stem_density")
 
 # cluster 14_114 has less records??
 #   17_107 has many record?
@@ -267,25 +243,14 @@ dat %>%
 
 table(stem_dens_species_long$cluster, stem_dens_species_long$VegType      )
 
-# stem density table
-stem_dens_ha_cluster_vert <- stem_dens_ha %>% 
-  dplyr::select(cluster, country, manag, VegType, total_stems_all_species)
-
-# stem density table
-stem_dens_ha_cluster <- stem_dens_ha %>% 
-  ungroup(.) %>% 
-  dplyr::select(cluster, country, manag, total_stems_all_species)
-
 
 # final stem density
 stem_dens_ha_cluster_sum <- stem_dens_ha %>% 
-  group_by(cluster,  country, manag, ) %>% 
+  group_by(cluster,  country, new_manag, ) %>% 
   summarize(total_stems = sum(total_stems_all_species)) #%>% 
   #dplyr::select(cluster, total_stems_all_species)
 
 
-View(stem_dens_ha)
-View(stem_dens_ha_cluster)
 
 # cluster 21_143 has 21 of teh records!! - keep, 7 points in cluster
 dat %>% 
@@ -298,7 +263,7 @@ dat %>%
 # get stem density per species and height category - get vegetation matrixes for that - on cluster level???
 # keep the NA for species as 0 - consistently across the dataset!!!
 plot_density <- stem_dens_ha_cluster %>% 
-    group_by(country, manag, cluster) %>% # , Species 
+    group_by(country, new_manag, cluster) %>% # , Species 
   summarize(sum_n    = sum(total_stems_all_species, na.rm = T),
             mean_n   = mean(total_stems_all_species, na.rm = T),
             sd_n     = sd(total_stems_all_species, na.rm = T),
@@ -309,8 +274,8 @@ p_dens <-plot_density %>%
   ungroup(.) %>%
   ggplot(aes(x = reorder(as.factor(country), -sum_n, FUN = median),
              y = sum_n,
-             fill = as.factor(manag),  # Use 'fill' for differentiating groups
-             group = interaction(as.factor(country), as.factor(manag)))) +
+             fill = as.factor(new_manag),  # Use 'fill' for differentiating groups
+             group = interaction(as.factor(country), as.factor(new_manag)))) +
   stat_summary(fun = "median", 
                geom = "bar", 
                position = position_dodge(),  # Use 'position_dodge' to place bars next to each other
@@ -319,7 +284,7 @@ p_dens <-plot_density %>%
     data = plot_density,
     mapping = aes(x = reorder(as.factor(country), -sum_n, FUN = median), 
                   y = sum_n,
-                  group = interaction(as.factor(country), as.factor(manag))),
+                  group = interaction(as.factor(country), as.factor(new_manag))),
     fun.min = function(z) { quantile(z, 0.25) },
     fun.max = function(z) { quantile(z, 0.75) },
     fun = median,
@@ -341,18 +306,18 @@ p_dens <-plot_density %>%
 df_richness <- 
   dat %>%
   dplyr::filter(Variable == 'n') %>% # counts, not other variables
-  group_by(cluster, manag, country, Species) %>%
+  group_by(cluster, new_manag, country, Species) %>%
   summarise(sum_counts = sum(n, na.rm = T)) %>% # sum up species accros vertical groups
   #View()
     ungroup(.) %>% 
-    group_by(cluster, manag, country) %>% 
+    group_by(cluster, new_manag, country) %>% 
     summarise(richness = sum((sum_counts!=0), na.rm = TRUE))
 #13569
 #View(df_richness)
 
 # check summary as my plot looks a bit weird
 df_richness %>% 
-  group_by(country, manag) %>% 
+  group_by(new_manag) %>% 
   summarise(med = median(richness, na.rm = T),
             q_25 = quantile(richness, probs = 0.25, na.rm = TRUE),
             q_75 = quantile(richness, probs = 0.75, na.rm = TRUE)
@@ -377,10 +342,10 @@ rel_density <-
   pivot_longer(piab:pist, 
                names_to = 'Species', 
                values_to = 'stem_dens') %>% 
-  group_by(cluster, Species, country,manag) %>% 
+  group_by(cluster, Species, country,new_manag) %>% 
   summarize(sum_sp_dens = sum(stem_dens, na.rm = T)) %>% # sum per species (across vertical layers)
   ungroup(.) %>%
-  group_by(cluster, country,manag) %>% 
+  group_by(cluster, country,new_manag) %>% 
   mutate(sum_all = sum(sum_sp_dens, na.rm = T)) %>% # sum across all species
   mutate(rel_dens = sum_sp_dens/sum_all )
 
@@ -402,7 +367,7 @@ unique(dat$Variable)
 dbh_mature <- dat %>%
   filter(VegType == 'Survivor') %>% 
   filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
-  dplyr::select(ID, VegType, Species, manag, cluster,  country, value) %>% 
+  dplyr::select(ID, VegType, Species, new_manag, cluster,  country, value) %>% 
   mutate(dbh = case_when(
     #VegType == 'advRegeneration' ~ 5,
     value == 4 & VegType == 'Survivor' ~ 70,
@@ -417,7 +382,7 @@ dbh_advanced <-
   dat %>%
   filter(VegType == 'advRegeneration') %>% 
   filter(Variable == 'n') %>% 
-  dplyr::select(ID, VegType, Species, manag, cluster,  country, value) %>% 
+  dplyr::select(ID, VegType, Species, new_manag, cluster,  country, value) %>% 
   mutate(dbh = case_when(!is.na(value) & VegType == 'advRegeneration' ~ 5,
     TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
@@ -428,7 +393,7 @@ dbh_regen <-
   dat %>%
   filter(VegType == 'Regeneration') %>% 
   filter(Variable == 'n') %>% 
-  dplyr::select(ID, VegType, Species, manag, cluster,  country, value) %>% 
+  dplyr::select(ID, VegType, Species, new_manag, cluster,  country, value) %>% 
   #mutate(dbh = NA)  %>% 
   mutate(dbh = case_when(!is.na(value) & VegType == 'Regeneration' ~ 0.1,  # 1 mm
                          TRUE ~ NA_real_  # Default case if none of the above conditions are met
@@ -444,13 +409,13 @@ dbh_merge_vert <- bind_rows(dbh_mature, dbh_advanced, dbh_regen)
 # add DBH info to the stem density one to calculate Basal area
 df_BA <- 
   stem_dens_species_long %>% 
-  left_join(dbh_merge_vert, by = c('ID', 'cluster', 'VegType', 'country', 'manag', 'Species')) %>% 
+  left_join(dbh_merge_vert, by = c('ID', 'cluster', 'VegType', 'country', 'new_manag', 'Species')) %>% 
   mutate(r = dbh/2,
          BA = pi*r^2,
          BA_stems = BA*stem_density) %>% 
   ungroup(.) %>% 
   dplyr::select(-VegType) %>%
-  group_by(cluster,Species, manag, country) %>% 
+  group_by(cluster,Species, new_manag, country) %>% 
     summarise(BA_sp = sum(BA_stems, na.rm = T)) %>% 
     ungroup(.) %>% 
     group_by(cluster) %>% 
@@ -462,7 +427,7 @@ View(df_BA)
 # calculate species importance value: based on relative density and relative basal area per species
 df_IVI <- 
   rel_density %>% 
-  full_join(df_BA, by = join_by(cluster, Species, country, manag)) %>% 
+  full_join(df_BA, by = join_by(cluster, Species, country, new_manag)) %>% 
   mutate(rIVI = ( rel_dens +rel_BA)/2) %>%  # relative IVI
   replace_na(., list(rIVI = 0, rel_BA   = 0)) 
 
@@ -473,8 +438,8 @@ df_vert <-
   stem_dens_species_long %>% 
   dplyr::filter(stem_density>0) %>% 
   ungroup(.) %>% 
-  dplyr::select(cluster, country, manag, VegType) %>%
-  group_by(cluster, country, manag) %>%
+  dplyr::select(cluster, country, new_manag, VegType) %>%
+  group_by(cluster, country, new_manag) %>%
   distinct(.) %>% 
   summarize(n_layers = n()) #%>% 
 
@@ -505,8 +470,8 @@ df_richness %>%
   ungroup(.) %>%
   ggplot(aes(x = reorder(as.factor(country), -richness, FUN = median),
              y = richness,
-             fill = as.factor(manag),  # Use 'fill' for differentiating groups
-             group = interaction(as.factor(country), as.factor(manag)))) +
+             fill = as.factor(new_manag),  # Use 'fill' for differentiating groups
+             group = interaction(as.factor(country), as.factor(new_manag)))) +
   stat_summary(fun = "median",
                geom = "bar",
                position = position_dodge(),  # Use 'position_dodge' to place bars next to each other
@@ -515,7 +480,7 @@ df_richness %>%
     data = df_richness,
     mapping = aes(x = reorder(as.factor(country), -richness, FUN = median), 
                   y = richness,
-                  group = interaction(as.factor(country), as.factor(manag))),
+                  group = interaction(as.factor(country), as.factor(new_manag))),
     fun.min = function(z) { quantile(z, 0.25) },
     fun.max = function(z) { quantile(z, 0.75) },
     fun = median,
@@ -533,12 +498,12 @@ df_richness %>%
 # Merge structure & composition into single space -------------------------
 
 df_org_space <- stem_dens_ha_cluster_sum %>% 
-  full_join(df_richness, by = join_by(country, manag, cluster))
+  full_join(df_richness, by = join_by(country, new_manag, cluster))
 
 
-# get summary for the scatter plot, one point is one country & management
+# get summary for the scatter plot, one point is one country & new_management
 df_summary <- df_org_space %>%
-  group_by(country, manag) %>%
+  group_by(country, new_manag) %>%
   summarize(
     rich_mean = mean(richness, na.rm = TRUE),
     rich_sd = sd(richness, na.rm = TRUE),
@@ -557,7 +522,7 @@ df_summary <- df_org_space %>%
 df_org_space %>% 
   ggplot(aes(x = richness,
              y = total_stems ,
-             color = factor(manag)))+ 
+             color = factor(new_manag)))+ 
   geom_point() +
   facet_wrap(.~country)
 
@@ -578,23 +543,23 @@ ggplot(df_org_space) +
                   geom = "polygon",
                   alpha = 0.6) +
   geom_point(data = df_summary, 
-             aes(x = rich_mean, y = dens_mean, shape = factor(manag), color = factor(manag)), 
+             aes(x = rich_mean, y = dens_mean, shape = factor(new_manag), color = factor(new_manag)), 
              size = 1.5) +
-  scale_color_manual(values = c("red", 'black')) +  # Shapes for two management categories (e.g., circle and triangle)
+  scale_color_manual(values = c("red", 'black')) +  # Shapes for two new_management categories (e.g., circle and triangle)
   
-  scale_shape_manual(values = c(16, 17)) +  # Shapes for two management categories (e.g., circle and triangle)
+  scale_shape_manual(values = c(16, 17)) +  # Shapes for two new_management categories (e.g., circle and triangle)
   geom_errorbar(data = df_summary, 
                 aes(x = rich_mean, 
                     ymin = dens_min, 
                     ymax = dens_max, 
-                    color = factor(manag)),
+                    color = factor(new_manag)),
                 width = 0.3, 
                 linewidth = 0.2) +
   geom_errorbarh(data = df_summary, 
                  aes(y = dens_mean, 
                      xmin = rich_min, 
                      xmax = rich_max, 
-                     color = factor(manag)),
+                     color = factor(new_manag)),
                  height = 2, 
                  width = 2,
                  linewidth = 0.2) +
@@ -623,7 +588,7 @@ ggplot(df_org_space) +
   #                geom = "polygon",
   #               alpha = 0.6) +
   geom_jitter(#data = df_summary, 
-    aes(x = richness, y = total_sum, shape = factor(manag), color = factor(manag)), 
+    aes(x = richness, y = total_sum, shape = factor(new_manag), color = factor(new_manag)), 
     size = 1,
     alpha = 0.5) +
   scale_color_manual(values = c("red", 'black')) +  
@@ -631,7 +596,7 @@ ggplot(df_org_space) +
   ylab('Mean stem density') +
   xlab(bquote('Mean richness')) +
   theme_minimal() +
-  facet_grid(.~manag) +
+  facet_grid(.~new_manag) +
   theme(legend.position = 'none',
         panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
         panel.grid.major = element_blank(),
