@@ -31,6 +31,8 @@ library(effects) #what do my marginal effects look like?
 library(performance) #binomial model diagnostics
 library(emmeans) #post hoc for categorical predictors
 
+library(AER)  # for hurdle model
+
 
 # read data --------------------------------------------------------------------
 
@@ -46,9 +48,22 @@ load("outData/veg.Rdata")
 
 # clean up data -----------------------------------------------------------------
 # sum stems first up across vertical groups!!
-df_stems <- stem_dens_ha_cluster %>% 
+df_stems <- stem_dens_ha_cluster_sum %>% 
   group_by(cluster, new_manag) %>% 
-  summarise(sum_stems = sum(total_stems_all_species))# %>% 
+  summarise(sum_stems = sum(total_stems))# %>% 
+
+# get only samplings
+df_stems_sapl <- stem_dens_ha_cluster_sum %>% 
+  filter(VegType == 'Regeneration') %>% 
+  group_by(cluster, new_manag) %>% 
+  summarise(sum_stems = sum(total_stems))# %>% 
+
+# get saplings and juveniles
+df_stems_both <- stem_dens_ha_cluster_sum %>% 
+  filter(VegType != 'Survivor') %>% 
+  group_by(cluster, new_manag) %>% 
+  summarise(sum_stems = sum(total_stems))# %>% 
+
 
 
 disturbance_chars <- disturbance_chars %>%
@@ -57,10 +72,11 @@ disturbance_chars <- disturbance_chars %>%
 # merge all predictors together, ID level
 df_predictors <- 
   climate %>% 
-  left_join(select(distance_to_edge, c(-country, -dist_ID ))) %>% 
-  left_join(select(disturbance_chars, c(-region, -country ))) %>% 
+  left_join(dplyr::select(distance_to_edge, c(-country, -dist_ID ))) %>% 
+  left_join(dplyr::select(disturbance_chars, c(-region, -country ))) %>% 
   left_join(soil) %>%
-  left_join(select(terrain, c(-country))) 
+  left_join(dplyr::select(terrain, c(-country, -region))) %>% 
+  mutate(cluster = str_sub(ID, 4, -3)) 
 
 
 # select the dominant species per cluster
@@ -187,7 +203,6 @@ df_stock_density %>%
 ### 4. stems vs weather - mean 2019-2022, or SPEI ---------------------------------
 # average predictors by cluster
 df_predictors_clust <- df_predictors %>% 
-  mutate(cluster = str_sub(ID, 4, -3)) %>% 
   group_by(cluster) %>%
   filter(year %in% 2021:2023) %>% 
   summarise(tmp                  = mean(tmp, na.rm = T),
@@ -215,29 +230,44 @@ length(unique(df_predictors_clust$cluster))
 # need to update, as too many points are missing!!!
 # eg ID 17_21_114_1
 
-#spei_sub <- 
-  spei %>% 
+
+# get cluster number
+spei <- spei %>% 
   dplyr::mutate(year  = lubridate::year(date),
                 month = lubridate::month(date)) %>%  
   dplyr::select(-c(date, -scale)) %>% 
-  mutate(cluster = str_sub(ID, 4, -3)) %>%
+  mutate(cluster = str_sub(ID, 4, -3))#%>%
+
+spei_sub <- spei %>% 
     ungroup(.) %>% 
-    dplyr::filter(year %in% 2021:2023) %>%
-  View()
+    dplyr::filter(year %in% 2018:2020 & month %in% 4:9) %>% # select just vegetation season
+  dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
+  #View()
     group_by(cluster) %>%
     summarise(spei = mean(spei, na.rm = T)) #%>% 
     
     
 # join to stems counts: filter, as from veg data I have already excluded Italy and teh uncomplete clusters
-df_fin <- df_stems %>%
+df_fin <- #df_stems_both %>%
+  df_stems %>% 
   left_join(df_predictors_clust, by = join_by(cluster)) %>% 
-  #left_join(spei_sub, by = join_by(cluster)) %>% 
+  left_join(spei_sub, by = join_by(cluster)) %>% 
   mutate(new_manag = as.factor(new_manag)) %>% 
   mutate(sum_stems = round(sum_stems)) %>% 
+  na.omit() %>% 
+  as.data.frame()
 
 
 length(unique(df_fin$cluster))
 
+# clusters seems missing??
+env_cluster <- unique(df_predictors$cluster)
+veg_cluster <- unique(df_stems$cluster)
+
+sort(env_cluster)
+sort(veg_cluster)
+
+setdiff(env_cluster, veg_cluster)
 
 pairs(sum_stems   ~ tmp + tmp_z + distance, df_fin)
 
@@ -247,18 +277,99 @@ pairs(sum_stems   ~ tmp + tmp_z + distance, df_fin)
 
 # test glm with neg bin family
 library(MASS)
-m.negbin <- glm.nb(sum_stems ~ tmp  + tmp_z +  distance + new_manag, data = df_fin, na.action = "na.fail") # + tmp_z 
+global.negbin <- glm.nb(sum_stems ~ tmp  + tmp_z +  spei + prec + prcp_z + disturbance_severity + distance + new_manag + elevation, data = df_fin, na.action = "na.fail") # + tmp_z 
 
-dredge(m.negbin)
+dredge(global.negbin)
 
-# zero inflated model
+
+global.negbin2 <- glm.nb(sum_stems ~ tmp   +  prec  + spei + disturbance_severity + distance, data = df_fin, na.action = "na.fail") # + tmp_z 
+
+dredge(global.negbin2)
+
+vif(global.negbin2)
+
+plot(allEffects(global.negbin2))
+
+
+m.nb <- glm.nb(sum_stems ~ tmp  +  distance + new_manag, data = df_fin, na.action = "na.fail") # + tmp_z 
+
+m2 <- glm.nb(sum_stems ~ tmp   +  prec  + spei + disturbance_severity + distance + new_manag, data = df_fin, na.action = "na.fail") # + tmp_z 
+
+m3 <- glm.nb(sum_stems ~ tmp_z  +  distance, data = df_fin, na.action = "na.fail") # + tmp_z 
+
+simulationOutput <- simulateResiduals(fittedModel = m2, plot = T)
+
+
+cor(df_fin$tmp, df_fin$tmp_z)
+
+AIC(m1, m2)
+# zero inflated model; hurdle model:
 library(pscl)
-m.zip <- zeroinfl(sum_stems ~ tmp + tmp_z + distance + new_manag, 
-                  dist = "poisson", data = df_fin)
+# m.zip <- zeroinfl(sum_stems ~ tmp   +  prec  + disturbance_severity + distance, #+ tmp_z 
+#                   dist = "poisson", data = df_fin)
+
+m.zinb <- zeroinfl(sum_stems ~ tmp   +  spei + prec  + disturbance_severity + distance, #+ tmp_z
+                   dist = "negbin", data = df_fin)
+
+# m.hurdle1 is the best one for now!
+m.hurdle1 <- hurdle(sum_stems ~ tmp   +  spei + prec  + disturbance_severity + distance, #+ tmp_z
+                   dist = "negbin", data = df_fin)
+
+m.hurdle2 <- hurdle(sum_stems ~ tmp   +  spei + prec  + disturbance_severity + distance + new_manag, #+ tmp_z
+                   dist = "negbin", data = df_fin)
+
+m.hurdle3 <- hurdle(sum_stems ~  spei + disturbance_severity + distance + new_manag, #+ tmp_z
+                    dist = "negbin", data = df_fin)
+
+m.hurdle4 <- hurdle(sum_stems ~  spei + disturbance_severity + distance, #+ tmp_z
+                    dist = "negbin", data = df_fin)
+
+# add back temperature and precipitation, as they are from 2021-2023, spei is from 2018-2020 - the best!
+m.hurdle5 <- hurdle(sum_stems ~  tmp + prec + spei + disturbance_severity + distance + new_manag, #+ tmp_z
+                    dist = "negbin", data = df_fin)
 
 
-# spei has infinity values?? eg here: 21_142
+# remote TMP as correlated with spei
+m.hurdle6 <- hurdle(sum_stems ~  prec + spei + disturbance_severity + distance + new_manag, #+ tmp_z
+                    dist = "negbin", data = df_fin)
 
+
+# for several groups:
+kruskal.test(sum_stems ~ new_manag, data = df_fin)
+
+
+# Perform the Dunn test
+dunnTest <- dunn.test(df_fin$sum_stems, df_fin$new_manag, method="bonferroni")
+dunnTest
+
+
+
+AIC(m2, m.hurdle1, m.hurdle2, m.hurdle3, m.hurdle4, m.hurdle5, m.hurdle6)
+
+summary(m.hurdle1)
+r2(m2)
+
+# check model assumptions
+plot(resid(m.hurdle1) ~ fitted(m.hurdle1))
+
+cor(df_fin$tmp, df_fin$spei)
+cor(df_fin$prec, df_fin$spei)
+
+
+# go fo negative binomial, zero inf
+
+# filtered SPEI INf values
+
+# visualize teh hurdle model: https://library.virginia.edu/data/articles/getting-started-with-hurdle-models
+sum(predict(m.hurdle1, type = "prob")[,1])  # number of zeros in teh predictoed data
+
+# First 5 expected counts
+predict(m.hurdle1, type = "response")[1:5]
+
+
+#library(countreg)
+
+#rootogram(m.hurdle1) # fit up to count xx
 
 # 6. management effect: compare manag vs unmanaged stem densities, richness
 
@@ -280,7 +391,7 @@ ggplot(data = df_richness,
 
 
 # compre densities 
-stem_dens_ha_cluster %>% 
+stem_dens_ha_cluster_sum %>% 
   group_by(new_manag) %>% 
   summarise(mean = mean(total_stems_all_species),
             sd = sd(total_stems_all_species),
