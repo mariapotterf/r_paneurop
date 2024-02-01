@@ -140,7 +140,7 @@ cluster_id_keep <- stem_dens_species_long %>%
 
 
 
-## 2. species composition per stems: saplings vs juveniles?? --------------
+# 2. species composition per stems: saplings vs juveniles?? --------------
 # how many plots with Mature trees?
 # 
 dom_species <- stem_dens_species_long %>% 
@@ -294,9 +294,44 @@ df_stock_density %>%
   ggplot(aes(x = manag,
              fill = dens_category)) +
   geom_bar(position = 'fill') +
+  scale_fill_manual(values = c("0" = "red", 
+                               "500-1000" = "lightgreen", 
+                               "1000-2000" = "green", 
+                               ">2000" = "darkgreen",
+                               "1-500" = "forestgreen")) +
   ylab('Share [%]') + 
   theme_classic() +
-  labs(fill = "Density class")
+  labs(fill = "Density class") +
+  xlab('')
+
+unique(df_stock_density$dens_category)
+
+#### Pearson chi squared test --------------------------
+# Create a contingency table
+contingency_table <- table(df_stock_density$manag, df_stock_density$dens_category)
+
+# Perform the chi-squared test
+chi_squared_test <- chisq.test(contingency_table)
+
+# View the results of the chi-squared test
+print(chi_squared_test)
+
+# invalid chi suqre test - 0 categories, very little counts (less then 5)
+# Combine sparse categories
+df_stock_density$combined_category <- ifelse(df_stock_density$dens_category %in% c("0", "1-500"), 
+                                             "0-1-500", 
+                                             df_stock_density$dens_category)
+
+# Create a new contingency table with combined categories
+new_contingency_table <- table(df_stock_density$manag, df_stock_density$combined_category)
+
+# Perform the chi-squared test on the new table
+new_chi_squared_test <- chisq.test(new_contingency_table)
+
+# View the results
+print(new_chi_squared_test)
+
+
 
 # Calculate the percentages
 df_stock_density_simpl <- df_stock_density %>%
@@ -322,7 +357,53 @@ df_stock_density_simpl %>%
 # Compare categories occurences by chi square
 
 
-### 4. stems vs weather - mean 2019-2022, or SPEI ---------------------------------
+# How many vertical layers I have where? --------------------------------------
+
+# Get again individual layers:
+df_vert_full <- 
+  stem_dens_species_long %>% 
+  filter(cluster %in% cluster_id_keep) %>%  
+  dplyr::filter(stem_density>0) %>% 
+  ungroup(.) %>% 
+  dplyr::select(cluster, country, manag, VegType) %>%
+  group_by(cluster, country, manag) %>%
+  distinct(.) %>% 
+  mutate(n_layers = n()) #%>% 
+
+
+
+# Calculate frequencies of individual layers and combinations
+layer_frequencies <- 
+  df_vert_full %>%
+  group_by(manag, cluster) %>% 
+  right_join(df_stems) %>% # to account for teh empty ones
+    dplyr::filter(cluster %in% cluster_id_keep) %>% 
+   # View()
+    mutate(VegType = case_when(
+      is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
+      TRUE ~ VegType           # Keep existing values for non-NA cases
+    )) %>% 
+  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
+  ungroup() %>%
+  count(manag, layers)
+
+
+# View the result
+print(layer_frequencies)
+
+ggplot(layer_frequencies, aes(x = manag, y = n, fill = layers)) +
+  geom_bar(stat = "identity", position = "fill") +
+  #geom_text(aes(label = paste0(round(scales::percent, 1), "%"), 
+  #              y = cumsum(n) - n/2), 
+  #          position = position_fill(), 
+  #          color = "white", 
+  #          size = 3) +
+  ylab("Percentage (%)") +
+  theme_classic() +
+  labs(fill = "Layers")
+
+
+# 4. stems vs weather - mean 2019-2022, or SPEI ---------------------------------
 # average predictors by cluster
 df_predictors_clust <- df_predictors %>% 
   dplyr::filter(cluster %in% cluster_id_keep) %>% 
@@ -687,9 +768,9 @@ ggarrange(p.country.density, p.country.richness)
 
 
 
-# Stem density vs IVI -----------------------------------------------------
+#### Stem density vs IVI -----------------------------------------------------
 
-# Merge structure & composition into single space -------------------------
+# Merge structure & composition into single space 
 
 df_org_space <- 
   df_stems %>% 
