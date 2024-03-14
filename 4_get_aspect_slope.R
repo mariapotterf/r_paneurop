@@ -7,7 +7,7 @@
 library(elevatr)
 #library(sf)
 library(terra)
-
+library(dplyr)
 # define paths
 elev_path          <- "rawData/dem"
 
@@ -57,14 +57,26 @@ get_terrain_chars <- function(country_name) {
   
 }
 
-test <- get_terrain_chars('austria')
+test <- get_terrain_chars('france')
+View(test)
 
 out.ls <- lapply(country_names, get_terrain_chars)
 
 # Combine results from all countries
 final_terrain <- do.call(rbind, out.ls)
 
+View(final_terrain)
+final_terrain %>% 
+  dplyr::filter(country == 19 & region == 24) %>% 
+  nrow()
 
+# there is 5 NAs in Luxemburg, s they are too close to the border (not enought pixels for 8 neighbors).
+# fill in values by their median value:
+final_terrain <- final_terrain %>%
+  mutate(slope = ifelse(is.na(slope), median(slope, na.rm = TRUE), slope),
+         aspect = ifelse(is.na(aspect), median(aspect, na.rm = TRUE), aspect))
+ 
+# total rows: 4647 
 # Export data -------------------------------------------------------------
 fwrite(final_terrain, 'outData/terrain.csv')
 
