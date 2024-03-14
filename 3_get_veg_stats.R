@@ -22,6 +22,7 @@
 # what is 'cluster?  = region +group?
 # country = '
 # management = fill in missing values correctly: based on the first estimation per plot (without completed species)
+gc()
 
 library(data.table)
 library(dplyr)
@@ -36,22 +37,24 @@ dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 dat <- dat %>% 
   dplyr::filter( country != 17) #   ~ "IT",  # Italy)
 
-# create management based on Christians scrips
-dat<- dat %>% 
+# create management based on Christians scrips;
+# get management intensity; for each plot and for each cluster: per plot, max intensity is 5, per cluster it is 25 (5*5)
+dat <- dat %>% 
   filter(dist == TRUE) %>% # remove the plot if not disturbed
   mutate(cluster = paste(region, group, sep = '_')) %>% 
   mutate(
-    logging_trail = ifelse(!is.na(logging_trail) & logging_trail == "true", 1, 0),
-    clear         = ifelse(!is.na(clear) & clear == "true", 1, 0),
-    grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == "true", 1, 0),
+    logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
+    clear         = ifelse(!is.na(clear) & clear == TRUE, 1, 0),
+    grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
     planting      = ifelse(!is.na(planting) & planting != 2, 1, 0),
     anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing != 2, 1, 0),
     manag    = case_when(
-      logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed',
-      TRUE ~ 'Unmanaged'  # Default case
-    )
-  )
+      logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed', # 'or conditions'  - if one of the management type is present, then it is managed
+      TRUE ~ 'Unmanaged'),  # Default case
+    manag_intensity = logging_trail + clear + grndwrk + planting + anti_browsing  # get management intensity: rate on cluster cluster level
+)
 
+#View(dat_test)
 dat <- dat %>% 
   mutate(country = case_when(
     country == 11 ~ "DE",  # Germany
@@ -76,14 +79,21 @@ dat <- dat %>%
 #18 switzerland
 #19 france
 
-# Get 'mixed' management, if cluster contains both managed and non-managed 
-dat <- dat %>% 
-  group_by(cluster) %>% 
-  mutate(new_manag = case_when(
-    all(manag == "Managed")   ~ "MAN",
-    all(manag == "Unmanaged") ~ "UNM",
-    any(manag == "Managed") & any(manag == "Unmanaged") ~ "MIX"
-  ))
+# Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
+dat_manag_intensity_cl <- 
+  dat %>% 
+  dplyr::select(ID, cluster, manag_intensity) %>% 
+  distinct() %>% 
+    group_by(cluster) %>% 
+  mutate(manag_int_cluster = sum(manag_intensity, na.rm =T)
+  ) %>% 
+  ungroup() %>% 
+  dplyr::select(cluster, manag_int_cluster) %>% 
+  distinct() %>% 
+  mutate(scaled_manag_int_cluster = manag_int_cluster / 25) %>% # scale values between 0-1
+  rename(management_intensity = scaled_manag_int_cluster) %>% 
+  dplyr::select(cluster, management_intensity) 
+  
 
 
 # 13_123 - example of mixed cluster
@@ -96,7 +106,7 @@ df_master <-
   group_by(country, region, group, cluster) %>%  # region, group,
   summarize(n_plots = n())
 
-# filter only clusters that have 4 points
+# filter only clusters that have >4 points
 
 # keep clusters with 4, as some disturbace plots were very small
 # remove if there is less records
@@ -199,23 +209,23 @@ veg_matrix_counts <-
   dat %>% 
   dplyr::filter(Variable == 'n',
                 dist == 'TRUE') %>%
-  dplyr::select(ID, VegType, Species, cluster, manag, country, n) %>% 
+  dplyr::select(ID, VegType, Species, cluster, manag, manag_intensity, country, n) %>% 
   mutate(n = ifelse(is.na(n), 0, n)) %>%
   pivot_wider(values_from=n,names_from = Species)
 
 
 # Exclude 'ID', 'cluster', VegType columns from summarization
-species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'manag', 'country'))
+species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'manag', 'manag_intensity', 'country'))
 
 # Calculate the total and average stems per species per hectare
 stem_dens_ha <-
   veg_matrix_counts %>%
-  group_by(cluster, VegType,  country, manag ) %>%
+  group_by(cluster, VegType,  country, manag, manag_intensity ) %>%
   summarize(across(all_of(species_columns), sum),
             rows_per_cluster = n()) %>% # .groups = "drop"
   mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
   ungroup(.) %>%
-  group_by(cluster, VegType, country, manag) %>%
+  group_by(cluster, VegType, country, manag, manag_intensity) %>%
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns))))
 
@@ -223,16 +233,16 @@ stem_dens_ha <-
 # calculate density per plot&species
 stem_dens_species_long<- 
   veg_matrix_counts %>%
-  group_by(ID, cluster, VegType,  country, manag ) %>%
+  group_by(ID, cluster, VegType,  country, manag, manag_intensity ) %>%
   summarize(across(all_of(species_columns), sum),
             rows_per_cluster = n()) %>% # .groups = "drop"
   mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
   ungroup(.) %>% 
-  group_by(cluster, VegType, country, manag) %>% 
+  group_by(cluster, VegType, country, manag, manag_intensity) %>% 
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns)))) %>% 
   dplyr::select(-total_stems_all_species, -rows_per_cluster, -scaling_factor ) %>% 
-  pivot_longer(!c(ID, cluster, VegType, country, manag), names_to = 'Species', values_to = "stem_density")
+  pivot_longer(!c(ID, cluster, VegType, country, manag, manag_intensity), names_to = 'Species', values_to = "stem_density")
 
 # cluster 14_114 has less records??
 #   17_107 has many record?
@@ -241,7 +251,7 @@ dat %>%
   filter(Variable == "n") %>% 
   nrow()
 
-table(stem_dens_species_long$cluster, stem_dens_species_long$VegType      )
+table(stem_dens_species_long$cluster, stem_dens_species_long$Species      )
 
 
 # final stem density
