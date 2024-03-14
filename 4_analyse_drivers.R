@@ -62,7 +62,18 @@ df_stems_both <- stem_dens_ha_cluster_sum %>%
   group_by(cluster, manag) %>% 
   summarise(sum_stems = sum(total_stems))# %>% 
 
+table(stem_dens_species_long$VegType,stem_dens_species_long$Species)
 
+
+# aggregate by cluster: sum up teh species, by height category
+stem_dens_species_cluster_long_share <- stem_dens_species_long %>% 
+  ungroup(.) %>% 
+  dplyr::select(-manag) %>% 
+  group_by(cluster, Species, VegType) %>%
+    summarise(stem_density = sum(stem_density))
+    
+
+fwrite(stem_dens_species_cluster_long_share, 'vegData_cluster_densities.csv')
 
 disturbance_chars <- disturbance_chars %>%
   mutate(country = as.character(country))
@@ -76,6 +87,7 @@ df_predictors <-
   left_join(dplyr::select(terrain, c(-country, -region))) %>% 
   mutate(cluster = str_sub(ID, 4, -3)) 
 
+#fwrite(df_predictors, 'outData/all_predictors.csv')
 
 # select the dominant species per cluster
 df_IVI_max <- df_IVI %>% 
