@@ -37,7 +37,7 @@ climate   <- fread("outData/climate_1980_2023_months.csv")
 SPEI_vars <- c("t2m", "tp")
 
 temp_convert = 273.15  # convert temperature from Kelvin to Celsius
-#number_days <- 365/12  # multiply teh prec by teh number of days in a month to correct precipitation
+number_days <- 365/12  # multiply teh prec by teh number of days in a month to correct precipitation
 
 
 

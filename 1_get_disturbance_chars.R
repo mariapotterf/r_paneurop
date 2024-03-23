@@ -347,7 +347,7 @@ fwrite(final_results_distance, 'outData/distance_to_edge.csv')
 load("outData/plots_env.Rdata")
 # length(unique(final_results_distance$ID))
 # 
-# IDs_distance <- unique(final_results_distance$ID)
+#IDs_distance <- unique(final_results_distance$ID)
 # IDs_climate <- unique(final_climate$ID)
 # 
 # setdiff(IDs_distance, IDs_climate)
