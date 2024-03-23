@@ -59,9 +59,14 @@ data_clean <-
     TRUE ~ "NO"  # Default case for any other region
   )) %>%
   dplyr::mutate(group = group + 100) %>% 
-  dplyr::mutate(ID = paste(country, region, group, point, sep="_")) %>%  
+  dplyr::mutate(ID = paste(country, region, group, point, sep="_")) %>% 
+  dplyr::mutate(cluster = paste(region, group, sep = '_')) %>%
   #dplyr::mutate(ID_reg = paste(country, region, sep="_") %>% #dplyr::select(5:323) %>% names()
-  dplyr::select(ID, country, region)
+  dplyr::select(ID, country, region, group, cluster)
+
+
+data_clean %>% 
+  dplyr::filter(cluster == '18_167')
 
 
 # get shp of european countries
@@ -103,9 +108,10 @@ clip_dat <- function(x, ...) {
   data_clipped <- st_intersection(x_proj, data_clean)
   
   data_clipped <- data_clipped %>% 
-    dplyr::select(ID, country, region)
+    dplyr::select(ID, country, region, cluster)
   # export as gpkg
   outName = paste0('dat_', name,  '.gpkg')
+  print(outName)
   st_write(data_clipped, paste('outData', outName, sep = "/"),
            layer = 'dat', append=FALSE)
   
