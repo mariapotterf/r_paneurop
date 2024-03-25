@@ -172,7 +172,7 @@ dat_manag_intensity_cl <-
 # "windthrow"      - int
 # "planting"       - int
 # "deadwood"       - int
-#"anti_browsing"
+# "anti_browsing"
 # "value"         - delete, not necessary
 # "VegType" - vertical layer: regeneration, advRegeneration, Survival
 # "Variable" - "n"   - count
