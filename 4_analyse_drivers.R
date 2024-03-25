@@ -41,11 +41,12 @@ climate           <- fread("outData/climate_18_23.csv")
 spei              <- fread("outData/SPEI.csv")
 distance_to_edge  <- fread("outData/distance_to_edge.csv")
 disturbance_chars <- fread("outData/disturbance_chars.csv")
-soil              <- as.data.frame(terra::vect("rawData/extracted_soil_data/extracted_soil_data.gpkg"))
+soil              <- as.data.frame(terra::vect("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg"))
 terrain           <- fread("outData/terrain.csv")
 
 # get vegetation data
 load("outData/veg.Rdata")
+
 
 # clean up data -----------------------------------------------------------------
 # sum stems first up across vertical groups!!
@@ -53,13 +54,13 @@ load("outData/veg.Rdata")
 # get only samplings
 df_stems_sapl <- stem_dens_ha_cluster_sum %>% 
   filter(VegType == 'Regeneration') %>% 
-  group_by(cluster, manag) %>% 
+  group_by(cluster, management_intensity) %>% 
   summarise(sum_stems = sum(total_stems))# %>% 
 
 # get saplings and juveniles
 df_stems_both <- stem_dens_ha_cluster_sum %>% 
   filter(VegType != 'Survivor') %>% 
-  group_by(cluster, manag) %>% 
+  group_by(cluster, management_intensity) %>% 
   summarise(sum_stems = sum(total_stems))# %>% 
 
 table(stem_dens_species_long$VegType,stem_dens_species_long$Species)
@@ -68,15 +69,44 @@ table(stem_dens_species_long$VegType,stem_dens_species_long$Species)
 # aggregate by cluster: sum up teh species, by height category
 stem_dens_species_cluster_long_share <- stem_dens_species_long %>% 
   ungroup(.) %>% 
-  dplyr::select(-manag) %>% 
-  group_by(cluster, Species, VegType) %>%
+ # dplyr::select(-management_intensity) %>% 
+  group_by(cluster, Species, VegType, management_intensity) %>%
     summarise(stem_density = sum(stem_density))
     
 
-fwrite(stem_dens_species_cluster_long_share, 'vegData_cluster_densities.csv')
+#fwrite(stem_dens_species_cluster_long_share, 'vegData_cluster_densities.csv')
 
 disturbance_chars <- disturbance_chars %>%
   mutate(country = as.character(country))
+
+#left_join(dplyr::filter(spei, year %in% 2018:2023)) #%>% 
+
+#Process SPEI:  get cluster number
+spei <- spei %>% 
+  dplyr::mutate(year  = lubridate::year(date),
+                month = lubridate::month(date)) %>%  
+  dplyr::select(-c(date, -scale)) %>% 
+  mutate(cluster = str_sub(ID, 4, -3))#%>%
+
+
+spei_ID <- spei %>% 
+  ungroup(.) %>% 
+  dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
+  #View()
+  group_by(ID, year) %>%
+  summarise(spei = mean(spei, na.rm = T)) #%>% 
+
+
+spei_cluster <- spei %>% 
+  ungroup(.) %>% 
+  dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
+  #View()
+  group_by(cluster, year) %>%
+  summarise(spei = mean(spei, na.rm = T)) #%>% 
+
+
 
 # merge all predictors together, ID level
 df_predictors <- 
@@ -84,70 +114,518 @@ df_predictors <-
   left_join(dplyr::select(distance_to_edge, c(-country, -dist_ID ))) %>% 
   left_join(dplyr::select(disturbance_chars, c(-region, -country ))) %>% 
   left_join(soil) %>%
-  left_join(dplyr::select(terrain, c(-country, -region))) %>% 
-  mutate(cluster = str_sub(ID, 4, -3)) 
+  left_join(spei_ID) %>% 
+  left_join(dplyr::select(terrain, c(-country, -region, -cluster.x, -cluster.y))) #%>% 
+  #mutate(cluster = str_sub(ID, 4, -3)) 
 
-#fwrite(df_predictors, 'outData/all_predictors.csv')
+length(unique(df_predictors$cluster)) # 957
+anyNA(df_predictors)
+# merge predcitors on cluster level: calculate means
+# keep only temp and prcp: 2021-2023 average
+df_predictors_cluster <- 
+  df_predictors %>% 
+  dplyr::filter(year %in% 2018:2023) %>% 
+  group_by(cluster) %>% 
+  summarise(tmp = mean(tmp, na.rm = T),
+            prec = mean(prec, na.rm = T),
+            tmp_z = mean(tmp_z, na.rm = T),
+            prcp_z = mean(prcp_z, na.rm = T),
+            spei   = mean(spei, na.rm = T),
+            distance = mean(distance, na.rm = T),
+            disturbance_year= as.integer(mean(disturbance_year, na.rm = T)),
+            disturbance_severity= mean(disturbance_severity, na.rm = T),
+            disturbance_agent= as.integer(mean(disturbance_agent, na.rm = T)),
+            elevation = mean(elevation, na.rm = T),
+            #region = mean(tmp, na.rm = T),
+            #country = mean(tmp, na.rm = T),
+            sand_extract= mean(sand_extract, na.rm = T),
+            silt_extract = mean(silt_extract, na.rm = T),
+            clay_extract = mean(clay_extract, na.rm = T),
+            depth_extract = mean(depth_extract, na.rm = T),
+            av.nitro    = mean(av.nitro, na.rm = T),
+            slope   = mean(slope, na.rm = T),
+            aspect= mean(aspect, na.rm = T))
 
+
+df_predictors_ID <- 
+  df_predictors %>% 
+  dplyr::filter(year %in% 2018:2023) %>% 
+  group_by(ID) %>% 
+  summarise(tmp = mean(tmp, na.rm = T),
+            prec = mean(prec, na.rm = T),
+            tmp_z = mean(tmp_z, na.rm = T),
+            prcp_z = mean(prcp_z, na.rm = T),
+            spei   = mean(spei, na.rm = T),
+            distance = mean(distance, na.rm = T),
+            disturbance_year= as.integer(mean(disturbance_year, na.rm = T)),
+            disturbance_severity= mean(disturbance_severity, na.rm = T),
+            disturbance_agent= as.integer(mean(disturbance_agent, na.rm = T)),
+            elevation = mean(elevation, na.rm = T),
+            #region = mean(tmp, na.rm = T),
+            #country = mean(tmp, na.rm = T),
+            sand_extract= mean(sand_extract, na.rm = T),
+            silt_extract = mean(silt_extract, na.rm = T),
+            clay_extract = mean(clay_extract, na.rm = T),
+            depth_extract = mean(depth_extract, na.rm = T),
+            av.nitro    = mean(av.nitro, na.rm = T),
+            slope   = mean(slope, na.rm = T),
+            aspect= mean(aspect, na.rm = T))
+
+
+fwrite(df_predictors_ID, 'outData/all_predictors_ID.csv')
+
+#fwrite(df_predictors_cluster, 'outData/all_predictors_cluster.csv')
+
+# merge with vegetation data
 # select the dominant species per cluster
 df_IVI_max <- df_IVI %>% 
-  dplyr::select(cluster, Species, manag, country,rIVI) %>% 
+  dplyr::select(cluster, Species, country,rIVI) %>% 
   ungroup(.) %>% 
-  group_by(cluster, country, manag) %>% 
+  group_by(cluster, country) %>% 
   filter(rIVI == max(rIVI)) %>% 
   slice(1)
 
 # cluster level
-df_cluster <-
-  df_IVI %>% 
+df_cluster_veg <-
+  df_IVI_max %>% 
   left_join(df_richness) %>%
   left_join(df_vert) %>%
   left_join(df_stems)# %>%
 
+anyNA(df_cluster_veg)
+
+# cluster data share with predictors:
+# rename not necessary predictors for clustering, rename veg variables
+df_cluster_full <- df_cluster_veg %>% 
+  left_join(df_predictors_cluster, by = join_by(cluster)) %>% 
+  ungroup() %>% 
+  dplyr::select(-c(disturbance_year, 
+                   disturbance_agent,
+                   silt_extract, country,
+                   elevation,
+                   slope, aspect)) %>% 
+  dplyr::rename(dominant_species = Species, 
+                stem_density = sum_stems,
+                distance_edge = distance,
+                n_vertical = n_layers)
+  
+
+fwrite(df_cluster_full, 'outData/indicators_for_cluster_analysis.csv')
+
+length(unique(df_cluster$cluster))
+length(unique(df_cluster_full$cluster)) # 849!   - final clusters, 4-5 plots
+length(unique(df_predictors_cluster$cluster))  # 957 - all clusters, from even with less plots
+
 
 # Analysis ------------------------------------------------------------
-# 1. How many clusters are only manag/unmanag/mixed?
-manag_types <- stem_dens_species_long %>%
-  ungroup(.) %>% 
-  dplyr::select(cluster, manag) %>% 
-  group_by(cluster, manag) %>% 
-  distinct(.) %>%
-  ungroup(.) %>% 
-  group_by(cluster) %>% 
-  summarise(type = case_when(
-    all(manag == 'Unmanaged') ~ 'Unmanaged',
-    all(manag == 'Managed') ~ 'Managed',
-    TRUE ~ 'Mixed'
-  )) %>%
-  ungroup(.) %>% 
-  dplyr::select(-cluster) %>% 
-  table()
+# desription of current regeneration state
+# how many clusters do I have by managemnet tpes?
+# how do vegetation variables behave along management cluster?
+
+# What is the current state of teh forest regeneration?
+#  stucture? 
+#    - stem density
+#    - vertical structure
+#  Composition? 
+#    - richness
+#    - species dominance
+#  along managemnet gradient? 
+# H0: presence of regeneration, dominance of teh avanced regeneration
+# higher management intensity, higher species richness
+# higher managemnet, less of teh advanced regeneration - 
+#   due to the salvage logging and following 
+
+# drivers:
+# apply drivers for all 4 veg indicators??
+# effect of climate: 
+#   - higher drought, less regeneration; higher change of delayed regeneration
+
+# effect of disturbance size:
+#   - higher patch size, less regeneration
+#   - higher severity, low regenerations
+
+# environmental condistins;
+#  soil: 
+#    - more stem density at better soil conditions (higher depth, nutrient content)
 
 
-(manag_types)  # 849
+# Make 2d denisty plots: 
 
-#MAN MIX UNM 
-#616 149  84 
+# Merge structure & composition into single space 
 
-# remove 'MIXED' - as they likely have only less plots
 
-cluster_id_keep <- stem_dens_species_long %>%
-  ungroup(.) %>% 
-  dplyr::select(cluster, manag) %>% 
-  group_by(cluster, manag) %>% 
-  distinct(.) %>%
-  ungroup(.) %>% 
-  group_by(cluster) %>% 
-  summarise(type = case_when(
-    all(manag == 'Unmanaged') ~ 'Unmanaged',
-    all(manag == 'Managed') ~ 'Managed',
-    TRUE ~ 'Mixed'
-  )) %>%
-  dplyr::filter(type != 'Mixed') %>% 
-  pull(cluster)
-  #ungroup(.) %>% 
-  #dplyr::select(-cluster) %>% 
-  #table()
+View(df_cluster_full)
+# get summary for the scatter plot, one point is one country & management
+df_summary <- df_cluster_full %>%
+ # group_by(manag) %>% # country, 
+  summarize(
+    rich_mean = median(rIVI, na.rm = TRUE),
+    rich_sd = sd(rIVI, na.rm = TRUE),
+    rich_min = quantile(rIVI, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
+    rich_max = quantile(rIVI, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
+    dens_mean = median(stem_density   , na.rm = TRUE),
+    dens_sd   = sd(stem_density  , na.rm = TRUE),
+    dens_min = quantile(stem_density  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
+    dens_max = quantile(stem_density  , 0.75, na.rm = TRUE), # dens_mean + dens_sd, #
+    .groups = 'drop'
+  )
+
+(df_summary)
+
+
+df_cluster_full %>% 
+  ggplot(aes(y = management_intensity ,
+             x = rIVI))+ 
+  geom_smooth(method = 'loess')
+  
+df_cluster_full %>% 
+    ggplot(aes(y = management_intensity,
+               x = richness))+ 
+    geom_smooth()
+
+df_cluster_full %>% 
+  ggplot(aes(y = management_intensity,
+             x = stem_density))+ 
+  geom_smooth()
+
+df_cluster_full %>% 
+  ggplot(aes(y = management_intensity,
+             x = n_vertical))+ 
+  geom_smooth()
+  
+
+
+
+# prepare plot with raster -------------------------------
+
+library(MASS)
+library(RColorBrewer)
+
+blue_colors <- brewer.pal(5, "Greens")
+
+# Add 'white' at the beginning
+my_colors <- c("white", blue_colors)
+
+# Function to calculate levels
+calculate_levels <- function(density, percentages) {
+  sorted_density <- sort(density, decreasing = TRUE)
+  cum_density <- cumsum(sorted_density) / sum(sorted_density)
+  sapply(percentages, function(p) {
+    sorted_density[max(which(cum_density <= p))]
+  })
+}
+
+
+
+# Define the function to prepare density data --------------------------
+prepare_density_data <- function(df_cluster_full, 
+                                 x = 'rIVI', y = 'stem_density',
+                                 percentages = c(0.50, 0.75, 0.90, 0.99, 1)) {
+  # Calculate 2D density
+  d <- kde2d(df_cluster_full[[x]], df_cluster_full[[y]], n = 300)
+  density_values <- d$z
+  
+  # Set densities outside the range of your data to zero
+  density_values[density_values < 1e-6] <- 0
+  
+  # Calculate the levels for specified percentages
+  levels <- calculate_levels(as.vector(density_values), percentages)
+  
+  # Prepare data for ggplot
+  plot_data <- expand.grid(x = d$x, y = d$y) %>%
+    mutate(density = as.vector(density_values))
+  
+  # Use cut to create factor levels, including one for zero density
+  plot_data$level <- cut(plot_data$density, breaks = c(-Inf, levels, Inf), labels = FALSE, include.lowest = TRUE)
+  
+  return(plot_data)
+}
+
+# make function to produce  2D desity plot
+make_2D_plot <- function(data = plot_data, 
+                         x_var = 'x', # Default column names, can be changed
+                         y_var = 'y', # Default column names, can be changed
+                         x_lab = "X Axis", # Default axis labels, can be customized
+                         y_lab = "Y Axis") {#, # Default axis labels, can be customized) 
+
+  # Convert the y_var argument to a symbol to use in aes()
+  x_var_sym <- rlang::sym(x_var)
+  y_var_sym <- rlang::sym(y_var)
+  
+  p <- ggplot(data) +
+    geom_raster(aes(x = !!x_var_sym, 
+                    y = !!y_var_sym, 
+                    fill = factor(level)), 
+                alpha = 0.8) +
+    scale_fill_manual(values = my_colors,
+                      labels = c("", rev(c("50%", "75%", "90%", "99%", "100%"))),
+                      name = "") +
+    ylab(y_lab) +
+    xlab(x_lab) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA),
+          aspect.ratio = 1,
+          axis.title.x = element_text(size = 10),
+          axis.title.y = element_text(size = 10),
+          legend.title = element_blank(),
+          legend.text = element_text(size = 10),
+          legend.key.size = unit(0.3, "cm"),
+          legend.background = element_blank()) #+
+  
+  return(p)
+}
+
+# plots: each variable against another one --------------------
+# 1. rIVI vs stem_density
+# 2. rIVI vs richness
+# 3. rIVI vs n_vertical
+# 4. stem_density vs richness
+# 5. stem_density vs n_vertical
+# 6. richness vs n_vertical 
+
+
+### rIVI vs sum_stems -----------------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'rIVI', 
+                                     y = 'stem_density')
+
+
+p_IVI_stems <- make_2D_plot(df_plot_data, 
+             x = 'x', # Default column names, can be changed
+             y = 'y', # Default column names, can be changed
+             x_lab = "Importance value [%]", # Default axis labels, can be customized
+             y_lab = "Stem density [n/ha]"  )
+
+(p_IVI_stems)
+### rIVI vs richnes -----------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'rIVI', 
+                                     y = 'richness')
+
+
+p_IVI_richness <- make_2D_plot(df_plot_data, 
+                            x = 'x', # Default column names, can be changed
+                            y = 'y', # Default column names, can be changed
+                            x_lab = "Importance value [%]", # Default axis labels, can be customized
+                            y_lab = "Richness [counts]"  )
+
+
+### rIVI vs vertical -----------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'rIVI', 
+                                     y = 'n_layers')
+
+
+p_IVI_vert <- make_2D_plot(df_plot_data, 
+                               x = 'x', # Default column names, can be changed
+                               y = 'y', # Default column names, can be changed
+                               x_lab = "Importance value [%]", # Default axis labels, can be customized
+                               y_lab = "# vertical layers [counts]"  )
+
+
+
+### rIVI vs vertical -----------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'rIVI', 
+                                     y = 'n_layers')
+
+
+p_IVI_vert <- make_2D_plot(df_plot_data, 
+                           x = 'x', # Default column names, can be changed
+                           y = 'y', # Default column names, can be changed
+                           x_lab = "Importance value [%]", # Default axis labels, can be customized
+                           y_lab = "# vertical layers [counts]"  )
+
+
+
+# DEnsity plot wth management ---------------------------------------------
+###### rIVI vs management ------------------------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'rIVI', 
+                                     y = 'management_intensity')
+
+
+p_IVI_manag <- make_2D_plot(df_plot_data, 
+                           x = 'x', # Default column names, can be changed
+                           y = 'y', # Default column names, can be changed
+                           x_lab = "Importance value [%]", # Default axis labels, can be customized
+                           y_lab = "Management intensity [%]"  )
+
+(p_IVI_manag)
+
+###### richness vs management ------------------------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'richness', 
+                                     y = 'management_intensity')
+
+
+p_richness_manag <- make_2D_plot(df_plot_data, 
+                            x = 'x', # Default column names, can be changed
+                            y = 'y', # Default column names, can be changed
+                            x_lab = "Richness [#]", # Default axis labels, can be customized
+                            y_lab = "Management intensity [%]"  )
+
+(p_richness_manag)
+
+
+
+###### stem_density vs management ------------------------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'stem_density', 
+                                     y = 'management_intensity')
+
+
+p_stem_dens_manag <- make_2D_plot(df_plot_data, 
+                                 x = 'x', # Default column names, can be changed
+                                 y = 'y', # Default column names, can be changed
+                                 x_lab = "Stem density [n/ha]", # Default axis labels, can be customized
+                                 y_lab = "Management intensity [%]"  )
+
+(p_stem_dens_manag)
+
+
+
+
+###### n_vertical vs management ------------------------------------------------
+df_plot_data <- prepare_density_data(df_cluster_full, 
+                                     x = 'n_vertical', 
+                                     y = 'management_intensity')
+
+
+p_vertical_manag <- make_2D_plot(df_plot_data, 
+                                  x = 'x', # Default column names, can be changed
+                                  y = 'y', # Default column names, can be changed
+                                  x_lab = "Vertical layers [#]", # Default axis labels, can be customized
+                                  y_lab = "Management intensity [%]"  )
+
+(p_vertical_manag)
+
+
+
+# Merge plots indicators vs management intensity --------------------------
+
+ggarrange(p_IVI_manag, p_richness_manag, 
+          p_stem_dens_manag, p_vertical_manag, 
+          nrow = 2, ncol = 2,
+          common.legend = T, #legend.position = 'right', 
+          align = 'hv')
+
+
+
+
+
+
+
+
+
+
+
+# Calculate 2D density
+d <- kde2d(df_cluster_full$rIVI, df_cluster_full$sum_stems, n = 500)
+density_values <- d$z
+
+# Set densities outside the range of your data to zero
+density_values[density_values < 1e-6] <- 0
+
+# Calculate the levels for specified percentages
+levels <- calculate_levels(as.vector(density_values), c(0.50, 0.75, 0.90, 0.99, 1))
+
+# Prepare data for ggplot
+plot_data <- expand.grid(rIVI = d$x, sum_stems = d$y)
+plot_data$density <- as.vector(density_values)
+
+# Use cut to create factor levels, including one for zero density
+plot_data$level <- cut(plot_data$density, breaks = c(-Inf, levels, Inf), labels = FALSE, include.lowest = TRUE)
+
+# Define colors (from red to yellow, plus white for zero density)
+
+
+
+p.org.space.stems.IVI <- ggplot(plot_data) +
+  geom_raster(aes(x = x, y = y, fill = factor(level)), alpha = 0.8) +
+  scale_fill_manual(values = my_colors,
+                    labels = c("", rev(c("50%", "75%", "90%", "99%", "100%"))),
+                    name = "Density") +
+  ylab('Stem density') +
+  xlab(bquote('Species dominance (rIVI)')) +
+  theme_minimal() +
+  #facet_wrap(.~country, scales = 'free') + 
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA),
+        aspect.ratio = 1,
+        axis.title.x = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.key.size = unit(0.3, "cm"),
+        legend.background = element_blank()) #+
+
+#scale_color_brewer(palette = "Set1")  
+p.org.space.stems.IVI
+
+# for vertical vs richness -------------------------------------------
+# Calculate 2D density
+d <- kde2d(df_org_space$richness, df_org_space$n_layers, n = 500)
+density_values <- d$z
+
+# Set densities outside the range of your data to zero
+density_values[density_values < 1e-6] <- 0
+
+# Calculate the levels for specified percentages
+levels <- calculate_levels(as.vector(density_values), c(0.50, 0.75, 0.90, 0.99, 1))
+
+# Prepare data for ggplot
+plot_data <- expand.grid(richness = d$x, n_layers = d$y)
+plot_data$density <- as.vector(density_values)
+
+# Use cut to create factor levels, including one for zero density
+plot_data$level <- cut(plot_data$density, breaks = c(-Inf, levels, Inf), labels = FALSE, include.lowest = TRUE)
+
+# Define colors (from red to yellow, plus white for zero density)
+
+library(RColorBrewer)
+blue_colors <- brewer.pal(5, "Greens")
+
+# Add 'white' at the beginning
+my_colors <- c("white", blue_colors)
+
+
+
+
+
+p.org.sp.rich.vert <- ggplot(plot_data) +
+  geom_raster(aes(x = richness, y = n_layers, fill = factor(level)), alpha = 0.8) +
+  scale_fill_manual(values = my_colors,
+                    labels = c("", rev(c("50%", "75%", "90%", "99%", "100%"))),
+                    name = "Density") +
+  ylab('Vert. layers [#]') +
+  xlab(bquote('Richness [#]')) +
+  theme_minimal() +
+  #facet_wrap(.~country, scales = 'free') + 
+  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA),
+        aspect.ratio = 1,
+        axis.title.x = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.key.size = unit(0.3, "cm"),
+        legend.background = element_blank()) #+
+#scale_color_brewer(palette = "Set1")  
+
+ggarrange(p.org.space.stems.IVI, p.org.sp.rich.vert,  ncol = 2, align = 'hv', common.legend = T, 
+          legend = 'right' )
+
+# 
+
+
 
 
 
@@ -420,7 +898,7 @@ ggplot(layer_frequencies, aes(x = manag, y = n, fill = layers)) +
 df_predictors_clust <- df_predictors %>% 
   dplyr::filter(cluster %in% cluster_id_keep) %>% 
   group_by(cluster) %>%
-  filter(year %in% 2021:2023) %>% 
+  filter(year %in% 2018:2023) %>% 
   summarise(tmp                  = mean(tmp, na.rm = T),
             prec                 = mean(prec, na.rm = T), 
             tmp_z                = mean(tmp_z, na.rm = T),
@@ -447,22 +925,7 @@ length(unique(df_predictors_clust$cluster))
 # eg ID 17_21_114_1
 
 
-# get cluster number
-spei <- spei %>% 
-  dplyr::mutate(year  = lubridate::year(date),
-                month = lubridate::month(date)) %>%  
-  dplyr::select(-c(date, -scale)) %>% 
-  mutate(cluster = str_sub(ID, 4, -3))#%>%
-
-spei_sub <- spei %>% 
-    ungroup(.) %>% 
-    dplyr::filter(year %in% 2018:2020 & month %in% 4:9) %>% # select just vegetation season
-  dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
-  #View()
-    group_by(cluster) %>%
-    summarise(spei = mean(spei, na.rm = T)) #%>% 
-    
-    
+   
 # join to stems counts: filter, as from veg data I have already excluded Italy and teh uncomplete clusters
 df_fin <- #df_stems_both %>%
   df_stems %>% 
@@ -782,162 +1245,4 @@ ggarrange(p.country.density, p.country.richness)
 
 #### Stem density vs IVI -----------------------------------------------------
 
-# Merge structure & composition into single space 
-
-df_org_space <- 
-  df_stems %>% 
-  left_join(df_IVI_max, by = join_by(manag, cluster)) %>% 
-  right_join(dplyr::select(df_richness, -country), by = join_by(manag, cluster)) %>% 
-  inner_join(dplyr::select(df_vert, -sum_stems, -country), by = join_by(manag, cluster)) %>% 
-  dplyr::filter(cluster %in% cluster_id_keep ) #%>% 
-  #mutate(n_layers = case_when(is.na(n_layers)~0))
-
-View(df_org_space)
-# get summary for the scatter plot, one point is one country & management
-df_summary <- df_org_space %>%
-  group_by(manag) %>% # country, 
-  summarize(
-    rich_mean = median(rIVI, na.rm = TRUE),
-    rich_sd = sd(rIVI, na.rm = TRUE),
-    rich_min = quantile(rIVI, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
-    rich_max = quantile(rIVI, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
-    dens_mean = median(sum_stems   , na.rm = TRUE),
-    dens_sd   = sd(sum_stems  , na.rm = TRUE),
-    dens_min = quantile(sum_stems  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
-    dens_max = quantile(sum_stems  , 0.75, na.rm = TRUE), # dens_mean + dens_sd, #
-    .groups = 'drop'
-  )
-
-(df_summary)
-
-
-df_org_space %>% 
-  ggplot(aes(x = rIVI,
-             y = sum_stems ,
-             color = factor(manag)))+ 
-  geom_point() +
-  facet_wrap(.~country)
-
-
-
-# prepare plot with raster
-
-library(MASS)
-
-# Function to calculate levels
-calculate_levels <- function(density, percentages) {
-  sorted_density <- sort(density, decreasing = TRUE)
-  cum_density <- cumsum(sorted_density) / sum(sorted_density)
-  sapply(percentages, function(p) {
-    sorted_density[max(which(cum_density <= p))]
-  })
-}
-
-# Calculate 2D density
-d <- kde2d(df_org_space$rIVI, df_org_space$sum_stems, n = 500)
-density_values <- d$z
-
-# Set densities outside the range of your data to zero
-density_values[density_values < 1e-6] <- 0
-
-# Calculate the levels for specified percentages
-levels <- calculate_levels(as.vector(density_values), c(0.50, 0.75, 0.90, 0.99, 1))
-
-# Prepare data for ggplot
-plot_data <- expand.grid(rIVI = d$x, sum_stems = d$y)
-plot_data$density <- as.vector(density_values)
-
-# Use cut to create factor levels, including one for zero density
-plot_data$level <- cut(plot_data$density, breaks = c(-Inf, levels, Inf), labels = FALSE, include.lowest = TRUE)
-
-# Define colors (from red to yellow, plus white for zero density)
-
-library(RColorBrewer)
-blue_colors <- brewer.pal(5, "Greens")
-
-# Add 'white' at the beginning
-my_colors <- c("white", blue_colors)
-
-
-
-
-
-p.org.space.stems.IVI <- ggplot(plot_data) +
-  geom_raster(aes(x = rIVI, y = sum_stems, fill = factor(level)), alpha = 0.8) +
-  scale_fill_manual(values = my_colors,
-                    labels = c("", rev(c("50%", "75%", "90%", "99%", "100%"))),
-                    name = "Density") +
-   ylab('Stem density') +
-  xlab(bquote('Species dominance (rIVI)')) +
-  theme_minimal() +
-  #facet_wrap(.~country, scales = 'free') + 
-  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.background = element_rect(fill = "white", colour = NA),
-        aspect.ratio = 1,
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 10),
-        legend.key.size = unit(0.3, "cm"),
-        legend.background = element_blank()) #+
-#scale_color_brewer(palette = "Set1")  
-
- 
-# for vertical vs richness -------------------------------------------
-# Calculate 2D density
-d <- kde2d(df_org_space$richness, df_org_space$n_layers, n = 500)
-density_values <- d$z
-
-# Set densities outside the range of your data to zero
-density_values[density_values < 1e-6] <- 0
-
-# Calculate the levels for specified percentages
-levels <- calculate_levels(as.vector(density_values), c(0.50, 0.75, 0.90, 0.99, 1))
-
-# Prepare data for ggplot
-plot_data <- expand.grid(richness = d$x, n_layers = d$y)
-plot_data$density <- as.vector(density_values)
-
-# Use cut to create factor levels, including one for zero density
-plot_data$level <- cut(plot_data$density, breaks = c(-Inf, levels, Inf), labels = FALSE, include.lowest = TRUE)
-
-# Define colors (from red to yellow, plus white for zero density)
-
-library(RColorBrewer)
-blue_colors <- brewer.pal(5, "Greens")
-
-# Add 'white' at the beginning
-my_colors <- c("white", blue_colors)
-
-
-
-
-
-p.org.sp.rich.vert <- ggplot(plot_data) +
-  geom_raster(aes(x = richness, y = n_layers, fill = factor(level)), alpha = 0.8) +
-  scale_fill_manual(values = my_colors,
-                    labels = c("", rev(c("50%", "75%", "90%", "99%", "100%"))),
-                    name = "Density") +
-  ylab('Vert. layers [#]') +
-  xlab(bquote('Richness [#]')) +
-  theme_minimal() +
-  #facet_wrap(.~country, scales = 'free') + 
-  theme(panel.border = element_rect(color = "black", fill = NA, linewidth = 0.7),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.background = element_rect(fill = "white", colour = NA),
-        aspect.ratio = 1,
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 10),
-        legend.key.size = unit(0.3, "cm"),
-        legend.background = element_blank()) #+
-#scale_color_brewer(palette = "Set1")  
-
-ggarrange(p.org.space.stems.IVI, p.org.sp.rich.vert,  ncol = 2, align = 'hv', common.legend = T, 
-          legend = 'right' )
-
-#           
+          
