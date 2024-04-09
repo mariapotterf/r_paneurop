@@ -51,7 +51,9 @@ dat <- dat %>%
     manag    = case_when(
       logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed', # 'or conditions'  - if one of the management type is present, then it is managed
       TRUE ~ 'Unmanaged'),  # Default case
-    manag_intensity = logging_trail + clear + grndwrk + planting + anti_browsing  # get management intensity: rate on cluster cluster level
+    manag_intensity      = logging_trail + clear + grndwrk + planting + anti_browsing,  # get management intensity: rate on cluster cluster level
+    salvage_intensity    = logging_trail + clear + grndwrk,  # get salvage intensity: how much the site was altered by harvest?rate on cluster cluster level
+    protection_intensity = planting + anti_browsing  # get were trees plantedor even fenced? rate on cluster cluster level
 )
 
 
@@ -108,23 +110,30 @@ length(unique(dat_manag_intensity_cl$cluster))
 length(unique(dat$cluster))
 
 setdiff( unique(dat_manag_intensity_cl$cluster), unique(dat$cluster))
-setdiff(c('a'), c('a',  'b'))
 
 
 # Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
 dat_manag_intensity_cl <- 
   dat %>% 
-  dplyr::select(ID, cluster, manag_intensity) %>% 
+  dplyr::select(ID, cluster, manag_intensity, salvage_intensity, protection_intensity,n_plots ) %>% 
   distinct() %>% 
   group_by(cluster) %>% 
-  mutate(manag_int_cluster = sum(manag_intensity, na.rm =T)
+  mutate(n_plots = min(n_plots),
+         manag_int_cluster  = sum(manag_intensity, na.rm =T),
+         salvage_int_cluster = sum(salvage_intensity, na.rm =T),
+         protect_int_cluster = sum(protection_intensity, na.rm =T)
   ) %>% 
   ungroup() %>% 
-  dplyr::select(cluster, manag_int_cluster) %>% 
+  dplyr::select(cluster, n_plots , manag_int_cluster, salvage_int_cluster,protect_int_cluster) %>% 
   distinct() %>% 
-  mutate(scaled_manag_int_cluster = manag_int_cluster / 25) %>% # scale values between 0-1
-  rename(management_intensity = scaled_manag_int_cluster) %>% 
-  dplyr::select(cluster, management_intensity) 
+  mutate(scaled_manag_int_cluster = manag_int_cluster / (n_plots *5),
+         scaled_salvage_int_cluster = salvage_int_cluster / (n_plots *3),
+         scaled_protect_int_cluster = protect_int_cluster / (n_plots *2)) %>% # scale values between 0-1
+  rename(management_intensity  = scaled_manag_int_cluster,
+         salvage_intensity     = scaled_salvage_int_cluster,
+         protection_intensity  = scaled_protect_int_cluster) %>% 
+  dplyr::select(cluster, management_intensity, salvage_intensity, protection_intensity)  #%>% 
+    #View()
 
 
 
@@ -150,7 +159,7 @@ dat_manag_intensity_cl <-
 #16   slovenia          23
 #17   italy             21
 #18   switzerland       22
-#19   france            24
+#19   france            24, 27
 
 
 
