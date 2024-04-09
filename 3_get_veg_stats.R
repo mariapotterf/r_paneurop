@@ -84,17 +84,21 @@ dat <- dat %>%
 #19 france
 
 
+#change names of veg classes
+dat <- dat %>% 
+  mutate(VegType = case_when(
+    VegType == "Regeneration" ~ "Saplings",  
+    VegType == "advRegeneration" ~ "Juveniles",
+    VegType == "Survivor" ~ "Mature",
+    TRUE ~ NA_character_      # Fallback in case of unidentified country_id
+  ))
+
 
 # 13_123 - example of mixed cluster
 
 
 # filter only clusters that have >4 points
 
-# keep clusters with 4, as some disturbace plots were very small
-# remove if there is less records
-dat <- dat %>% 
-  right_join(df_master, by = join_by(country, region, group, cluster)) %>%
-  filter(n_plots > 3)
   
 
 # Create master df with empty plots - eg no trees found on them
@@ -106,6 +110,13 @@ df_master <-
   summarize(n_plots = n())
 
 length(unique(df_master$cluster))
+
+
+# keep clusters with 4, as some disturbace plots were very small
+# remove if there is less records
+dat <- dat %>% 
+  right_join(df_master, by = join_by(country, region, group, cluster)) %>%
+  filter(n_plots > 3)
 
 
 # Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
@@ -382,25 +393,25 @@ unique(dat$Variable)
 # add dbh based on teh vertical layer (colum Variable == 'dbh'), as advRegen and Regen do not have this value
 # complete teh dbh info by vertical class
 dbh_mature <- dat %>%
-  filter(VegType == 'Survivor') %>% 
+  filter(VegType == 'Mature') %>% 
   filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
   mutate(dbh = case_when(
     #VegType == 'advRegeneration' ~ 5,
-    value == 4 & VegType == 'Survivor' ~ 70,
-    value == 3 & VegType == 'Survivor' ~ 50,
-    value == 2 & VegType == 'Survivor' ~ 30,
-    value == 1 & VegType == 'Survivor' ~ 15,
+    value == 4 & VegType == 'Mature' ~ 70,
+    value == 3 & VegType == 'Mature' ~ 50,
+    value == 2 & VegType == 'Mature' ~ 30,
+    value == 1 & VegType == 'Mature' ~ 15,
     TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
   dplyr::select(-value)
   
 dbh_advanced <- 
   dat %>%
-  filter(VegType == 'advRegeneration') %>% 
+  filter(VegType == 'Juveniles') %>% 
   filter(Variable == 'n') %>% 
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
-  mutate(dbh = case_when(!is.na(value) & VegType == 'advRegeneration' ~ 5,
+  mutate(dbh = case_when(!is.na(value) & VegType == 'Juveniles' ~ 5,
     TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
   dplyr::select(-value)
@@ -408,11 +419,11 @@ dbh_advanced <-
 # account for the regeneration as basal area: use value of 1 mm
 dbh_regen <- 
   dat %>%
-  filter(VegType == 'Regeneration') %>% 
+  filter(VegType == 'Saplings') %>% 
   filter(Variable == 'n') %>% 
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
   #mutate(dbh = NA)  %>% 
-  mutate(dbh = case_when(!is.na(value) & VegType == 'Regeneration' ~ 0.01,  # 0.1 mm
+  mutate(dbh = case_when(!is.na(value) & VegType == 'Saplings' ~ 0.01,  # 0.1 mm
                          TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
   dplyr::select(-value)
