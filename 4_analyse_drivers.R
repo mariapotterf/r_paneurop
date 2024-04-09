@@ -636,9 +636,11 @@ stem_dens_species_long %>%
   ungroup(.) %>% 
   mutate(sum_vegType = sum(sum_stems),
          share       = sum_stems/sum_vegType*100) %>% 
- arrange(desc(share)) %>% 
-  View()
+ arrange(desc(share)) #%>% 
+  #View()
 
+library(ggmosaic)
+library(treemapify)
 
 stem_dens_species_long %>% 
    group_by(Species, VegType) %>% 
@@ -647,7 +649,16 @@ stem_dens_species_long %>%
   group_by(VegType) %>% 
   mutate(sum_vegType = sum(sum_stems),
          share       = sum_stems/sum_vegType*100) %>%
-slice_max(order_by = share, n = 5)
+slice_max(order_by = share, n = 10) %>% 
+  ggplot(aes(fill = Species, 
+             area = sum_stems ,
+             label = paste(Species, "\n", round(share,0)))) +
+  geom_treemap() +
+geom_treemap_text(colour ="white", place = "centre") +
+  facet_grid(~VegType)
+ # geom_mosaic()
+  #geom_mosaic(aes(x = product(VegType), 
+  #                fill = do_you_recline))
 
 
 
