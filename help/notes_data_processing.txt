@@ -51,3 +51,9 @@ mutate(country = case_when(
 #17   italy             21
 #18   switzerland       22
 #19   france            24, 27
+
+missing aspect and slope data for country_region:
+ 11_18: 302 records
+ 19_24: 269 records + 10 (belgium) + 15 (luxemb)
+
+Ttal row:# total rows: 4647 (terrain, dem)
