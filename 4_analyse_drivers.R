@@ -5,6 +5,8 @@
 # output file
 # 
 
+gc()
+
 # Libs --------------------------------------------------------------------------
 
 library(data.table)
@@ -35,7 +37,7 @@ library(emmeans) #post hoc for categorical predictors
 library(AER)  # for hurdle model
 
 
-# read data --------------------------------------------------------------------
+### read data --------------------------------------------------------------------
 
 climate           <- fread("outData/climate_18_23.csv")
 spei              <- fread("outData/SPEI.csv")
@@ -48,7 +50,7 @@ terrain           <- fread("outData/terrain.csv")
 load("outData/veg.Rdata")
 
 
-# clean up data -----------------------------------------------------------------
+### clean up data -----------------------------------------------------------------
 # sum stems first up across vertical groups!!
 
 # get only samplings
@@ -207,7 +209,9 @@ df_cluster_full <- df_cluster_veg %>%
   dplyr::rename(dominant_species = Species, 
                 stem_density = sum_stems,
                 distance_edge = distance,
-                n_vertical = n_layers)
+                n_vertical = n_layers) %>% 
+  left_join(dat_manag_intensity_cl, by = join_by(cluster, management_intensity))# %>% 
+  
   
 
 fwrite(df_cluster_full, 'outData/indicators_for_cluster_analysis.csv')
@@ -215,6 +219,8 @@ fwrite(df_cluster_full, 'outData/indicators_for_cluster_analysis.csv')
 length(unique(df_cluster$cluster))
 length(unique(df_cluster_full$cluster)) # 849!   - final clusters, 4-5 plots
 length(unique(df_predictors_cluster$cluster))  # 957 - all clusters, from even with less plots
+
+cluster_n <- length(unique(df_cluster_full$cluster))
 
 
 # Analysis ------------------------------------------------------------
@@ -254,7 +260,7 @@ length(unique(df_predictors_cluster$cluster))  # 957 - all clusters, from even w
 # Merge structure & composition into single space 
 
 
-View(df_cluster_full)
+#View(df_cluster_full)
 # get summary for the scatter plot, one point is one country & management
 df_summary <- df_cluster_full %>%
  # group_by(manag) %>% # country, 
@@ -273,35 +279,44 @@ df_summary <- df_cluster_full %>%
 (df_summary)
 
 
-# test general trends of vegetation along management gradient: -------------------------------
+### explore general trends of vegetation along management gradient: -------------------------------
 p1 <- df_cluster_full %>% 
   ggplot(aes(x = management_intensity ,
              y = rIVI))+ 
   geom_jitter(alpha = 0.5) +
-  geom_smooth(method = 'loess')  
+  geom_smooth(method = 'loess') +
+  theme_bw() +
+  theme(aspect.ratio = 1) 
   
   
 p2 <- df_cluster_full %>% 
     ggplot(aes(x = management_intensity,
                y = richness))+ 
   geom_jitter(alpha = 0.5) +
-    geom_smooth()
+    geom_smooth(method = 'loess')+
+  theme_bw() +
+  theme(aspect.ratio = 1) 
 
 p3 <- df_cluster_full %>% 
   ggplot(aes(x = management_intensity,
              y = stem_density))+ 
   geom_jitter(alpha = 0.5) +
-  geom_smooth()
+  geom_smooth(method = 'loess')+
+  theme_bw() +
+  theme(aspect.ratio = 1) 
 
 p4 <- df_cluster_full %>% 
   ggplot(aes(x = management_intensity,
              y = n_vertical))+
   geom_jitter(alpha = 0.5) +
-  geom_smooth()
+  geom_smooth(method = 'loess')+
+ 
+  theme_bw() +
+  theme(aspect.ratio = 1) 
   
 
 
-ggarrange(p1, p2, p3,p4, nrow = 2, ncol = 2)
+ggarrange(p1, p2, p3,p4, nrow = 2, ncol = 2, align = 'hv')
 
 
 # try simple glm: values between 0-1 - use beta distribution:
@@ -321,7 +336,7 @@ ggarrange(p1, p2, p3,p4, nrow = 2, ncol = 2)
 
 
 
-# prepare plot with raster -------------------------------
+###### prepare plot with raster -------------------------------
 
 library(MASS)
 library(RColorBrewer)
@@ -342,7 +357,7 @@ calculate_levels <- function(density, percentages) {
 
 
 
-# Define the function to prepare density data --------------------------
+##### Define the function to prepare density data --------------------------
 prepare_density_data <- function(df_cluster_full, 
                                  x = 'rIVI', y = 'stem_density',
                                  percentages = c(0.25, 0.50, 0.75, 0.90, 1)) {
@@ -403,7 +418,7 @@ make_2D_plot <- function(data = plot_data,
   return(p)
 }
 
-# Density plots: each variable against another one --------------------
+##### Density plots: each variable against another one --------------------
 # 1. rIVI vs stem_density
 # 2. rIVI vs richness
 # 3. rIVI vs n_vertical
@@ -412,7 +427,7 @@ make_2D_plot <- function(data = plot_data,
 # 6. richness vs n_vertical 
 
 
-### rIVI vs sum_stems -----------------------------------------
+######### rIVI vs sum_stems 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      x = 'stem_density',
                                      y = 'rIVI')
@@ -423,7 +438,7 @@ p_IVI_stems <- make_2D_plot(df_plot_data,
              y_lab = "Importance value [%]")
 
 (p_IVI_stems)
-### rIVI vs richnes -----------------------------------
+####### rIVI vs richnes
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      x = 'rIVI', 
                                      y = 'richness')
@@ -434,7 +449,7 @@ p_IVI_richness <- make_2D_plot(df_plot_data,
                             y_lab = "Richness [counts]"  )
 
 
-### rIVI vs vertical -----------------------------------
+####### rIVI vs vertical 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      x = 'rIVI', 
                                      y = 'n_vertical')
@@ -446,7 +461,7 @@ p_IVI_vert <- make_2D_plot(df_plot_data,
 
 
 
-### stem_density vs richness -----------------------------------
+####### stem_density vs richness 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      x = 'stem_density', 
                                      y = 'richness')
@@ -458,7 +473,7 @@ p_dens_richness <- make_2D_plot(df_plot_data,
 
 
 
-### stem_density vs n_vertcal -----------------------------------
+####### stem_density vs n_vertcal 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      x = 'stem_density', 
                                      y = 'n_vertical')
@@ -469,7 +484,7 @@ p_dens_vertical <- make_2D_plot(df_plot_data,
                                 y_lab = "# vertical layers [counts]"  )
 
 
-### n_vertical vs richness -----------------------------------
+####### n_vertical vs richness 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      x = 'n_vertical', 
                                      y = 'richness')
@@ -486,32 +501,28 @@ ggarrange(p_IVI_stems,
           p_IVI_richness,
           p_dens_richness,
           p_dens_vertical,
-          p_vertical_richness, nrow = 2, ncol = 3, common.legend = T, legend = 'bottom', align = 'hv')
-
-# DEnsity plot wth management ---------------------------------------------
-###### rIVI vs management ------------------------------------------------
+          p_vertical_richness, nrow = 2, ncol = 3, common.legend = T, legend = 'bottom', align = 'hv',
+          labels = c("[a]","[b]","[c]","[d]","[e]","[f]"))
+#### DEnsity plot wth management 
+###### rIVI vs management 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      y = 'rIVI', 
                                      x = 'management_intensity')
 
 
 p_IVI_manag <- make_2D_plot(df_plot_data, 
-                          # x = 'x', # Default column names, can be changed
-                          # y = 'y', # Default column names, can be changed
-                           y_lab = "Importance value [%]", # Default axis labels, can be customized
-                           x_lab = "Management intensity [%]"  )
+                            y_lab = "Importance value [%]", # Default axis labels, can be customized
+                            x_lab = "Management intensity [%]"  )
 
 (p_IVI_manag)
 
-###### richness vs management ------------------------------------------------
+###### richness vs management 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      y = 'richness', 
                                      x = 'management_intensity')
 
 
 p_richness_manag <- make_2D_plot(df_plot_data, 
-                           # x = 'x', # Default column names, can be changed
-                           # y = 'y', # Default column names, can be changed
                             y_lab = "Richness [#]", # Default axis labels, can be customized
                             x_lab = "Management intensity [%]"  )
 
@@ -519,15 +530,13 @@ p_richness_manag <- make_2D_plot(df_plot_data,
 
 
 
-###### stem_density vs management ------------------------------------------------
+###### stem_density vs management
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      y = 'stem_density', 
                                      x = 'management_intensity')
 
 
 p_stem_dens_manag <- make_2D_plot(df_plot_data, 
-                                # x = 'x', # Default column names, can be changed
-                                # y = 'y', # Default column names, can be changed
                                  y_lab = "Stem density [n/ha]", # Default axis labels, can be customized
                                  x_lab = "Management intensity [%]"  )
 
@@ -536,48 +545,46 @@ p_stem_dens_manag <- make_2D_plot(df_plot_data,
 
 
 
-###### n_vertical vs management ------------------------------------------------
+###### n_vertical vs management 
 df_plot_data <- prepare_density_data(df_cluster_full, 
                                      y = 'n_vertical', 
                                      x = 'management_intensity')
 
 
 p_vertical_manag <- make_2D_plot(df_plot_data, 
-                                 # x = 'x', # Default column names, can be changed
-                                 # y = 'y', # Default column names, can be changed
-                                  y_lab = "Vertical layers [#]", # Default axis labels, can be customized
-                                  x_lab = "Management intensity [%]"  )
+                                 y_lab = "Vertical layers [#]", # Default axis labels, can be customized
+                                 x_lab = "Management intensity [%]"  )
 
 (p_vertical_manag)
 
 
 
-# Merge plots indicators vs management intensity --------------------------
+# Merge plots indicators vs management intensity 
 
 ggarrange(p_IVI_manag, p_richness_manag, 
           p_stem_dens_manag, p_vertical_manag, 
           nrow = 2, ncol = 2,
           common.legend = T, #legend.position = 'right', 
-          align = 'hv')
+          align = 'hv',
+          labels = c("[a]", "[b]","[c]","[d]"))
 
 
 
 
-# get summary table per quantiles -------------------------------------------------
-
-# Summary table  ----------------------------------------------------------
+##### get summary table per quantiles -------------------------------------------------
 
 # Represent results using quantiles, as they are skewed?
-qntils = c(0, 0.25, 0.5, 0.75, 1)
+qntils = c(0, 0.01, 0.25, 0.5, 0.75, 0.90, 1)
 
 qs_dat_fin <- 
   df_cluster_full %>% 
   ungroup(.) %>% 
   #filter(year %in% 2015:2021) %>% 
-  dplyr::reframe(rIVI            = quantile(rIVI, qntils, na.rm = T ),
-                 richness        = quantile(richness, qntils, na.rm = T ),
-                 stem_density    = quantile(stem_density , qntils, na.rm = T ),
-                 n_vertical      = quantile(n_vertical, qntils, na.rm = T )) %>% 
+  dplyr::reframe(stem_density    = quantile(stem_density , qntils, na.rm = T ),
+                 n_vertical      = quantile(n_vertical, qntils, na.rm = T ),
+                 rIVI            = quantile(rIVI, qntils, na.rm = T ),
+                 richness        = quantile(richness, qntils, na.rm = T )#,
+                 ) %>% 
   t() %>%
   round(1) %>% 
   as.data.frame()
@@ -588,10 +595,11 @@ qs_dat_fin <-
 means_dat_fin <- 
   df_cluster_full %>% 
   ungroup(.) %>% 
-  dplyr::reframe(rIVI            = mean(rIVI,na.rm = T ),
-                 richness        = mean(richness, na.rm = T ),
-                 stem_density    = mean(stem_density , na.rm = T ),
-                 n_vertical      = mean(n_vertical, na.rm = T )) %>% 
+  dplyr::reframe(stem_density    = mean(stem_density , na.rm = T ),
+                 n_vertical      = mean(n_vertical, na.rm = T ),
+                 rIVI            = mean(rIVI,na.rm = T ),
+                 richness        = mean(richness, na.rm = T )
+                 ) %>% 
   t() %>%
   round(1) %>% 
   as.data.frame() 
@@ -620,6 +628,30 @@ sjPlot::tab_df(summary_out,
 # 2. species composition per stems: saplings vs juveniles?? --------------
 # how many plots with Mature trees?
 # 
+
+# get overall number for the species compositions:
+stem_dens_species_long %>% 
+ group_by(Species) %>% 
+  summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
+  ungroup(.) %>% 
+  mutate(sum_vegType = sum(sum_stems),
+         share       = sum_stems/sum_vegType*100) %>% 
+ arrange(desc(share)) %>% 
+  View()
+
+
+stem_dens_species_long %>% 
+   group_by(Species, VegType) %>% 
+  summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
+  ungroup() %>% 
+  group_by(VegType) %>% 
+  mutate(sum_vegType = sum(sum_stems),
+         share       = sum_stems/sum_vegType*100) %>%
+slice_max(order_by = share, n = 5)
+
+
+
+
 dom_species <- stem_dens_species_long %>% 
   filter(VegType != 'Survivor' ) %>%  # Survivors: on 191
   group_by(Species, VegType) %>% 
@@ -627,60 +659,59 @@ dom_species <- stem_dens_species_long %>%
   ungroup(.) %>% 
   group_by(VegType) %>% 
   mutate(sum_vegType = sum(sum_stems),
-         share = sum_stems/sum_vegType*100) #%>% 
+         share       = sum_stems/sum_vegType*100) #%>% # 'share by species' is calculated within the vertical type group 
+
+table(dom_species$Species,dom_species$VegType)
 
 # dominant species by country?
 dom_species_country <- 
   stem_dens_species_long %>% 
-  dplyr::filter(cluster %in% cluster_id_keep) %>% 
   filter(VegType != 'Survivor' ) %>%  # Survivors: on 191
-  group_by(Species, VegType, manag, country ) %>% 
+  group_by(Species, VegType, country ) %>% 
   summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
   ungroup(.) %>% 
-  group_by(VegType,manag, country) %>% 
+  group_by(VegType,country) %>% 
   mutate(sum_vegType = sum(sum_stems),
-         share = sum_stems/sum_vegType*100)
+         share       = sum_stems/sum_vegType*100)
 
 
 
 # SElect the 5 species with teh highest share per management, vertical structure
 top_species_per_country <- dom_species_country %>%
   ungroup(.) %>% 
-  group_by(country, VegType, manag) %>%
+  group_by(country, VegType) %>%
   arrange(desc(share)) %>%  # Arrange in descending order of share within each group
   slice_max(order_by = share, n = 5)  # Select top 5 species with max share in each group
 
-View(top_species_per_country)
+#View(top_species_per_country)
 
 
-
-# how many species in total?
-distinct_species_per_manag <- dom_species %>%
-  filter(sum_stems > 0) %>%
-  group_by(manag) %>%
-  summarise(distinct_species_count = n_distinct(Species))
-
-distinct_species_per_manag
-
-# SElect the 5 species with teh highest share per management, vertical structure
+# SElect the 5 species with teh highest share per vertical structure
 top_species_per_group <- dom_species %>%
-  group_by(VegType, manag) %>%
+  group_by(VegType) %>%
   arrange(desc(share)) %>%  # Arrange in descending order of share within each group
-  slice_max(order_by = share, n = 5)  # Select top 5 species with max share in each group
+  slice_max(order_by = share, n = 10)  # Select top 10 species with max share in each group
 
 (top_species_per_group)
 
 # see all species
 top_species_per_group %>% 
+  mutate(Species = factor(Species, levels = unique(Species[order(share, decreasing = TRUE)]))) %>%
+  # arrange(desc(share)) %>% 
   #filter(
   #dplyr::filter(share > 1) %>% 
-  ggplot(aes(x = manag,
+  ggplot(aes(x = Species,
              y = share,
-             group = VegType,
-             fill = Species)) +
-  geom_bar(stat = "identity")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 1, hjust=1)) +
-  facet_grid(.~VegType)
+             #group = VegType,
+             fill = VegType)) +
+  geom_bar(stat = "identity", position = position_dodge())+
+  labs(xlab = '',
+       ylab = 'Stem share/category [%]') +
+  facet_grid(.~VegType) + 
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0, hjust=0.5),
+        legend.position = 'bottom') #+
+  
   
   #geom_col('')
 
@@ -695,7 +726,7 @@ top_species_per_group <- top_species_per_group %>%
 
 
 # Create a bar plot with ordered categories
-ggplot(top_species_per_group, aes(x = manag, y = share, fill = Species)) +
+ggplot(top_species_per_group, aes(x = VegType, y = share, fill = Species)) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
   geom_text(aes(label = round(share), y = share), 
             position = position_dodge(width = 0.9), 
@@ -741,6 +772,44 @@ dom_species %>%
 #geom_col('')
 
 
+
+
+# Descriptive tables  -----------------------------------------------------------
+
+# Richness desc 
+
+# decrsibe richness: how many clusters have how many species?
+df_cluster_full %>% 
+  group_by(richness) %>% 
+  dplyr::summarize(count = n(),
+                   prop = count/cluster_n*100)
+
+
+# what are dominant species??
+df_cluster_full %>% 
+ dplyr::filter(rIVI> 0.5) %>%
+ # nrow()
+  group_by(dominant_species) %>% 
+  dplyr::summarize(count = n(),
+                   prop = count/cluster_n*100) %>% 
+  arrange(desc(prop)) %>% 
+  mutate(dominant_species = factor(dominant_species, 
+                          levels = unique(dominant_species[order(count, decreasing = TRUE)]))) %>%
+  ggplot(aes(x = dominant_species,
+             y = count)) +
+  geom_bar(stat = 'identity') + 
+    geom_text(aes(label = paste0(round(prop, 1), "%")), 
+              position = position_stack(vjust = 1.4), 
+              angle = 90,
+              color = "black",
+              size= 4) + # Adjust color as needed
+  labs(x = '',
+       y = 'Counts [#]') +
+  theme_bw()
+  
+
+
+
 # 3. how many clusters/plots has less then 2000 regen/ha? ----------------------------------
 # which country is the most affected? (where they ccur most often?)
 
@@ -748,26 +817,156 @@ dom_species %>%
 
 df_stock_density <- 
   df_stems %>% 
-  dplyr::filter(cluster %in% cluster_id_keep) %>% 
-  mutate(dens_category = case_when(sum_stems == 0 ~ '0',
-                                   sum_stems >= 1   & sum_stems < 500 ~ '1-500',
-                                   sum_stems >= 500 & sum_stems < 1000 ~ '500-1000',
-                                  # sum_stems >= 1000 & sum_stems < 1500 ~ '1000-1500',
-                                   sum_stems >= 1000 & sum_stems < 2000 ~ '1000-2000',
-                                   sum_stems >= 2000 ~ '>2000'
-                                   )) %>%
-  mutate(dens_category_simpl = case_when(sum_stems < 1000 ~ '<1000',
-                                         sum_stems >= 1000 &sum_stems < 2000 ~ '1000-2000',
-                                         sum_stems >= 2000 ~ '>2000'
-  )) %>%
-  mutate(dens_category = factor(dens_category, levels = 
-                                  c('0', '1-500','500-1000','1000-2000', '>2000' ))) %>% 
-  mutate(dens_category_simpl = factor(dens_category_simpl, levels = 
-                                c('<1000','1000-2000', '>2000' ))) 
-str(df_stock_density)
+  ungroup(.) %>% 
+#  dplyr::filter(cluster %in% cluster_id_keep) %>% 
+  mutate(sum_stems = as.integer(sum_stems),
+         dens_category = case_when(sum_stems == 0 ~ '0',
+                                   #sum_stems == 500 ~ '1-500',
+                                   #sum_stems == 1000 ~ '500-1000',
+                                   #sum_stems == 1500 ~ '1500-2000',
+                                   sum_stems >= 1   & sum_stems < 501 ~ '1-500',
+                                   sum_stems >= 501 & sum_stems < 1001 ~ '500-1000',
+                                   sum_stems >= 1001 & sum_stems < 1501 ~ '1000-1500',
+                                   sum_stems >= 1501 & sum_stems < 2001 ~ '1500-2000',
+                                   sum_stems >= 2001 ~ '>2000'
+                                   ),
+         dens_class = case_when(sum_stems < 2001 ~ 'low',
+                                   sum_stems >= 2001 ~ 'sufficient'
+         )) %>%
+   mutate(dens_category = factor(dens_category, levels = 
+                                  c('0', '1-500','500-1000','1000-1500', '1500-2000', '>2000' )),
+          dens_class = factor(dens_class, levels = c('low', 'sufficient')))# %>% 
+View(df_stock_density)
+
+# make a table for potential regeneration delay - link with climate data
+# make a barplots
+df_regen_delay <- df_cluster_full %>% 
+  mutate(reg_delay_class = case_when(stem_density  < 2001 ~ 'low',
+                                stem_density  >= 2001 ~ 'sufficient')) %>% 
+  mutate(reg_delay_class = factor(reg_delay_class, levels = c('low', 'sufficient')))
+
+
+median_iqr <- function(y) {
+  data.frame(
+    y = median(y, na.rm = TRUE),
+    ymin = quantile(y, probs = 0.25, na.rm = TRUE),
+    ymax = quantile(y, probs = 0.75, na.rm = TRUE)
+  )
+}
+
+
+
+# Define the function
+create_plot <- function(data, x_var, y_var, 
+                       # x_label = x_var, 
+                        y_label = y_var,
+                       x_annotate = 0, lab_annotate = "lab ann") {
+  
+  p <- ggplot(data, aes_string(x = x_var, 
+                          y = y_var)) +
+    stat_summary(fun.data = median_iqr, geom = "pointrange") +
+    stat_summary(fun = median, geom = "point") +
+   # stat_summary(fun.data = "mean_se", geom = "pointrange") + # Specify the summary function explicitly
+    labs(xlab = 'aaaaa') +
+    annotate("text", x = x_annotate, y = Inf, label = lab_annotate, hjust = 0.5, vjust = 1.5) +
+    theme_minimal(base_size = 10) +
+    theme(aspect.ratio = 1, 
+          #legend.position = 'bottom',
+          axis.ticks.y = element_line(),
+          axis.ticks.x = element_line(),
+          #axis.text.x = element_blank(),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill = "white", colour = "black"),
+          legend.key.size = unit(0.5, "cm"),
+          legend.text = element_text(size = 8)) 
+  
+  return(p)
+}
+
+
+
+
+
+
+# Using the function to create plots
+p1 <- create_plot(df_regen_delay, x_var = "reg_delay_class", y_var = "tmp", x_annotate = 1.5, lab_annotate = "0.06")
+p2 <- create_plot(df_regen_delay, x_var = "reg_delay_class", y_var = "prec",  x_annotate = 1.5, lab_annotate = "***")
+p3 <- create_plot(df_regen_delay, x_var = "reg_delay_class", y_var = "spei", x_annotate = 1.5, lab_annotate = "***")
+
+windows(7,3)
+ggarrange(p1, p2, p3, ncol = 3, labels = c('[a]', '[b]', '[c]'))
+
+# get summary statistics
+df_regen_delay %>% 
+  ungroup() %>% 
+  group_by(reg_delay_class) %>% 
+  summarize(
+    spei_med = median(spei, na.rm = TRUE),
+    spei_sd = sd(spei, na.rm = TRUE),
+    spei_25 = quantile(spei, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
+    spei_75 = quantile(spei, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
+    tmp_med = median(tmp   , na.rm = TRUE),
+    tmp_sd   = sd(tmp  , na.rm = TRUE),
+    tmp_25 = quantile(tmp  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
+    tmp_75 = quantile(tmp  , 0.75, na.rm = TRUE), # dens_mean + dens_sd, #
+    prec_med = median(prec   , na.rm = TRUE),
+    prec_sd   = sd(prec  , na.rm = TRUE),
+    prec_25 = quantile(prec  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
+    prec_75 = quantile(prec  , 0.75, na.rm = TRUE), 
+    .groups = 'drop')
+
+
+# test differences between medians of teh classes -----------------------------
+
+##### Loop over wilcx test
+
+perform_wilcox_test <- function(data, variable_name, group1, group2) {
+  # Subset variable values for each specified 'reg_delay_class' group
+  group1_values <- data[[variable_name]][data$reg_delay_class == group1]
+  group2_values <- data[[variable_name]][data$reg_delay_class == group2]
+  
+  # Perform the Mann-Whitney U test between the two subsets
+  test_result <- wilcox.test(group1_values, group2_values)
+  
+  # Return the test result
+  return(test_result)
+}
+
+# Example usage for 'spei' comparing 'low' vs 'sufficient'
+test_result_spei <- perform_wilcox_test(df_regen_delay, "spei", "low", "sufficient")
+print(test_result_spei)
+
+# Example usage for 'temp' comparing 'low' vs 'sufficient'
+test_result_temp <- perform_wilcox_test(df_regen_delay, "tmp", "low", "sufficient")
+print(test_result_temp)
+
+# Example usage for 'prcp' comparing 'low' vs 'sufficient'
+test_result_prcp <- perform_wilcox_test(df_regen_delay, "prec", "low", "sufficient")
+print(test_result_prcp)
+
+
+
+
+
+
+
+
+# get list of clusters with low density
+clusters_low_dens <- df_stock_density %>% 
+  dplyr::filter(sum_stems < 2000) %>% 
+  distinct(cluster) %>% 
+  pull()
 
 df_stock_density %>% 
-  ggplot(aes(x = manag,
+  group_by(dens_category) %>% 
+  summarize(count = n(),
+            prop  = count/cluster_n*100)
+
+
+# make a plot? not working wnow
+df_stock_density %>% 
+  ggplot(aes(#x = manag,
+   # y = dens_category,
              fill = dens_category)) +
   geom_bar(position = 'fill') +
   scale_fill_manual(values = c("0" = "red", 
@@ -838,11 +1037,10 @@ df_stock_density_simpl %>%
 # Get again individual layers:
 df_vert_full <- 
   stem_dens_species_long %>% 
-  filter(cluster %in% cluster_id_keep) %>%  
   dplyr::filter(stem_density>0) %>% 
   ungroup(.) %>% 
-  dplyr::select(cluster, country, manag, VegType) %>%
-  group_by(cluster, country, manag) %>%
+  dplyr::select(cluster, VegType) %>%
+  group_by(cluster) %>%
   distinct(.) %>% 
   mutate(n_layers = n()) #%>% 
 
@@ -851,24 +1049,94 @@ df_vert_full <-
 # Calculate frequencies of individual layers and combinations
 layer_frequencies <- 
   df_vert_full %>%
-  group_by(manag, cluster) %>% 
+  group_by(cluster) %>% 
   right_join(df_stems) %>% # to account for teh empty ones
-    dplyr::filter(cluster %in% cluster_id_keep) %>% 
-   # View()
-    mutate(VegType = case_when(
+     mutate(VegType = case_when(
       is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
       TRUE ~ VegType           # Keep existing values for non-NA cases
     )) %>% 
   summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
   ungroup() %>%
-  count(manag, layers)
+  count(layers)
+
+layer_frequencies$prop <- layer_frequencies$n/total_observations*100
+(layer_frequencies)
+
+# plot how often each category occurs
+windows()
+layer_frequencies %>% 
+  ggplot(aes(x = reorder(layers, -n), y = n)) +
+  geom_bar(stat = "identity") #, position = "fill") #+
+#geom_text(aes(label = paste0(round(scales::percent, 1), "%"), 
+#              y = cumsum(n) - n/2), 
+#          position = position_fill(), 
+#          color = "white", 
+#          size = 3) +
+ylab("Percentage (%)") +
+  theme_classic() +
+  labs(fill = "Layers")
+
+
+
+
+layer_reg_frequencies <- 
+  df_vert_full %>%
+  dplyr::filter(VegType != 'Survivor') %>% 
+  group_by(cluster) %>% 
+  right_join(df_stems) %>% # to account for teh empty ones
+  mutate(VegType = case_when(
+    is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
+    TRUE ~ VegType           # Keep existing values for non-NA cases
+  )) %>% 
+  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
+  ungroup() %>%
+  count(layers)
 
 
 # View the result
-print(layer_frequencies)
+print(layer_reg_frequencies)
 
-ggplot(layer_frequencies, aes(x = manag, y = n, fill = layers)) +
-  geom_bar(stat = "identity", position = "fill") +
+
+###### chi sqare goodnes of fit: -------------------
+# expecting that categories are equally distributed: divide total observations by number of groups
+# Total observations
+total_observations <- sum(layer_reg_frequencies$n)
+
+# Expected frequencies if all layers were equally likely
+expected_frequencies <- rep(total_observations / nrow(layer_reg_frequencies), 
+                            nrow(layer_reg_frequencies))
+
+# Perform the chi-square test for goodness of fit
+chi_square_test_result <- chisq.test(x = layer_reg_frequencies$n, 
+                                     p = expected_frequencies / total_observations)
+
+# Print the result
+print(chi_square_test_result)
+
+
+# compare residuals to understand the differences between groups:
+# Assuming chi_square_test_result is the result of your chi-square test
+# and layer_reg_frequencies contains the observed frequencies for your categories
+
+# Calculate expected frequencies
+expected_frequencies <- chi_square_test_result$expected
+
+# Calculate standardized residuals
+standardized_residuals <- (layer_reg_frequencies$n - expected_frequencies) / sqrt(expected_frequencies)
+
+# Associate residuals with group names
+residuals_table <- data.frame(Group = layer_reg_frequencies$layers, 
+                              StandardizedResiduals = standardized_residuals)
+
+# Print the residuals table, sorted by the absolute value of residuals
+residuals_table <- residuals_table[order(abs(residuals_table$StandardizedResiduals), decreasing = TRUE),]
+print(residuals_table)
+
+
+
+
+ggplot(layer_reg_frequencies, aes(x = layers, y = n)) +
+  geom_bar(stat = "identity") #, position = "fill") #+
   #geom_text(aes(label = paste0(round(scales::percent, 1), "%"), 
   #              y = cumsum(n) - n/2), 
   #          position = position_fill(), 
@@ -879,143 +1147,307 @@ ggplot(layer_frequencies, aes(x = manag, y = n, fill = layers)) +
   labs(fill = "Layers")
 
 
-# 4. stems vs weather - mean 2019-2022, or SPEI ---------------------------------
-# average predictors by cluster
-df_predictors_clust <- df_predictors %>% 
-  dplyr::filter(cluster %in% cluster_id_keep) %>% 
-  group_by(cluster) %>%
-  filter(year %in% 2018:2023) %>% 
-  summarise(tmp                  = mean(tmp, na.rm = T),
-            prec                 = mean(prec, na.rm = T), 
-            tmp_z                = mean(tmp_z, na.rm = T),
-            prcp_z               = mean(prcp_z, na.rm = T),
-            distance             = mean(distance, na.rm = T),
-            disturbance_year     = mean(disturbance_year, na.rm = T),
-            disturbance_severity = mean(disturbance_severity, na.rm = T),
-            disturbance_agent    = mean(disturbance_agent, na.rm = T),
-            elevation            = mean(elevation, na.rm = T),
-            sand_extract         = mean(sand_extract, na.rm = T),
-            silt_extract         = mean(silt_extract, na.rm = T),
-            clay_extract         = mean(clay_extract, na.rm = T),
-            depth_extract= mean(depth_extract, na.rm = T),
-            av.nitro  = mean(av.nitro, na.rm = T),
-            slope = mean(slope, na.rm = T),
-            aspect= mean(aspect, na.rm = T))
-  
-length(unique(df_predictors_clust$cluster))
+# 4. stems vs weather - mean 2018-2023 ---------------------------------
 
-  
+df_cluster_full
+windows()
+pairs(stem_density    ~ tmp + tmp_z + prec + prcp_z + management_intensity+ salvage_intensity + protection_intensity + distance_edge, df_cluster_full)
 
-### get average spei after disturbances ------------------------------------------
-# need to update, as too many points are missing!!!
-# eg ID 17_21_114_1
+pairs(stem_density    ~  management_intensity+ salvage_intensity + protection_intensity, df_cluster_full)
 
 
-   
-# join to stems counts: filter, as from veg data I have already excluded Italy and teh uncomplete clusters
-df_fin <- #df_stems_both %>%
-  df_stems %>% 
-  left_join(df_predictors_clust, by = join_by(cluster)) %>% 
-  left_join(spei_sub, by = join_by(cluster)) %>% 
-  mutate(manag = as.factor(manag)) %>% 
-  mutate(sum_stems = round(sum_stems)) %>% 
-  dplyr::filter(cluster %in% cluster_id_keep) %>% 
-  na.omit() %>% 
-  as.data.frame()
+# test corelations 
+
+plot(df_cluster_full$tmp, df_cluster_full$spei)
+plot(df_cluster_full$prec, df_cluster_full$spei)
+plot(df_cluster_full$tmp, df_cluster_full$prec)
+
+plot( df_cluster_full$management_intensity, df_cluster_full$stem_density)
+plot( df_cluster_full$salvage_intensity, df_cluster_full$stem_density)
+plot( df_cluster_full$protection_intensity, df_cluster_full$stem_density)
 
 
-length(unique(df_fin$cluster))
+# keep only spei instead of the tmp and prec
 
-# clusters seems missing??
-env_cluster <- unique(df_predictors$cluster)
-veg_cluster <- unique(df_stems$cluster)
+# keep also annomalies?
+plot(df_cluster_full$tmp_z, df_cluster_full$spei)
 
-sort(env_cluster)
-sort(veg_cluster)
+# test, which one of teh variables exaplin teh stem density better?
 
-setdiff(env_cluster, veg_cluster)
 
-pairs(sum_stems   ~ tmp + tmp_z + distance, df_fin)
 
-# some values are missing predictors: eg. 18_178, 18_184
+
+cor(df_cluster_full$tmp_z, df_cluster_full$spei, method = 'spearman')
+cor(df_cluster_full$tmp, df_cluster_full$spei, method = 'spearman')
+#[1] -0.7187752
+cor(df_cluster_full$prec, df_cluster_full$spei, method = 'spearman')
+# [1] 0.2349638
+
+# check how management is correlated?
+cor(df_cluster_full$management_intensity, df_cluster_full$salvage_intensity, method = 'spearman')
+cor(df_cluster_full$protection_intensity, df_cluster_full$salvage_intensity, method = 'spearman')
+
+
+
+# decide: which parameters are better: temp_z, temp, prcp, prcp_z or spei?? or their interation?
+
+# Calculate correlation matrix for predictors
+correlation_matrix <- cor(df_cluster_full[, c('tmp_z', 'tmp', 'prec', 'prcp_z', 'spei')])
+
+
+# remove spei
+correlation_matrix <- cor(df_cluster_full[, c('tmp_z', 'tmp', 'prec', 'prcp_z')], method = 'spearman')
+
+correlation_matrix
+
+
+
 
 #5. test model ---------------------------------
 
-# test glm with neg bin family
+df_model <- df_cluster_full %>% 
+  mutate(stem_density = as.integer(stem_density)) %>% 
+  # create a factor for country based on region ID
+  mutate(
+    region = str_extract(cluster, "^\\d{2}"), # Extracts the first two digits
+    country = case_when(
+      region %in% c(11, 12, 14, 18, 19, 20, 25) ~ 'DE', # Germany
+      region == 17 ~ 'PL', # Poland
+      region %in% c(15, 26) ~ 'CZ', # Czech Republic
+      region == 13 ~ 'AT', # Austria
+      region == 16 ~ 'SK', # Slovakia
+      region == 23 ~ 'SI', # Slovenia
+      region == 21 ~ 'IT', # Italy
+      region == 22 ~ 'CH', # Switzerland
+      region %in% c(24, 27) ~ 'FR', # France
+      TRUE ~ NA_character_ # For any region not specified above
+    )
+  ) %>% 
+  mutate(country = factor(country),
+         dominant_species = factor(dominant_species)
+         #region = as.character(region)
+         )
+
+# see differences among countries
+df_model %>% 
+  ggplot(aes(y = stem_density,
+             x = country)) + 
+  geom_boxplot()
+  
+str(df_model)
+
+# test predictors
+ggplot(df_model, aes(x = spei, y = stem_density)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F) +
+  theme_bw()
+
+
+# test glm with neg bin family: put all predictors together
 library(MASS)
-global.negbin <- glm.nb(sum_stems ~ tmp  + tmp_z +  spei + prec + prcp_z + disturbance_severity + distance + manag + elevation, data = df_fin, na.action = "na.fail") # + tmp_z 
 
-dredge(global.negbin)
+# which one is better: simple management intensity or salvage intensity?
+m0.manag <-glm.nb(stem_density ~ management_intensity, data = df_model, na.action = "na.fail") # + tmp_z 
+m0.salvage <-glm.nb(stem_density ~ salvage_intensity , data = df_model, na.action = "na.fail") # + tmp_z 
+m0.protect <-glm.nb(stem_density ~ protection_intensity, data = df_model, na.action = "na.fail") # + tmp_z 
+
+# add country effect
+m1.manag <-glm.nb(stem_density ~ management_intensity + country, data = df_model, na.action = "na.fail") # + tmp_z 
+m1.salvage <-glm.nb(stem_density ~ salvage_intensity + country, data = df_model, na.action = "na.fail") # + tmp_z 
+m1.protect <-glm.nb(stem_density ~ protection_intensity + country, data = df_model, na.action = "na.fail") # + tmp_z 
+
+m2 <- glm.nb(stem_density ~ salvage_intensity + protection_intensity, data = df_model, na.action = "na.fail")
+m2.country <- glm.nb(stem_density ~ salvage_intensity + protection_intensity + country, data = df_model, na.action = "na.fail")
+
+m.country <- glm.nb(stem_density ~ country, data = df_model, na.action = "na.fail")
+
+AICc(m0.manag, m0.salvage, m0.protect, m1.manag, m1.salvage, m1.protect,m.country, m2.country, m2)
+BIC(m0.manag, m0.salvage, m0.protect, m1.manag, m1.salvage, m1.protect)
+
+# seemms that simple managemnet intensity is better then sakvage and protection intensity
 
 
-global.negbin2 <- glm.nb(sum_stems ~ tmp   +  prec  + spei + disturbance_severity + distance, data = df_fin, na.action = "na.fail") # + tmp_z 
+plot(allEffects(m1.manag))
+
+# put together all of predictors to decide which one is teh best: use only management_intensity
+# kep only climate predictors that are less correlated (cor coeff <0.3) -> remove SPEI
+
+global.negbin1 <- glm.nb(stem_density ~ tmp  + tmp_z + prcp_z + prec +
+                          disturbance_severity + distance_edge  + 
+                          management_intensity + 
+                          clay_extract + 
+                           country+
+                          sand_extract + depth_extract + av.nitro, data = df_model, na.action = "na.fail") # + tmp_z 
+
+# remove the largest VIF: kep only z-scores! 
+global.negbin2 <- glm.nb(stem_density ~ tmp_z + 
+                          prcp_z+ #spei + prec +
+                          disturbance_severity + distance_edge  + 
+                          management_intensity + 
+                          clay_extract + 
+                          #salvage_intensity + protection_intensity + 
+                           country+
+                          sand_extract + depth_extract + av.nitro, data = df_model, na.action = "na.fail") # + tmp_z 
+
+vif(global.negbin2)
+# remove non significant precdictors: sannd, depth, av.nitro
+global.negbin3 <- glm.nb(stem_density ~ tmp_z + 
+                           prcp_z+ #spei + prec +
+                           disturbance_severity + distance_edge  + 
+                           management_intensity + 
+                           clay_extract + 
+                           #salvage_intensity + protection_intensity + 
+                           country #+
+                         #  sand_extract + depth_extract + av.nitro
+                         , data = df_model, na.action = "na.fail")
+
+vif(global.negbin3)
+
+# add inuteraction ebtween temp and spei, remove prec
+global.negbin4 <- glm.nb(stem_density ~ tmp *spei +
+                           prcp_z +# spei + prec +  
+                           disturbance_severity + distance_edge  + 
+                           #management_intensity + 
+                           clay_extract + 
+                           #salvage_intensity + protection_intensity + 
+                           country, #+
+                         #  sand_extract + depth_extract + av.nitro
+                         data = df_model, na.action = "na.fail") # + tmp_z 
+
+# remove spei, highly correlayted tiwth tmp and prec
+
+global.negbin5 <- glm.nb(stem_density ~ tmp  + #tmp_z + 
+                           prcp_z+ 
+                           #spei + 
+                           prec +
+                           disturbance_severity + distance_edge  + 
+                           management_intensity + 
+                           clay_extract + 
+                           #salvage_intensity + protection_intensity + 
+                           country, #+
+                         #  sand_extract + depth_extract + av.nitro
+                         data = df_model, na.action = "na.fail") # + tmp_z 
+
+# keep only z-scores
+global.negbin6 <- glm.nb(stem_density ~ tmp_z  + #tmp_z + 
+                           prcp_z+ 
+                           #spei + 
+                           #prec +
+                           disturbance_severity + distance_edge  + 
+                           management_intensity + 
+                           clay_extract + 
+                           #salvage_intensity + protection_intensity + 
+                           country, #+
+                         #  sand_extract + depth_extract + av.nitro
+                         data = df_model, na.action = "na.fail") # + tmp_z 
+
+
+
+
+
+
+
+vif(global.negbin6)
+
+AIC(global.negbin1,global.negbin2,global.negbin3,global.negbin4, global.negbin5, global.negbin6)
+
+summary(global.negbin5)
+vif(global.negbin2)
+simulateResiduals(global.negbin3, plot = T)
+
+#vif(global.negbin)
+glob1 <- dredge(global.negbin)
+
+
+
+# best predictors are: clay, distance_edge. dist_severity, tmp_z keep also managemebt and countries. add 
+
+# tmp_ is a better predictors than spei alone
+global.negbin2 <- glm.nb(stem_density ~  tmp_z + #prcp_z + 
+                           disturbance_severity + distance_edge  + 
+                           management_intensity + clay_extract , data = df_model, na.action = "na.fail") # + tmp_z 
+
 
 dredge(global.negbin2)
 
 vif(global.negbin2)
 
 plot(allEffects(global.negbin2))
+summary(global.negbin2)
+
+simulateResiduals(global.negbin2, plot = T)
 
 
-m.nb <- glm.nb(sum_stems ~ tmp  +  distance + manag, data = df_fin, na.action = "na.fail") # + tmp_z 
 
-m2 <- glm.nb(sum_stems ~ tmp   +  prec  + spei + disturbance_severity + distance + manag, data = df_fin, na.action = "na.fail") # + tmp_z 
+m.nb <- glm.nb(stem_density ~ tmp  +  distance_edge  + management_intensity, data = df_model, na.action = "na.fail") # + tmp_z 
 
-m3 <- glm.nb(sum_stems ~ tmp_z  +  distance, data = df_fin, na.action = "na.fail") # + tmp_z 
+m2 <- glm.nb(stem_density ~ tmp   +  prec  + spei + disturbance_severity + distance_edge  + management_intensity, data = df_model, na.action = "na.fail") # + tmp_z 
+
+m3 <- glm.nb(stem_density ~ tmp_z  +  distance_edge , data = df_model, na.action = "na.fail") # + tmp_z 
 
 simulationOutput <- simulateResiduals(fittedModel = m2, plot = T)
 
 
-cor(df_fin$tmp, df_fin$tmp_z)
+cor(df_model$tmp, df_model$tmp_z)
+
+hist(df_model$stem_density)
+
+
+
+
+# include random effects of countries:
+library(glmmTMB)
+
+glmm1 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   country+
+                   sand_extract + depth_extract + av.nitro +
+                   (1 | country), data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
 AIC(m1, m2)
 # zero inflated model; hurdle model:
 library(pscl)
-# m.zip <- zeroinfl(sum_stems ~ tmp   +  prec  + disturbance_severity + distance, #+ tmp_z 
-#                   dist = "poisson", data = df_fin)
+# m.zip <- zeroinfl(stem_density ~ tmp   +  prec  + disturbance_severity + distance_edge , #+ tmp_z 
+#                   dist = "poisson", data = df_model)
 
-m.zinb <- zeroinfl(sum_stems ~ tmp   +  spei + prec  + disturbance_severity + distance, #+ tmp_z
-                   dist = "negbin", data = df_fin)
+m.zinb <- zeroinfl(stem_density ~ tmp   +  spei + prec  + disturbance_severity + distance_edge , #+ tmp_z
+                   dist = "negbin", data = df_model)
 
 # m.hurdle1 is the best one for now!
-m.hurdle1 <- hurdle(sum_stems ~ tmp   +  spei + prec  + disturbance_severity + distance, #+ tmp_z
-                   dist = "negbin", data = df_fin)
+m.hurdle1 <- hurdle(stem_density ~ tmp   +  spei + prec  + disturbance_severity + distance_edge , #+ tmp_z
+                   dist = "negbin", data = df_model)
 
-m.hurdle2 <- hurdle(sum_stems ~ tmp   +  spei + prec  + disturbance_severity + distance + manag, #+ tmp_z
-                   dist = "negbin", data = df_fin)
+m.hurdle2 <- hurdle(stem_density ~ tmp   +  spei + prec  + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
+                   dist = "negbin", data = df_model)
 
-m.hurdle3 <- hurdle(sum_stems ~  spei + disturbance_severity + distance + manag, #+ tmp_z
-                    dist = "negbin", data = df_fin)
+m.hurdle3 <- hurdle(stem_density ~  spei + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
+                    dist = "negbin", data = df_model)
 
-m.hurdle4 <- hurdle(sum_stems ~  spei + disturbance_severity + distance, #+ tmp_z
-                    dist = "negbin", data = df_fin)
+m.hurdle4 <- hurdle(stem_density ~  spei + disturbance_severity + distance_edge , #+ tmp_z
+                    dist = "negbin", data = df_model)
 
 # add back temperature and precipitation, as they are from 2021-2023, spei is from 2018-2020 - the best!
-m.hurdle5 <- hurdle(sum_stems ~  tmp + prec + spei + disturbance_severity + distance + manag, #+ tmp_z
-                    dist = "negbin", data = df_fin)
+m.hurdle5 <- hurdle(stem_density ~  tmp + prec + spei + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
+                    dist = "negbin", data = df_model)
 
 
 # remove TMP as correlated with spei
-m.hurdle6 <- hurdle(sum_stems ~  prec + spei + disturbance_severity + distance + manag, #+ tmp_z
-                    dist = "negbin", data = df_fin)
+m.hurdle6 <- hurdle(stem_density ~  prec + spei + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
+                    dist = "negbin", data = df_model)
 
 # add soil depth
-m.hurdle7 <- hurdle(sum_stems ~  tmp + prec + spei + disturbance_severity + distance + manag + depth_extract, #+ tmp_z
-                    dist = "negbin", data = df_fin)
+m.hurdle7 <- hurdle(stem_density ~  tmp + prec + spei + disturbance_severity + distance_edge  + management_intensity + depth_extract, #+ tmp_z
+                    dist = "negbin", data = df_model)
 
 # add soil depth, remove again tmp and prec as correlated with spei
-m.hurdle8 <- hurdle(sum_stems ~  spei + disturbance_severity + distance + manag + depth_extract, #+ tmp_z
-                    dist = "negbin", data = df_fin)
+m.hurdle8 <- hurdle(stem_density ~  spei + disturbance_severity + distance_edge  + management_intensity + depth_extract, #+ tmp_z
+                    dist = "negbin", data = df_model)
 
 
 
-# for several groups:
-kruskal.test(sum_stems ~ manag, data = df_fin)
-
-
-# Perform the Dunn test
-dunnTest <- dunn.test(df_fin$sum_stems, df_fin$manag, method="bonferroni")
-dunnTest
 
 
 
@@ -1027,8 +1459,8 @@ r2(m2)
 # check model assumptions
 plot(resid(m.hurdle1) ~ fitted(m.hurdle1))
 
-cor(df_fin$tmp, df_fin$spei)
-cor(df_fin$prec, df_fin$spei)
+cor(df_model$tmp, df_model$spei)
+cor(df_model$prec, df_model$spei)
 
 
 # go fo negative binomial, zero inf
@@ -1061,7 +1493,7 @@ is_significant <- function(significance) {
 
 # Prepare data for count model
 count_model_summary <- data.frame(
-  Predictor = c("tmp", "prec", "spei", "disturbance_severity", "distance", "managUnmanaged"),
+  Predictor = c("tmp", "prec", "spei", "disturbance_severity", "distance_edge ", "managUnmanaged"),
   Estimate = c(0.1120775, 0.0013370, 0.3777615, 0.6380436, 0.0007405, 0.1164662),
   StdError = c(0.0377988, 0.0002272, 0.3064617, 0.1849542, 0.0002089, 0.0703305),
   Significance = c("**", "***", "", "***", "***", ".")
@@ -1083,7 +1515,7 @@ p_count <- ggplot(count_model_summary, aes(x = Predictor, y = Estimate, color = 
 
 # Prepare data for zero hurdle model
 zero_hurdle_model_summary <- data.frame(
-  Predictor = c("tmp", "prec", "spei", "disturbance_severity", "distance", "managUnmanaged"),
+  Predictor = c("tmp", "prec", "spei", "disturbance_severity", "distance_edge ", "managUnmanaged"),
   Estimate = c(0.429226, 0.002572, 5.470773, -0.397865, 0.001769, -0.146980),
   StdError = c(0.194297, 0.001051, 1.794975, 0.765920, 0.001345, 0.273274),
   Significance = c("*", "*", "**", "", "", "")
