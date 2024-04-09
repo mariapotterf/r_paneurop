@@ -84,19 +84,9 @@ dat <- dat %>%
 #19 france
 
 
-length(unique(dat_manag_intensity_cl$cluster))
 
 # 13_123 - example of mixed cluster
 
-# Create master df with empty plots - eg no trees found on them
-df_master <- 
-  dat %>% 
-  dplyr::select(country,region, group, cluster, point, ID) %>%  #  region, group, 
-    unique() %>%  # remove duplicated rows
-  group_by(country, region, group, cluster) %>%  # region, group,
-  summarize(n_plots = n())
-
-length(unique(df_master$cluster))
 
 # filter only clusters that have >4 points
 
@@ -106,10 +96,16 @@ dat <- dat %>%
   right_join(df_master, by = join_by(country, region, group, cluster)) %>%
   filter(n_plots > 3)
   
-length(unique(dat_manag_intensity_cl$cluster))
-length(unique(dat$cluster))
 
-setdiff( unique(dat_manag_intensity_cl$cluster), unique(dat$cluster))
+# Create master df with empty plots - eg no trees found on them
+df_master <- 
+  dat %>% 
+  dplyr::select(country,region, group, cluster, point, ID) %>%  #  region, group, 
+  unique() %>%  # remove duplicated rows
+  group_by(country, region, group, cluster) %>%  # region, group,
+  summarize(n_plots = n())
+
+length(unique(df_master$cluster))
 
 
 # Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
@@ -136,17 +132,6 @@ dat_manag_intensity_cl <-
     #View()
 
 
-
-
-#11 germany
-#12 poland
-#13 czech
-#14 austria
-#15 slovakia
-#16 slovenia
-#17 italy
-#18 switzerland
-#19 france
 
 
 # regions per countries:
@@ -235,7 +220,8 @@ veg_matrix_counts <-
 
 
 # Exclude 'ID', 'cluster', VegType columns from summarization
-species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'country', 'management_intensity'))  #'manag', '', 
+species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'country', 'management_intensity',
+                                                       'salvage_intensity','protection_intensity'))  #'manag', '', 
 
 # Calculate the total and average stems per species per hectare
 stem_dens_ha <-
@@ -261,7 +247,9 @@ stem_dens_species_long<-
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns)))) %>% 
   dplyr::select(-total_stems_all_species, -rows_per_cluster, -scaling_factor ) %>% 
-  pivot_longer(!c(ID, cluster, VegType, country, management_intensity), names_to = 'Species', values_to = "stem_density") #%>%  #, manag, manag_intensity
+  pivot_longer(!c(ID, cluster, VegType, country, management_intensity), 
+               names_to = 'Species', 
+               values_to = "stem_density") #%>%  #, manag, manag_intensity
   
 
 # cluster 14_114 has less records??
@@ -489,7 +477,6 @@ df_vert <- merge(df_stems, df_vert, by = c("cluster"), all.x = TRUE) #
 df_vert$n_layers[is.na(df_vert$n_layers)] <- 0
 
 
-# how to get which exactly vertical layers I have in which cases??
 
 
 # export data: -----------------------------------------------------------------
