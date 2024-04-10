@@ -55,13 +55,13 @@ load("outData/veg.Rdata")
 
 # get only samplings
 df_stems_sapl <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType == 'Regeneration') %>% 
+  filter(VegType == 'Saplings') %>% 
   group_by(cluster, management_intensity) %>% 
   summarise(sum_stems = sum(total_stems))# %>% 
 
 # get saplings and juveniles
 df_stems_both <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType != 'Survivor') %>% 
+  filter(VegType != 'Mature') %>% 
   group_by(cluster, management_intensity) %>% 
   summarise(sum_stems = sum(total_stems))# %>% 
 
@@ -265,14 +265,14 @@ cluster_n <- length(unique(df_cluster_full$cluster))
 df_summary <- df_cluster_full %>%
  # group_by(manag) %>% # country, 
   summarize(
-    rich_mean = median(rIVI, na.rm = TRUE),
+    rich_med = median(rIVI, na.rm = TRUE),
     rich_sd = sd(rIVI, na.rm = TRUE),
-    rich_min = quantile(rIVI, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
-    rich_max = quantile(rIVI, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
-    dens_mean = median(stem_density   , na.rm = TRUE),
+    rich_25 = quantile(rIVI, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
+    rich_75 = quantile(rIVI, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
+    dens_med = median(stem_density   , na.rm = TRUE),
     dens_sd   = sd(stem_density  , na.rm = TRUE),
-    dens_min = quantile(stem_density  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
-    dens_max = quantile(stem_density  , 0.75, na.rm = TRUE), # dens_mean + dens_sd, #
+    dens_25 = quantile(stem_density  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
+    dens_75 = quantile(stem_density  , 0.75, na.rm = TRUE), # dens_mean + dens_sd, #
     .groups = 'drop'
   )
 
@@ -639,17 +639,18 @@ stem_dens_species_long %>%
  arrange(desc(share)) #%>% 
   #View()
 
-library(ggmosaic)
 library(treemapify)
 
 stem_dens_species_long %>% 
    group_by(Species, VegType) %>% 
+  mutate(VegType = factor(VegType, levels = c('Saplings', "Juveniles", "Mature"))) %>% 
   summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
   ungroup() %>% 
   group_by(VegType) %>% 
   mutate(sum_vegType = sum(sum_stems),
          share       = sum_stems/sum_vegType*100) %>%
-slice_max(order_by = share, n = 10) %>% 
+  dplyr::filter(share>5) %>% 
+  #slice_max(order_by = share, n = 10) %>% 
   ggplot(aes(fill = Species, 
              area = sum_stems ,
              label = paste(Species, "\n", round(share,0)))) +
@@ -664,7 +665,7 @@ geom_treemap_text(colour ="white", place = "centre") +
 
 
 dom_species <- stem_dens_species_long %>% 
-  filter(VegType != 'Survivor' ) %>%  # Survivors: on 191
+  filter(VegType != 'Mature' ) %>%  # Matures: on 191
   group_by(Species, VegType) %>% 
   summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
   ungroup(.) %>% 
@@ -677,7 +678,7 @@ table(dom_species$Species,dom_species$VegType)
 # dominant species by country?
 dom_species_country <- 
   stem_dens_species_long %>% 
-  filter(VegType != 'Survivor' ) %>%  # Survivors: on 191
+  filter(VegType != 'Mature' ) %>%  # Matures: on 191
   group_by(Species, VegType, country ) %>% 
   summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
   ungroup(.) %>% 
@@ -729,11 +730,10 @@ top_species_per_group %>%
 
 # Reorder Species within each group based on share
 top_species_per_group <- top_species_per_group %>%
-  arrange(VegType, manag, desc(share)) %>%
+  arrange(VegType, desc(share)) %>%
   mutate(Species = factor(Species, levels = unique(Species)),
          VegType = factor(VegType, 
-                          levels = c("Regeneration", "advRegeneration"),
-                          labels = c("Saplings", "Juveniles")))
+                          levels = c("Saplings", "Juveniles")))
 
 
 # Create a bar plot with ordered categories
@@ -742,45 +742,16 @@ ggplot(top_species_per_group, aes(x = VegType, y = share, fill = Species)) +
   geom_text(aes(label = round(share), y = share), 
             position = position_dodge(width = 0.9), 
             color = "black", size = 3, vjust = -0.5) + # Adjust vjust for label position
-  facet_grid(. ~ VegType) +
+#  facet_grid(. ~ VegType) +
   theme(axis.text.x = element_text(angle = 0, vjust = 1, hjust = 1)) +
   labs(y = "Share [%]", x = "", fill = "Species") +
   theme_classic()
 
 
-ggplot(top_species_per_group, aes(x = manag, y = share, fill = Species)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-  geom_text(#aes(label = round(share,1)), 
-            position = position_stack(vjust = 0.5), 
-            color = "white", size = 3) +
-  facet_grid(. ~ VegType) +
-  theme(axis.text.x = element_text(angle = 0, vjust = 1, hjust = 1)) +
-  labs(y = "Share [%]", x = "Management Type", fill = "Species")
-
-
-# all species by aboundance
-dom_species %>% 
-  dplyr::filter(share > 1) %>% 
-  ggplot(aes(x = manag,
-             y = share,
-             fill = Species)) +
-  geom_bar(position = "fill", stat = "identity")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-#geom_col('')
 
 
 
-# species by management
-dom_species %>% 
-  #dplyr::filter(VegType == 'Regeneration') %>% 
-  dplyr::filter(share > 0) %>% 
-  ggplot(aes(x = reorder(Species, -share),
-             y = share,
-             fill = VegType)) +
-  geom_bar(stat = "identity")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  facet_grid(VegType~manag)
-#geom_col('')
+
 
 
 
@@ -868,17 +839,19 @@ median_iqr <- function(y) {
 
 
 # Define the function
-create_plot <- function(data, x_var, y_var, 
-                       # x_label = x_var, 
+create_plot <- function(data, 
+                        #x_var, 
+                        y_var, 
+                        #x_label = "", 
                         y_label = y_var,
                        x_annotate = 0, lab_annotate = "lab ann") {
   
-  p <- ggplot(data, aes_string(x = x_var, 
+  p <- ggplot(data, aes_string(x = "reg_delay_class", 
                           y = y_var)) +
     stat_summary(fun.data = median_iqr, geom = "pointrange") +
     stat_summary(fun = median, geom = "point") +
    # stat_summary(fun.data = "mean_se", geom = "pointrange") + # Specify the summary function explicitly
-    labs(xlab = 'aaaaa') +
+    labs(xlab = NULL) +
     annotate("text", x = x_annotate, y = Inf, label = lab_annotate, hjust = 0.5, vjust = 1.5) +
     theme_minimal(base_size = 10) +
     theme(aspect.ratio = 1, 
@@ -900,9 +873,14 @@ create_plot <- function(data, x_var, y_var,
 
 
 # Using the function to create plots
-p1 <- create_plot(df_regen_delay, x_var = "reg_delay_class", y_var = "tmp", x_annotate = 1.5, lab_annotate = "0.06")
-p2 <- create_plot(df_regen_delay, x_var = "reg_delay_class", y_var = "prec",  x_annotate = 1.5, lab_annotate = "***")
-p3 <- create_plot(df_regen_delay, x_var = "reg_delay_class", y_var = "spei", x_annotate = 1.5, lab_annotate = "***")
+p1 <- create_plot(df_regen_delay, #x_var = "reg_delay_class", 
+                  y_var = "tmp",  x_annotate = 1.5, lab_annotate = "0.06")
+p2 <- create_plot(df_regen_delay, 
+                  #x_var = "reg_delay_class", 
+                  y_var = "prec",  x_annotate = 1.5, lab_annotate = "***")
+p3 <- create_plot(df_regen_delay, 
+                  #x_var = "reg_delay_class", 
+                  y_var = "spei", x_annotate = 1.5, lab_annotate = "***")
 
 windows(7,3)
 ggarrange(p1, p2, p3, ncol = 3, labels = c('[a]', '[b]', '[c]'))
@@ -962,16 +940,6 @@ print(test_result_prcp)
 
 
 
-# get list of clusters with low density
-clusters_low_dens <- df_stock_density %>% 
-  dplyr::filter(sum_stems < 2000) %>% 
-  distinct(cluster) %>% 
-  pull()
-
-df_stock_density %>% 
-  group_by(dens_category) %>% 
-  summarize(count = n(),
-            prop  = count/cluster_n*100)
 
 
 # make a plot? not working wnow
@@ -991,6 +959,20 @@ df_stock_density %>%
   xlab('')
 
 unique(df_stock_density$dens_category)
+
+df_stock_density %>% 
+  group_by(dens_category) %>% 
+  summarise(n = n()) %>%
+  mutate(share = round(n/n_clusters*100,1)) %>% 
+  ggplot(aes(fill = dens_category     , 
+           area = share      ,
+           label = paste(dens_category, "\n", round(share,2), "%"))) +
+  geom_treemap() +
+  geom_treemap_text(colour ="white", place = "centre")# +
+  #facet_grid(~VegType)
+
+
+
 
 #### Pearson chi squared test --------------------------
 # Create a contingency table
@@ -1070,7 +1052,7 @@ layer_frequencies <-
   ungroup() %>%
   count(layers)
 
-layer_frequencies$prop <- layer_frequencies$n/total_observations*100
+layer_frequencies$prop <- layer_frequencies$n/n_clusters*100
 (layer_frequencies)
 
 # plot how often each category occurs
@@ -1088,11 +1070,19 @@ ylab("Percentage (%)") +
   labs(fill = "Layers")
 
 
+layer_frequencies %>% 
+  ggplot(aes(fill = layers     , 
+           area = prop      ,
+           label = paste(layers, "\n", round(prop,2), "%"))) +
+  geom_treemap() +
+  geom_treemap_text(colour ="white", place = "centre")# +
+
+
 
 
 layer_reg_frequencies <- 
   df_vert_full %>%
-  dplyr::filter(VegType != 'Survivor') %>% 
+  dplyr::filter(VegType != 'Mature') %>% 
   group_by(cluster) %>% 
   right_join(df_stems) %>% # to account for teh empty ones
   mutate(VegType = case_when(
