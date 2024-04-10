@@ -1136,16 +1136,6 @@ print(residuals_table)
 
 
 
-ggplot(layer_reg_frequencies, aes(x = layers, y = n)) +
-  geom_bar(stat = "identity") #, position = "fill") #+
-  #geom_text(aes(label = paste0(round(scales::percent, 1), "%"), 
-  #              y = cumsum(n) - n/2), 
-  #          position = position_fill(), 
-  #          color = "white", 
-  #          size = 3) +
-  ylab("Percentage (%)") +
-  theme_classic() +
-  labs(fill = "Layers")
 
 
 # 4. stems vs weather - mean 2018-2023 ---------------------------------
@@ -1265,7 +1255,7 @@ m.country <- glm.nb(stem_density ~ country, data = df_model, na.action = "na.fai
 AICc(m0.manag, m0.salvage, m0.protect, m1.manag, m1.salvage, m1.protect,m.country, m2.country, m2)
 BIC(m0.manag, m0.salvage, m0.protect, m1.manag, m1.salvage, m1.protect)
 
-# seemms that simple managemnet intensity is better then sakvage and protection intensity
+# seemms that simple managemnet intensity is better then salvage and protection intensity
 
 
 plot(allEffects(m1.manag))
@@ -1308,7 +1298,7 @@ vif(global.negbin3)
 global.negbin4 <- glm.nb(stem_density ~ tmp *spei +
                            prcp_z +# spei + prec +  
                            disturbance_severity + distance_edge  + 
-                           #management_intensity + 
+                           management_intensity + 
                            clay_extract + 
                            #salvage_intensity + protection_intensity + 
                            country, #+
@@ -1380,21 +1370,6 @@ simulateResiduals(global.negbin2, plot = T)
 
 
 
-m.nb <- glm.nb(stem_density ~ tmp  +  distance_edge  + management_intensity, data = df_model, na.action = "na.fail") # + tmp_z 
-
-m2 <- glm.nb(stem_density ~ tmp   +  prec  + spei + disturbance_severity + distance_edge  + management_intensity, data = df_model, na.action = "na.fail") # + tmp_z 
-
-m3 <- glm.nb(stem_density ~ tmp_z  +  distance_edge , data = df_model, na.action = "na.fail") # + tmp_z 
-
-simulationOutput <- simulateResiduals(fittedModel = m2, plot = T)
-
-
-cor(df_model$tmp, df_model$tmp_z)
-
-hist(df_model$stem_density)
-
-
-
 
 # include random effects of countries:
 library(glmmTMB)
@@ -1408,187 +1383,189 @@ glmm1 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + prec +
                    (1 | country), data = df_model, 
                  family = nbinom2, na.action = "na.fail")
 
-AIC(m1, m2)
-# zero inflated model; hurdle model:
-library(pscl)
-# m.zip <- zeroinfl(stem_density ~ tmp   +  prec  + disturbance_severity + distance_edge , #+ tmp_z 
-#                   dist = "poisson", data = df_model)
+glmm2 <- glmmTMB(stem_density ~ tmp*spei + prcp_z +# prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                  # country+
+                  # sand_extract + depth_extract + av.nitro +
+                   (1 | country), data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-m.zinb <- zeroinfl(stem_density ~ tmp   +  spei + prec  + disturbance_severity + distance_edge , #+ tmp_z
-                   dist = "negbin", data = df_model)
+glmm3 <- glmmTMB(stem_density ~ tmp*spei + prcp_z +# prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   # country+
+                   # sand_extract + depth_extract + av.nitro +
+                   (1 | country/management_intensity), data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-# m.hurdle1 is the best one for now!
-m.hurdle1 <- hurdle(stem_density ~ tmp   +  spei + prec  + disturbance_severity + distance_edge , #+ tmp_z
-                   dist = "negbin", data = df_model)
-
-m.hurdle2 <- hurdle(stem_density ~ tmp   +  spei + prec  + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
-                   dist = "negbin", data = df_model)
-
-m.hurdle3 <- hurdle(stem_density ~  spei + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
-                    dist = "negbin", data = df_model)
-
-m.hurdle4 <- hurdle(stem_density ~  spei + disturbance_severity + distance_edge , #+ tmp_z
-                    dist = "negbin", data = df_model)
-
-# add back temperature and precipitation, as they are from 2021-2023, spei is from 2018-2020 - the best!
-m.hurdle5 <- hurdle(stem_density ~  tmp + prec + spei + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
-                    dist = "negbin", data = df_model)
-
-
-# remove TMP as correlated with spei
-m.hurdle6 <- hurdle(stem_density ~  prec + spei + disturbance_severity + distance_edge  + management_intensity, #+ tmp_z
-                    dist = "negbin", data = df_model)
-
-# add soil depth
-m.hurdle7 <- hurdle(stem_density ~  tmp + prec + spei + disturbance_severity + distance_edge  + management_intensity + depth_extract, #+ tmp_z
-                    dist = "negbin", data = df_model)
-
-# add soil depth, remove again tmp and prec as correlated with spei
-m.hurdle8 <- hurdle(stem_density ~  spei + disturbance_severity + distance_edge  + management_intensity + depth_extract, #+ tmp_z
-                    dist = "negbin", data = df_model)
+# use tmp_z as well
+glmm4 <- glmmTMB(stem_density ~ tmp_z*spei + prcp_z +# prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   # country+
+                   # sand_extract + depth_extract + av.nitro +
+                   (1 | country), data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
 
+testZeroInflation(glmm4)
+# the p is significant, so it has too many zeros!
 
 
+# use zero inflated model:
+m.zi1 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + prec + spei + tmp:spei +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
 
-AIC(m2, m.hurdle1, m.hurdle2, m.hurdle3, m.hurdle8, m.hurdle5, m.hurdle6, m.hurdle7)
+m.zi2 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + 
+                   prec + #remove, as it has lower effect then prc_z 
+                   spei + tmp:spei +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-summary(m.hurdle7)
-r2(m2)
+# remove spei, get interaction between tmp_z and prcp_z
+m.zi3 <- glmmTMB(stem_density ~ tmp  +# tmp_z + prcp_z + 
+                   prec + #remove, as it has lower effect then prc_z 
+                   #spei + 
+                   tmp_z*prcp_z +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-# check model assumptions
-plot(resid(m.hurdle1) ~ fitted(m.hurdle1))
+# Chek for multicollinearity
+library(performance)
 
-cor(df_model$tmp, df_model$spei)
-cor(df_model$prec, df_model$spei)
+# Assuming your model is an 'lme4' or 'glmmTMB' object
+(vif_values <- performance::check_collinearity(m.zi7))
 
-
-# go fo negative binomial, zero inf
-
-# filtered SPEI INf values
-
-# visualize teh hurdle model: https://library.virginia.edu/data/articles/getting-started-with-hurdle-models
-sum(predict(m.hurdle1, type = "prob")[,1])  # number of zeros in teh predictoed data
-
-# First 5 expected counts
-predict(m.hurdle1, type = "response")[1:5]
-
-
-#library(countreg)
-
-#rootogram(m.hurdle1) # fit up to count xx
-
-
-
-# make plot for hurdle5
-
-m.hurdle5
-
-summary(m.hurdle5)
-
-# Function to determine if a value is significant
-is_significant <- function(significance) {
-  ifelse(significance == " ", "Non-significant", "Significant")
-}
-
-# Prepare data for count model
-count_model_summary <- data.frame(
-  Predictor = c("tmp", "prec", "spei", "disturbance_severity", "distance_edge ", "managUnmanaged"),
-  Estimate = c(0.1120775, 0.0013370, 0.3777615, 0.6380436, 0.0007405, 0.1164662),
-  StdError = c(0.0377988, 0.0002272, 0.3064617, 0.1849542, 0.0002089, 0.0703305),
-  Significance = c("**", "***", "", "***", "***", ".")
-)
-count_model_summary$SigColor <- sapply(count_model_summary$Significance, is_significant)
-
-# Plot for count model
-p_count <- ggplot(count_model_summary, aes(x = Predictor, y = Estimate, color = SigColor)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = Estimate - StdError, ymax = Estimate + StdError), width = 0.1) +
-  scale_color_manual(values = c("Non-significant" = "grey", "Significant" = "black")) +
-  geom_hline(yintercept = 0, lty = 'dashed', col = 'grey') +
-  theme_classic() +
-  theme(legend.position = 'none') + 
-  labs(title = "Count Model Coefficients",
-       y = "Estimate",
-       x = "",
-       color = "Significance")
-
-# Prepare data for zero hurdle model
-zero_hurdle_model_summary <- data.frame(
-  Predictor = c("tmp", "prec", "spei", "disturbance_severity", "distance_edge ", "managUnmanaged"),
-  Estimate = c(0.429226, 0.002572, 5.470773, -0.397865, 0.001769, -0.146980),
-  StdError = c(0.194297, 0.001051, 1.794975, 0.765920, 0.001345, 0.273274),
-  Significance = c("*", "*", "**", "", "", "")
-)
-zero_hurdle_model_summary$SigColor <- sapply(zero_hurdle_model_summary$Significance, is_significant)
-
-# Plot for zero hurdle model
-p_zero_hurdle <- ggplot(zero_hurdle_model_summary, aes(x = Predictor, y = Estimate, color = SigColor)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = Estimate - StdError, ymax = Estimate + StdError), width = 0.1) +
-  scale_color_manual(values = c("Non-significant" = "grey", "Significant" = "black")) +
-  theme_classic() +
-  theme(legend.position = 'none') +
-  geom_hline(yintercept = 0, lty = 'dashed', col = 'grey') +
-  labs(title = "Zero Hurdle Model Coefficient",
-       y = "Estimate",
-       x = "",
-       color = "Significance")
-
-# Display the plots
+# remove highly correlated values: tmp_z*prcp_z
+m.zi4 <- glmmTMB(stem_density ~ #tmp*prec  +# tmp_z + prcp_z + 
+                   #prec + #remove, as it has lower effect then prc_z 
+                   #spei + 
+                   tmp_z*prcp_z +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
 
-ggarrange(p_count, p_zero_hurdle, nrow = 2)
+m.zi5 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + 
+                   prec + #remove, as it has lower effect then prc_z 
+                   #spei + 
+                   tmp:prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
 
-# 6. management effect: compare manag vs unmanaged stem densities, richness---------------------
+m.zi6 <- glmmTMB(stem_density ~ #tmp  + 
+                   tmp_z*prcp_z + 
+                   #prec + #remove, as it has lower effect then prc_z 
+                   #spei + 
+                   #tmp:prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-create_plot <- function(df, x_var, y_var, y_label, colors) {
-  df <- df %>% 
-    dplyr::filter(cluster %in% cluster_id_keep) 
-  
-  ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]], fill = .data[[x_var]])) + 
-    stat_summary(fun = "median", geom = "bar") +
-    stat_summary(fun.data = function(z) {
-      list(y = median(z), ymin = quantile(z, 0.25), ymax = quantile(z, 0.75))
-    }, geom = "errorbar", width = .2) +
-    ylab(y_label) +
-    xlab('') +
-    scale_fill_manual(values = colors) +
-    theme_classic() + 
-    theme(legend.position = 'none')
-}
+# remove high VIF values
+m.zi7 <- glmmTMB(stem_density ~ #tmp  + 
+                   #tmp_z + 
+                   #prec + #remove, as it has lower effect then prc_z 
+                   spei + 
+                   #tmp:prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-# Define colors for 'manag' categories
-# Assuming 'manag' has two distinct categories
-# Replace with actual category names and desired colors
-colors <- c("Managed" = "darkolivegreen", "Unmanaged" = "darkolivegreen1")
+# keep only one of climatic predictors
+m.zi8 <- glmmTMB(stem_density ~ #tmp  + 
+                   tmp_z + 
+                   #prec + #remove, as it has lower effect then prc_z 
+                   #spei + 
+                   #tmp:prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-# Using the function
-p.richness <- create_plot(df_richness, "manag", "richness", "Richness", colors)
-p.density <- create_plot(df_stems, "manag", "sum_stems", "Stems [ha]", colors)
-p.vert <- create_plot(df_vert, "manag", "n_layers", "# Vertical Layers", colors)
-p.IVI.max <- create_plot(df_IVI_max, "manag", "rIVI", "Dominance (rIVI [%])", colors)
 
-# Arrange plots
-ggarrange(p.density, p.vert, p.IVI.max, p.richness, ncol = 4)
-
-
-# test significance - for 2 groups only
-wilcox.test(sum_stems ~ manag, data = df_stems)
-# test significance - for 2 groups only
-wilcox.test(n_layers ~ manag, data = df_vert)
-
-# test significance - for 2 groups only
-wilcox.test(rIVI ~ manag, data = df_IVI_max)
-
-# test significance - for 2 groups only
-wilcox.test(richness ~ manag, data = df_richness)
+m.zi9 <- glmmTMB(stem_density ~ prcp_z + #tmp  + 
+                   #tmp_z + 
+                   #prec + #remove, as it has lower effect then prc_z 
+                   #spei + 
+                   #tmp:prec +
+                   disturbance_severity + distance_edge  + 
+                   management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
 
 
+AIC(m.zi1, m.zi2,m.zi3,m.zi4,m.zi5,m.zi6,m.zi7,m.zi8,m.zi9)
+summary(m.zi9)
+plot(allEffects(m.zi9))
 
+simulateResiduals(m.zi9, plot = T)
+
+AIC(global.negbin4, glmm1,glmm2,glmm3,glmm4)
 # Country effect ----------------------------------------------------------
 
 
