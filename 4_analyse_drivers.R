@@ -49,6 +49,85 @@ terrain           <- fread("outData/terrain.csv")
 # get vegetation data
 load("outData/veg.Rdata")
 
+# climate full
+climate_full           <- fread("outData/climate_1980_2023.csv")
+
+# get simple plot over time
+climate_full %>% 
+  group_by(ID) %>% 
+  ggplot(aes(x = year,
+             y = prec)) +
+  stat_summary()
+
+
+# test: how does the anomalies calculation works? is it correct?
+# filter climate data: remove italy: 17_21 - temperatrures are correct (checked for San Canido, Italy)
+
+# the z-score is corret!
+dd <- data.frame(tmp = c(5,6,4,3,2,3,4,5,6),
+                 year = 1:9)
+ref = 1:5
+dd <- dd %>% 
+  mutate(tmp_z  = (tmp - mean(tmp[year %in% ref])) / sd(tmp[year %in% ref]))
+
+plot( dd$year, dd$tmp)
+plot( dd$year, dd$tmp_z)
+
+
+hist(climate_full$tmp)
+hist(climate_full$tmp_z)
+
+plot(climate_full$tmp, climate_full$tmp_z )
+
+unique(climate_full$name)
+
+clim_overview <- climate_full %>% 
+  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
+  mutate(cluster = str_sub(ID, 1, -3)) %>% 
+  ungroup(.) %>% 
+  group_by(cluster, year) %>% 
+  dplyr::summarize(tmp = mean(tmp),
+            prec = mean(prec)) %>%
+  mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
+                           TRUE ~ 'ref')) #%>% 
+
+reference_period <- 1980:2015
+# make plots for map:
+ref_tmp <- mean(clim_overview$tmp[clim_overview$year %in% reference_period])
+ref_prec <- mean(clim_overview$prec[clim_overview$year %in% reference_period])
+
+p.map.temp <- clim_overview %>% 
+  ggplot(aes(x = year,
+             y = tmp,
+             color = class)) +
+   stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
+  # This will add a point for the mean of Local Variance
+  stat_summary(fun = mean, geom = "point", size = 0.7) +
+  geom_hline(yintercept = ref_tmp, lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y =  expression(paste("Mean temperature [", degree, "C]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL") 
+
+
+p.map.prec <- clim_overview %>% 
+  ggplot(aes(x = year,
+             y = prec,
+             color = class)) +
+  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
+  # This will add a point for the mean of Local Variance
+  stat_summary(fun = mean, geom = "point", size = 0.7) +
+  geom_hline(yintercept = ref_prec , lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y =  expression(paste("Sum precipitation [mm]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL") 
+
+
+
+
+
+
 
 ### clean up data -----------------------------------------------------------------
 # sum stems first up across vertical groups!!
@@ -1540,9 +1619,11 @@ m.zi8 <- glmmTMB(stem_density ~ #tmp  +
                  ziformula = ~1,
                  data = df_model, 
                  family = nbinom2, na.action = "na.fail")
+# !!!! what is the meaning of teh prec_z??
+ggplot(df_model, aes(y = stem_density,x = prcp_z )) +
+  geom_smooth()
 
-
-m.zi9 <- glmmTMB(stem_density ~ prcp_z + #tmp  + 
+m.zi9 <- glmmTMB(stem_density ~ poly(prcp_z,2) + #tmp  + 
                    #tmp_z + 
                    #prec + #remove, as it has lower effect then prc_z 
                    #spei + 
@@ -1558,12 +1639,65 @@ m.zi9 <- glmmTMB(stem_density ~ prcp_z + #tmp  +
                  family = nbinom2, na.action = "na.fail")
 
 
+m.zi10 <- glmmTMB(stem_density ~ prcp_z + #tmp  + 
+                   #tmp_z + 
+                   #prec + #remove, as it has lower effect then prc_z 
+                   #spei + 
+                   #tmp:prec +
+                   disturbance_severity + distance_edge  + 
+                  # management_intensity + 
+                   clay_extract + 
+                   #country+
+                   #sand_extract + depth_extract + av.nitro +
+                   (1 | country/management_intensity), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
 
-AIC(m.zi1, m.zi2,m.zi3,m.zi4,m.zi5,m.zi6,m.zi7,m.zi8,m.zi9)
-summary(m.zi9)
-plot(allEffects(m.zi9))
+# with tmp_z
+m.zi11 <- glmmTMB(stem_density ~ #prcp_z + #tmp  + 
+                    tmp_z + 
+                    #prec + #remove, as it has lower effect then prc_z 
+                    #spei + 
+                    #tmp:prec +
+                    disturbance_severity + distance_edge  + 
+                    # management_intensity + 
+                    clay_extract + 
+                    #country+
+                    #sand_extract + depth_extract + av.nitro +
+                    (1 | country/management_intensity), 
+                  ziformula = ~1,
+                  data = df_model, 
+                  family = nbinom2, na.action = "na.fail")
 
-simulateResiduals(m.zi9, plot = T)
+
+# with spei
+m.zi12 <- glmmTMB(stem_density ~ #prcp_z + #tmp  + 
+                    #tmp_z + 
+                    #prec + #remove, as it has lower effect then prc_z 
+                    spei + 
+                    #tmp:prec +
+                    disturbance_severity + distance_edge  + 
+                    # management_intensity + 
+                    clay_extract + 
+                    #country+
+                    #sand_extract + depth_extract + av.nitro +
+                    (1 | country/management_intensity), 
+                  ziformula = ~1,
+                  data = df_model, 
+                  family = nbinom2, na.action = "na.fail")
+
+
+
+AIC(#m.zi1, m.zi2,m.zi3,m.zi4,m.zi5,m.zi6,m.zi7,m.zi8,m.zi9,
+    m.zi10, m.zi11,m.zi12)
+summary(m.zi12)
+plot(allEffects(m.zi10))
+
+simulateResiduals(m.zi12, plot = T)
+
+fin.m <- m.zi10
+
 
 AIC(global.negbin4, glmm1,glmm2,glmm3,glmm4)
 # Country effect ----------------------------------------------------------
