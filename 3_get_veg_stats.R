@@ -48,9 +48,9 @@ dat <- dat %>%
     grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
     planting      = ifelse(!is.na(planting) & planting != 2, 1, 0),
     anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing != 2, 1, 0),
-    manag    = case_when(
-      logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed', # 'or conditions'  - if one of the management type is present, then it is managed
-      TRUE ~ 'Unmanaged'),  # Default case
+    #manag    = case_when(
+    #  logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed', # 'or conditions'  - if one of the management type is present, then it is managed
+    #  TRUE ~ 'Unmanaged'),  # Default case
     manag_intensity      = logging_trail + clear + grndwrk + planting + anti_browsing,  # get management intensity: rate on cluster cluster level
     salvage_intensity    = logging_trail + clear + grndwrk,  # get salvage intensity: how much the site was altered by harvest?rate on cluster cluster level
     protection_intensity = planting + anti_browsing  # get were trees plantedor even fenced? rate on cluster cluster level
@@ -91,15 +91,33 @@ dat <- dat %>%
     VegType == "advRegeneration" ~ "Juveniles",
     VegType == "Survivor" ~ "Mature",
     TRUE ~ NA_character_      # Fallback in case of unidentified country_id
-  ))
-
-
-# 13_123 - example of mixed cluster
-
-
-# filter only clusters that have >4 points
-
+  ))  
   
+
+# filter sub-plots that are misplaced/double recorded
+# visually checked on May 8th, 2024
+remove_sub_plots <- c('18_22_110_7' ,'18_22_118_6', '13_15_145_4', '13_26_142_2', '11_14_123_2', '11_18_106_6', '11_18_178_5', '11_25_128_3', '12_17_107_4', '12_17_143_5' )
+
+#   cluster       ID            desc
+# "22_110" - ID: 18_22_110_7 - out of +
+#   "22_118" - ID: 18_22_118_6 - out of +
+#   "15_145" - ID: 13_15_145_4 - missing point geometry
+# "26_142" - ID: 13_26_142_2 - overlying on 1
+# "14_123" - ID: 11_14_123_2 - overly on 2
+# "18_106" - ID: 11_18_106_6 - out of +
+#   "18_178" - ID: 11_18_178_5 - out of +
+#   "25_128" - ID: 11_25_128_3 - overlaying 2
+# "17_107" - ID: 12_17_107_4 - out of +
+#   "17_143" - ID: 12_17_143_5 - out of +
+
+
+
+dat <- dat %>% 
+  dplyr::filter(!ID %in% remove_sub_plots )
+  
+# check n_plots per cluster
+#table(dat$)
+
 
 # Create master df with empty plots - eg no trees found on them
 df_master <- 
@@ -112,11 +130,31 @@ df_master <-
 length(unique(df_master$cluster))
 
 
+# get cluster ID for the clusters with 6 plots = are they marked as disturbance yes?
+
+cluster_6_plots <- df_master %>% 
+  dplyr::filter(n_plots == 6) %>% 
+  distinct(cluster) %>% 
+  pull()
+
+cluster_6_plots
+
+
+# dat %>% 
+#   dplyr::filter(cluster %in% cluster_6_plots) %>% 
+#   View()
+# 
+# table(df_master$n_plots)
+# 
+
 # keep clusters with 4, as some disturbace plots were very small
 # remove if there is less records
 dat <- dat %>% 
   right_join(df_master, by = join_by(country, region, group, cluster)) %>%
   filter(n_plots > 3)
+
+
+length(unique(dat$cluster)) # 849
 
 
 # Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
@@ -211,7 +249,6 @@ dat %>%
   dplyr::filter(Variable == 'n') %>% # counts, not other variables
   dplyr::filter(n==1)# %>% 
 
-# seems that all clusters have at least one stem left
 
 
 # Dummy example: calculate stem density - convert to stems/ha ----------------------------------
