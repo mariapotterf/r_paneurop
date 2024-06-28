@@ -33,6 +33,11 @@ library(tidyr)
 
 dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 
+# check: has 4 mature trees? in ID 12_17_112_3
+
+dat %>% 
+  dplyr::filter(ID == "12_17_112_3") %>% View()
+
 # remove Italy and Vaia - windthrow
 dat <- dat %>% 
   dplyr::filter( country != 17) #   ~ "IT",  # Italy)
@@ -96,7 +101,16 @@ dat <- dat %>%
 
 # filter sub-plots that are misplaced/double recorded
 # visually checked on May 8th, 2024
-remove_sub_plots <- c('18_22_110_7' ,'18_22_118_6', '13_15_145_4', '13_26_142_2', '11_14_123_2', '11_18_106_6', '11_18_178_5', '11_25_128_3', '12_17_107_4', '12_17_143_5' )
+remove_sub_plots <- c('18_22_110_7' ,
+                      '18_22_118_6', 
+                      '13_15_145_4', 
+                      '13_26_142_2', 
+                      '11_14_123_2', 
+                      '11_18_106_6', 
+                      '11_18_178_5', 
+                      '11_25_128_3', 
+                      '12_17_107_4', 
+                      '12_17_143_5' )
 
 #   cluster       ID            desc
 # "22_110" - ID: 18_22_110_7 - out of +
@@ -251,8 +265,41 @@ dat %>%
 
 
 
-# Dummy example: calculate stem density - convert to stems/ha ----------------------------------
+# get data for iLand: counts, species, vertical class, dbh (for Mature trees) -----
+# sub_plot plot speces count VegType dbh
 
+dat_counts <- dat %>% 
+  dplyr::filter(Variable == 'n',
+                dist == 'TRUE') %>%
+  dplyr::select(ID, VegType, Species, cluster, country, n) %>% #, manag, manag_intensity,
+  mutate(count = ifelse(is.na(n), 0, n)) %>% 
+  dplyr::select(-n)
+
+
+
+dat_dbh_mature <- dat %>%
+  filter(VegType == 'Mature') %>% 
+  filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
+  dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
+  mutate(dbh = case_when(
+    #VegType == 'advRegeneration' ~ 5,
+    value == 4 & VegType == 'Mature' ~ 70,
+    value == 3 & VegType == 'Mature' ~ 50,
+    value == 2 & VegType == 'Mature' ~ 30,
+    value == 1 & VegType == 'Mature' ~ 15,
+    TRUE ~ NA_real_  # Default case if none of the above conditions are met
+  )) #%>% 
+  #dplyr::select(-value)
+
+dat_iLand <- dat_counts %>% 
+  full_join(dat_dbh_mature, by = join_by(ID, VegType, Species, cluster, country))
+
+
+fwrite(dat_iLand, 'outData/sub_plots_counts_DBH.csv')
+
+
+
+#calculate stem density - convert to stems/ha ----------------------------------
 
 
 # Get stem density - from vegetation matrix ------------------------------------
@@ -262,9 +309,9 @@ veg_matrix_counts <-
                 dist == 'TRUE') %>%
   dplyr::select(ID, VegType, Species, cluster, country, n) %>% #, manag, manag_intensity,
   mutate(n = ifelse(is.na(n), 0, n)) %>%
-  pivot_wider(values_from=n,names_from = Species) %>% 
+  pivot_wider(values_from=n,
+              names_from = Species) %>% 
   left_join(dat_manag_intensity_cl)
-
 
 
 # Exclude 'ID', 'cluster', VegType columns from summarization
@@ -277,8 +324,10 @@ stem_dens_ha <-
   group_by(cluster, VegType,  country, management_intensity) %>% # manag, manag_intensity 
   summarize(across(all_of(species_columns), sum),
             rows_per_cluster = n()) %>% # .groups = "drop"
+    
   mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
-  ungroup(.) %>%
+    #View()  # divide by 4 as one sub-plot = 4 m2 
+    ungroup(.) %>%
   group_by(cluster, VegType, country, management_intensity) %>%  # , manag, manag_intensity
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns)))) 
@@ -442,6 +491,21 @@ dbh_mature <- dat %>%
     TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
   dplyr::select(-value)
+
+dbh_mature_value <- dat %>%
+  filter(VegType == 'Mature') %>% 
+  filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
+  dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
+  mutate(dbh = case_when(
+    #VegType == 'advRegeneration' ~ 5,
+    value == 4 & VegType == 'Mature' ~ 70,
+    value == 3 & VegType == 'Mature' ~ 50,
+    value == 2 & VegType == 'Mature' ~ 30,
+    value == 1 & VegType == 'Mature' ~ 15,
+    TRUE ~ NA_real_  # Default case if none of the above conditions are met
+  )) #%>% 
+  #dplyr::select(-value)
+
   
 dbh_advanced <- 
   dat %>%
@@ -531,11 +595,12 @@ df_vert$n_layers[is.na(df_vert$n_layers)] <- 0
 save(dat_manag_intensity_cl, # get the management intensity value per cluster
      df_IVI,  # species importance value
      df_richness, 
-  df_vert,   # number of vertical layers
-  df_stems,  # numbers of stems for all vert layers
-  stem_dens_ha_cluster_sum,   
-  stem_dens_species_long,  # stem density per ID& species
-  file="outData/veg.Rdata")
+     df_vert,   # number of vertical layers
+     df_stems,  # numbers of stems for all vert layers
+     stem_dens_ha_cluster_sum,   
+     stem_dens_species_long,  # stem density per ID& species
+     veg_matrix_counts,    # stem counts (not stem density)
+     file="outData/veg.Rdata")
 
 
 unique(df_IVI$cluster)
