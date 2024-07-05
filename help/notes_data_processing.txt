@@ -56,6 +56,7 @@ missing aspect and slope data for country_region:
  11_18: 302 records
  19_24: 269 records + 10 (belgium) + 15 (luxemb)
 
+<<<<<<< HEAD
 Ttal row:# total rows: 4647 (terrain, dem)
 
 
@@ -74,3 +75,6 @@ visually check and remove the point out of the '+':
 "17_143" - ID: 12_17_143_5 - out of +
 
 IDs: 18_22_110_7 18_22_118_6 13_15_145_4 13_26_142_2 11_14_123_2 11_18_106_6 11_18_178_5 11_25_128_3 12_17_107_4 12_17_143_5 
+=======
+Ttal row:# total rows: 4647 (terrain, dem)
+>>>>>>> 07527b8d3d450ee4b919039f3301020712eb2d37
