@@ -33,6 +33,11 @@ library(tidyr)
 
 dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 
+# check: has 4 mature trees? in ID 12_17_112_3
+
+dat %>% 
+  dplyr::filter(ID == "12_17_112_3") %>% View()
+
 # remove Italy and Vaia - windthrow
 dat <- dat %>% 
   dplyr::filter( country != 17) #   ~ "IT",  # Italy)
@@ -48,10 +53,12 @@ dat <- dat %>%
     grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
     planting      = ifelse(!is.na(planting) & planting != 2, 1, 0),
     anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing != 2, 1, 0),
-    manag    = case_when(
-      logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed', # 'or conditions'  - if one of the management type is present, then it is managed
-      TRUE ~ 'Unmanaged'),  # Default case
-    manag_intensity = logging_trail + clear + grndwrk + planting + anti_browsing  # get management intensity: rate on cluster cluster level
+    #manag    = case_when(
+    #  logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed', # 'or conditions'  - if one of the management type is present, then it is managed
+    #  TRUE ~ 'Unmanaged'),  # Default case
+    manag_intensity      = logging_trail + clear + grndwrk + planting + anti_browsing,  # get management intensity: rate on cluster cluster level
+    salvage_intensity    = logging_trail + clear + grndwrk,  # get salvage intensity: how much the site was altered by harvest?rate on cluster cluster level
+    protection_intensity = planting + anti_browsing  # get were trees plantedor even fenced? rate on cluster cluster level
 )
 
 
@@ -82,62 +89,112 @@ dat <- dat %>%
 #19 france
 
 
-length(unique(dat_manag_intensity_cl$cluster))
+#change names of veg classes
+dat <- dat %>% 
+  mutate(VegType = case_when(
+    VegType == "Regeneration" ~ "Saplings",  
+    VegType == "advRegeneration" ~ "Juveniles",
+    VegType == "Survivor" ~ "Mature",
+    TRUE ~ NA_character_      # Fallback in case of unidentified country_id
+  ))  
+  
 
-# 13_123 - example of mixed cluster
+# filter sub-plots that are misplaced/double recorded
+# visually checked on May 8th, 2024
+remove_sub_plots <- c('18_22_110_7' ,
+                      '18_22_118_6', 
+                      '13_15_145_4', 
+                      '13_26_142_2', 
+                      '11_14_123_2', 
+                      '11_18_106_6', 
+                      '11_18_178_5', 
+                      '11_25_128_3', 
+                      '12_17_107_4', 
+                      '12_17_143_5' )
+
+#   cluster       ID            desc
+# "22_110" - ID: 18_22_110_7 - out of +
+#   "22_118" - ID: 18_22_118_6 - out of +
+#   "15_145" - ID: 13_15_145_4 - missing point geometry
+# "26_142" - ID: 13_26_142_2 - overlying on 1
+# "14_123" - ID: 11_14_123_2 - overly on 2
+# "18_106" - ID: 11_18_106_6 - out of +
+#   "18_178" - ID: 11_18_178_5 - out of +
+#   "25_128" - ID: 11_25_128_3 - overlaying 2
+# "17_107" - ID: 12_17_107_4 - out of +
+#   "17_143" - ID: 12_17_143_5 - out of +
+
+
+
+dat <- dat %>% 
+  dplyr::filter(!ID %in% remove_sub_plots )
+  
+# check n_plots per cluster
+#table(dat$)
+
 
 # Create master df with empty plots - eg no trees found on them
 df_master <- 
   dat %>% 
   dplyr::select(country,region, group, cluster, point, ID) %>%  #  region, group, 
-    unique() %>%  # remove duplicated rows
+  unique() %>%  # remove duplicated rows
   group_by(country, region, group, cluster) %>%  # region, group,
   summarize(n_plots = n())
 
 length(unique(df_master$cluster))
 
-# filter only clusters that have >4 points
+
+# get cluster ID for the clusters with 6 plots = are they marked as disturbance yes?
+
+cluster_6_plots <- df_master %>% 
+  dplyr::filter(n_plots == 6) %>% 
+  distinct(cluster) %>% 
+  pull()
+
+cluster_6_plots
+
+
+# dat %>% 
+#   dplyr::filter(cluster %in% cluster_6_plots) %>% 
+#   View()
+# 
+# table(df_master$n_plots)
+# 
 
 # keep clusters with 4, as some disturbace plots were very small
 # remove if there is less records
 dat <- dat %>% 
   right_join(df_master, by = join_by(country, region, group, cluster)) %>%
   filter(n_plots > 3)
-  
-length(unique(dat_manag_intensity_cl$cluster))
-length(unique(dat$cluster))
 
-setdiff( unique(dat_manag_intensity_cl$cluster), unique(dat$cluster))
-setdiff(c('a'), c('a',  'b'))
+
+length(unique(dat$cluster)) # 849
 
 
 # Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
 dat_manag_intensity_cl <- 
   dat %>% 
-  dplyr::select(ID, cluster, manag_intensity) %>% 
+  dplyr::select(ID, cluster, manag_intensity, salvage_intensity, protection_intensity,n_plots ) %>% 
   distinct() %>% 
   group_by(cluster) %>% 
-  mutate(manag_int_cluster = sum(manag_intensity, na.rm =T)
+  mutate(n_plots = min(n_plots),
+         manag_int_cluster  = sum(manag_intensity, na.rm =T),
+         salvage_int_cluster = sum(salvage_intensity, na.rm =T),
+         protect_int_cluster = sum(protection_intensity, na.rm =T)
   ) %>% 
   ungroup() %>% 
-  dplyr::select(cluster, manag_int_cluster) %>% 
+  dplyr::select(cluster, n_plots , manag_int_cluster, salvage_int_cluster,protect_int_cluster) %>% 
   distinct() %>% 
-  mutate(scaled_manag_int_cluster = manag_int_cluster / 25) %>% # scale values between 0-1
-  rename(management_intensity = scaled_manag_int_cluster) %>% 
-  dplyr::select(cluster, management_intensity) 
+  mutate(scaled_manag_int_cluster = manag_int_cluster / (n_plots *5),
+         scaled_salvage_int_cluster = salvage_int_cluster / (n_plots *3),
+         scaled_protect_int_cluster = protect_int_cluster / (n_plots *2)) %>% # scale values between 0-1
+  rename(management_intensity  = scaled_manag_int_cluster,
+         salvage_intensity     = scaled_salvage_int_cluster,
+         protection_intensity  = scaled_protect_int_cluster) %>% 
+  dplyr::select(cluster, management_intensity, salvage_intensity, protection_intensity)  #%>% 
+    #View()
 
 
-
-
-#11 germany
-#12 poland
-#13 czech
-#14 austria
-#15 slovakia
-#16 slovenia
-#17 italy
-#18 switzerland
-#19 france
 
 
 # regions per countries:
@@ -150,7 +207,7 @@ dat_manag_intensity_cl <-
 #16   slovenia          23
 #17   italy             21
 #18   switzerland       22
-#19   france            24
+#19   france            24, 27
 
 
 
@@ -172,7 +229,7 @@ dat_manag_intensity_cl <-
 # "windthrow"      - int
 # "planting"       - int
 # "deadwood"       - int
-#"anti_browsing"
+# "anti_browsing"
 # "value"         - delete, not necessary
 # "VegType" - vertical layer: regeneration, advRegeneration, Survival
 # "Variable" - "n"   - count
@@ -206,11 +263,43 @@ dat %>%
   dplyr::filter(Variable == 'n') %>% # counts, not other variables
   dplyr::filter(n==1)# %>% 
 
-# seems that all clusters have at least one stem left
 
 
-# Dummy example: calculate stem density - convert to stems/ha ----------------------------------
+# get data for iLand: counts, species, vertical class, dbh (for Mature trees) -----
+# sub_plot plot speces count VegType dbh
 
+dat_counts <- dat %>% 
+  dplyr::filter(Variable == 'n',
+                dist == 'TRUE') %>%
+  dplyr::select(ID, VegType, Species, cluster, country, n) %>% #, manag, manag_intensity,
+  mutate(count = ifelse(is.na(n), 0, n)) %>% 
+  dplyr::select(-n)
+
+
+
+dat_dbh_mature <- dat %>%
+  filter(VegType == 'Mature') %>% 
+  filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
+  dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
+  mutate(dbh = case_when(
+    #VegType == 'advRegeneration' ~ 5,
+    value == 4 & VegType == 'Mature' ~ 70,
+    value == 3 & VegType == 'Mature' ~ 50,
+    value == 2 & VegType == 'Mature' ~ 30,
+    value == 1 & VegType == 'Mature' ~ 15,
+    TRUE ~ NA_real_  # Default case if none of the above conditions are met
+  )) #%>% 
+  #dplyr::select(-value)
+
+dat_iLand <- dat_counts %>% 
+  full_join(dat_dbh_mature, by = join_by(ID, VegType, Species, cluster, country))
+
+
+fwrite(dat_iLand, 'outData/sub_plots_counts_DBH.csv')
+
+
+
+#calculate stem density - convert to stems/ha ----------------------------------
 
 
 # Get stem density - from vegetation matrix ------------------------------------
@@ -220,13 +309,14 @@ veg_matrix_counts <-
                 dist == 'TRUE') %>%
   dplyr::select(ID, VegType, Species, cluster, country, n) %>% #, manag, manag_intensity,
   mutate(n = ifelse(is.na(n), 0, n)) %>%
-  pivot_wider(values_from=n,names_from = Species) %>% 
+  pivot_wider(values_from=n,
+              names_from = Species) %>% 
   left_join(dat_manag_intensity_cl)
 
 
-
 # Exclude 'ID', 'cluster', VegType columns from summarization
-species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'country', 'management_intensity'))  #'manag', '', 
+species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'country', 'management_intensity',
+                                                       'salvage_intensity','protection_intensity'))  #'manag', '', 
 
 # Calculate the total and average stems per species per hectare
 stem_dens_ha <-
@@ -234,8 +324,10 @@ stem_dens_ha <-
   group_by(cluster, VegType,  country, management_intensity) %>% # manag, manag_intensity 
   summarize(across(all_of(species_columns), sum),
             rows_per_cluster = n()) %>% # .groups = "drop"
+    
   mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
-  ungroup(.) %>%
+    #View()  # divide by 4 as one sub-plot = 4 m2 
+    ungroup(.) %>%
   group_by(cluster, VegType, country, management_intensity) %>%  # , manag, manag_intensity
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns)))) 
@@ -252,7 +344,9 @@ stem_dens_species_long<-
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns)))) %>% 
   dplyr::select(-total_stems_all_species, -rows_per_cluster, -scaling_factor ) %>% 
-  pivot_longer(!c(ID, cluster, VegType, country, management_intensity), names_to = 'Species', values_to = "stem_density") #%>%  #, manag, manag_intensity
+  pivot_longer(!c(ID, cluster, VegType, country, management_intensity), 
+               names_to = 'Species', 
+               values_to = "stem_density") #%>%  #, manag, manag_intensity
   
 
 # cluster 14_114 has less records??
@@ -385,25 +479,40 @@ unique(dat$Variable)
 # add dbh based on teh vertical layer (colum Variable == 'dbh'), as advRegen and Regen do not have this value
 # complete teh dbh info by vertical class
 dbh_mature <- dat %>%
-  filter(VegType == 'Survivor') %>% 
+  filter(VegType == 'Mature') %>% 
   filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
   mutate(dbh = case_when(
     #VegType == 'advRegeneration' ~ 5,
-    value == 4 & VegType == 'Survivor' ~ 70,
-    value == 3 & VegType == 'Survivor' ~ 50,
-    value == 2 & VegType == 'Survivor' ~ 30,
-    value == 1 & VegType == 'Survivor' ~ 15,
+    value == 4 & VegType == 'Mature' ~ 70,
+    value == 3 & VegType == 'Mature' ~ 50,
+    value == 2 & VegType == 'Mature' ~ 30,
+    value == 1 & VegType == 'Mature' ~ 15,
     TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
   dplyr::select(-value)
+
+dbh_mature_value <- dat %>%
+  filter(VegType == 'Mature') %>% 
+  filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
+  dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
+  mutate(dbh = case_when(
+    #VegType == 'advRegeneration' ~ 5,
+    value == 4 & VegType == 'Mature' ~ 70,
+    value == 3 & VegType == 'Mature' ~ 50,
+    value == 2 & VegType == 'Mature' ~ 30,
+    value == 1 & VegType == 'Mature' ~ 15,
+    TRUE ~ NA_real_  # Default case if none of the above conditions are met
+  )) #%>% 
+  #dplyr::select(-value)
+
   
 dbh_advanced <- 
   dat %>%
-  filter(VegType == 'advRegeneration') %>% 
+  filter(VegType == 'Juveniles') %>% 
   filter(Variable == 'n') %>% 
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
-  mutate(dbh = case_when(!is.na(value) & VegType == 'advRegeneration' ~ 5,
+  mutate(dbh = case_when(!is.na(value) & VegType == 'Juveniles' ~ 5,
     TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
   dplyr::select(-value)
@@ -411,11 +520,11 @@ dbh_advanced <-
 # account for the regeneration as basal area: use value of 1 mm
 dbh_regen <- 
   dat %>%
-  filter(VegType == 'Regeneration') %>% 
+  filter(VegType == 'Saplings') %>% 
   filter(Variable == 'n') %>% 
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
   #mutate(dbh = NA)  %>% 
-  mutate(dbh = case_when(!is.na(value) & VegType == 'Regeneration' ~ 0.01,  # 0.1 mm
+  mutate(dbh = case_when(!is.na(value) & VegType == 'Saplings' ~ 0.01,  # 0.1 mm
                          TRUE ~ NA_real_  # Default case if none of the above conditions are met
   )) %>% 
   dplyr::select(-value)
@@ -480,18 +589,18 @@ df_vert <- merge(df_stems, df_vert, by = c("cluster"), all.x = TRUE) #
 df_vert$n_layers[is.na(df_vert$n_layers)] <- 0
 
 
-# how to get which exactly vertical layers I have in which cases??
 
 
 # export data: -----------------------------------------------------------------
 save(dat_manag_intensity_cl, # get the management intensity value per cluster
      df_IVI,  # species importance value
      df_richness, 
-  df_vert,   # number of vertical layers
-  df_stems,  # numbers of stems for all vert layers
-  stem_dens_ha_cluster_sum,   
-  stem_dens_species_long,  # stem density per ID& species
-  file="outData/veg.Rdata")
+     df_vert,   # number of vertical layers
+     df_stems,  # numbers of stems for all vert layers
+     stem_dens_ha_cluster_sum,   
+     stem_dens_species_long,  # stem density per ID& species
+     veg_matrix_counts,    # stem counts (not stem density)
+     file="outData/veg.Rdata")
 
 
 unique(df_IVI$cluster)
