@@ -35,7 +35,9 @@ library(performance) #binomial model diagnostics
 library(emmeans) #post hoc for categorical predictors
 
 #library(AER)  # for hurdle model
-
+library(mgcv)
+library(gratia)
+library(ggeffects)
 
 ### read data --------------------------------------------------------------------
 
