@@ -5,7 +5,6 @@
 .Ruserdata
 
 # Ignore input data and raw data directories
-inData/
 rawData/
 
 # Ignore output data directories
