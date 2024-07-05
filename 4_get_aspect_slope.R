@@ -76,7 +76,7 @@ final_terrain <- final_terrain %>%
   mutate(slope = ifelse(is.na(slope), median(slope, na.rm = TRUE), slope),
          aspect = ifelse(is.na(aspect), median(aspect, na.rm = TRUE), aspect))
  
-# total rows: 4647 
+# total rows: 4755 
 # Export data -------------------------------------------------------------
 fwrite(final_terrain, 'outData/terrain.csv')
 
