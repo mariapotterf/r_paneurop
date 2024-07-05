@@ -1,31 +1,20 @@
+# Ignore RStudio project files
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-inData
+
+# Ignore input data and raw data directories
+inData/
 rawData/
+
+# Ignore output data directories
 outData/
-overview/
 outFigs/
 outTable/
+
+# Ignore overview directory
+overview/
+
+# Ignore temporary commit message (appears to be a typo from a previous command)
 #et --soft HEAD~1
-
-#outData/
-dat_austria.gpkg
-dat_france.gpkg
-dat_germany.gpkg
-dat_italy.gpkg
-dat_poland.gpkg
-dat_slovakia.gpkg
-dat_slovenia.gpkg
-dat_switzerland.gpkg
-dat_czechia.gpkg
-dat_Austria.gpkg
-dat_France.gpkg
-dat_Germany.gpkg
-dat_Italy.gpkg
-dat_Poland.gpkg
-dat_Slovakia.gpkg
-dat_Slovenia.gpkg
-dat_Switzerland.gpkg
-
