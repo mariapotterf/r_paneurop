@@ -51,3 +51,26 @@ mutate(country = case_when(
 #17   italy             21
 #18   switzerland       22
 #19   france            24, 27
+
+missing aspect and slope data for country_region:
+ 11_18: 302 records
+ 19_24: 269 records + 10 (belgium) + 15 (luxemb)
+
+Ttal row:# total rows: 4647 (terrain, dem)
+
+
+Found 05/08/ - 10 plots have 6 sub-plots, instead of 5:
+visually check and remove the point out of the '+':
+
+"22_110" - ID: 18_22_110_7 - out of +
+"22_118" - ID: 18_22_118_6 - out of +
+"15_145" - ID: 13_15_145_4 - missing point geometry
+"26_142" - ID: 13_26_142_2 - overlying on 1
+"14_123" - ID: 11_14_123_2 - overly on 2
+"18_106" - ID: 11_18_106_6 - out of +
+"18_178" - ID: 11_18_178_5 - out of +
+"25_128" - ID: 11_25_128_3 - overlaying 2
+"17_107" - ID: 12_17_107_4 - out of +
+"17_143" - ID: 12_17_143_5 - out of +
+
+IDs: 18_22_110_7 18_22_118_6 13_15_145_4 13_26_142_2 11_14_123_2 11_18_106_6 11_18_178_5 11_25_128_3 12_17_107_4 12_17_143_5 
