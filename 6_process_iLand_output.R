@@ -24,7 +24,7 @@ df_sub1 <- df_cl %>%
   dplyr::filter(cluster == "1_4") %>% 
   dplyr::filter(clim_model == "NCC" & clim_scenario == "HISTO" & external_seed == "FALSE")
 
-#View(df_sub1)
+View(df_sub1)
 
 
 # Check simulation data:
