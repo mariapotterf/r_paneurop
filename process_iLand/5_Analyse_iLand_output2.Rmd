@@ -1,0 +1,680 @@
+---
+title: "R Notebook - Analyse iLand output"
+output: html_notebook
+---
+
+After having run the iLand simulations for the 12 clusters the resulting .sqlite files need to be evaluated. Goal is to see how the tree development of each cluster develops.
+
+# 1. Load data from .sqlite files
+
+To be able to load the data, fist a connection to the .sqlite file needs to be established. For this the library "RSQLite" is needed.
+
+```{r librarys}
+#install.packages("RSQLite")
+library(RSQLite)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+library(rstatix)
+library(data.table)
+library(ggplot2)
+library(here)
+
+# Set the root directory for all chunks
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+With the necessary libraries loaded, the data can be assessed. First a connection to the database is established, afterwards the tables inside can be read.
+
+```{r load_data}
+#setwd("rawData/iLand/iLand_output")
+#setwd('C:/Users/ge45lep/Documents/2023_PanEuropean/r_paneurop/rawData/iLand/iLand_output')
+#getwd()
+# Define the path to your data using the here() function
+data_path <- here("rawData/iLand/iLand_output")
+
+
+# Get output dirs and run through them
+lDirs <- list.dirs(path = data_path, recursive = FALSE)
+lDirs <- grep("_new", lDirs, value = TRUE)
+DBTables <- list()
+DBT_sap <- list()
+DBT_sapd <- list()
+iFiles <- 1
+iDirs <- 1
+bExtSeed <- FALSE
+
+# Outer loop runs through all directories at that path and loads .sqlite files
+# into a list. Also a counter (iDirs) counts the number of directories accessed
+for (l_dir in lDirs) {
+  lFiles <- list.files(path = l_dir, pattern = ".sqlite", full.names = TRUE)
+  
+  # Inner loop runs through all files (.sqlite) in a directory and loads the
+  # stand table into a variable.
+  # File for cluster 3_2 is skipped, due to this stand being empty in run 
+  # without external seeeds
+  for (lFile in lFiles) {
+    l_db <- dbConnect(RSQLite::SQLite(), lFile)
+    l_dfStnd <- dbReadTable(l_db, "stand")
+    l_dfSapl <- dbReadTable(l_db, "sapling")
+    l_dfSapD <- dbReadTable(l_db, "saplingdetail")
+    dbDisconnect(l_db)
+    
+    bExtSeed <- !grepl("noseed", lFile)
+
+    if (nrow(l_dfStnd) == 0) {
+      next
+    }
+    
+    l_dfStnd$filenm <- tools::file_path_sans_ext(basename(lFile))
+    l_dfStnd <- l_dfStnd %>%
+      dplyr::select(filenm,
+                    year,
+                    species,
+                    volume_m3,
+                    dbh_avg_cm,
+                    basal_area_m2,
+                    count_ha,
+                    cohort_count_ha,
+                    cohort_basal_area)
+    l_dfStnd$run_nr <- iDirs
+    l_dfStnd$external_seed <- bExtSeed
+    
+    l_dfSapl$filenm <- tools::file_path_sans_ext(basename(lFile))
+    l_dfSapD$filenm <- tools::file_path_sans_ext(basename(lFile))
+    # add run number
+    l_dfSapl$run_nr <- iDirs
+    l_dfSapD$run_nr <- iDirs
+    
+    DBTables[[iFiles]] <- l_dfStnd
+    DBT_sap[[iFiles]] <- l_dfSapl
+    DBT_sapd[[iFiles]] <- l_dfSapD
+    
+    iFiles <- iFiles + 1
+    #dbDisconnect(l_db)
+  }
+  iDirs <- iDirs + 1
+}
+# Bring all the data together in big_data variable
+OG_big_data <- bind_rows(DBTables)
+OG_sapl <- bind_rows(DBT_sap)
+OG_sapd <- bind_rows(DBT_sapd)
+
+# Cleanup of some variables
+rm(DBTables, l_db, l_dfStnd, iDirs, iFiles, l_dir, lDirs, lFile, lFiles, 
+   bExtSeed, DBT_sapd, DBT_sap, l_dfSapl, l_dfSapD)
+```
+
+# 2. Data handling
+
+For further processing it might be usefull to split the filename into a few pieces:
+
+-   Climate model
+-   Cluster
+-   With or without external seed
+
+
+Organization of the iLand outputs:
+
+- stand by species:
+- trees > 4 m - from output 'stand'
+- sapling: <4 m - from output 'saplings'
+-- 1.3, - 4 m - has dbh
+-- <1.3m - does not have dph, organized as 'cohorts' - from output 'saplings details'
+
+in Sapling table: counts_ha and count_small_ha are calculated from teh n_represented from teh  
+
+# Example: connect tables between ILand output formats, to get the all 3 vertiocal classes.
+# the regeneration 
+
+
+
+| Column name     | Table           | Description                                                           |
+|-----------------|-----------------|-----------------------------------------------------------------------|
+| count_ha        | stand           | number of trees > 4 per ha                                            |
+| basal_area_m2   | stand           | total basal area at breast height (m2)                                |
+| cohort_count_ha | stand           | number of cohorts in the regeneration layer (<4m) /ha                 |
+| cohort_basal_area| stand           | basal area (m2) of saplings (>1.3m and <4m)                           |
+| count_ha*       | sapling         | number of represented individuals per ha (tree height >1.3m)          |
+| count_small_ha* | sapling         | number of represented individuals per ha (with height <=1.3m)         |
+| cohort_count_ha | sapling         | number of cohorts in the regeneration layer (<4m) /ha (same as in stand)|
+| n_represented   | saplingDetails  | number of trees that are represented by the cohort (Reineke function) |
+| dbh             | saplingDetails  | diameter of the cohort (cm)                                           |
+| height          | saplingDetails  | height of the cohort (m)                                              |
+
+*both counts of saplings can be derived from n_represented from the sapling details
+
+
+
+```{r data_handling}
+# 1. stand table
+big_data <- OG_big_data |>
+  separate_wider_delim(filenm, delim = "_", names = c("clim_model",
+                                                      "clim_scenario",
+                                                      "env_clst",
+                                                      "stnd_clst",
+                                                      "ext_seed"))
+big_data <- big_data %>% dplyr::select(!ext_seed)
+big_data$cluster <- paste(big_data$env_clst, big_data$stnd_clst, sep = "_")
+#big_data <- big_data %>%
+#  dplyr::select(!c(env_clst, stnd_clst))
+big_data$clim_scenario <- as.factor(big_data$clim_scenario)
+big_data$clim_model <- as.factor(big_data$clim_model)
+big_data$cluster    <- as.factor(big_data$cluster)
+big_data$species    <- as.factor(big_data$species)
+
+big_data <- big_data %>%
+  mutate(ext_seed = ifelse(external_seed, 'seed', 'noseed'))
+
+
+# make new columns
+
+# strCols <- c("volume_m3", "dbh_avg_cm", "basal_area_m2",
+#              "count_ha", "cohort_count_ha", "cohort_basal_area")
+# 
+# w_means <- big_data %>%
+#   dplyr::group_by(clim_scenario, external_seed, cluster, year, species) %>%
+#   dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),.groups = "drop")
+
+# 2. sapling table
+# big_sapl <- OG_sapl |>
+#   separate_wider_delim(filenm, delim = "_", names = c("clim_model",
+#                                                       "clim_scenario",
+#                                                       "env_clst",
+#                                                       "stnd_clst",
+#                                                       "ext_seed"))
+# big_sapl$cluster <- paste(big_sapl$env_clst, big_sapl$stnd_clst, sep = "_")
+# big_sapl$clim_model <- as.factor(big_sapl$clim_model)
+# big_sapl$clim_scenario <- as.factor(big_sapl$clim_scenario)
+# big_sapl$cluster <- as.factor(big_sapl$cluster)
+# big_sapl$species <- as.factor(big_sapl$species)
+# big_sapl$ext_seed <- as.factor(big_sapl$ext_seed)
+# big_sapl <- big_sapl %>% dplyr::select(!c(env_clst, stnd_clst, ru, rid))
+
+# strCols <- c("count_ha", "count_small_ha", "cohort_count_ha", "height_avg_m",
+#              "age_avg", "LAI")
+# 
+# w_means_sapl <- big_sapl %>%
+#   dplyr::group_by(clim_scenario, ext_seed, cluster, year, species) %>%
+#   dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),.groups = "drop")
+
+# 3. saplingdetails table
+big_sapD <- OG_sapd |>
+  separate_wider_delim(filenm, delim = "_", names = c("clim_model",
+                                                      "clim_scenario",
+                                                      "env_clst",
+                                                      "stnd_clst",
+                                                      "ext_seed"))
+big_sapD$cluster <- paste(big_sapD$env_clst, big_sapD$stnd_clst, sep = "_")
+big_sapD$clim_model <- as.factor(big_sapD$clim_model)
+big_sapD$clim_scenario <- as.factor(big_sapD$clim_scenario)
+big_sapD$cluster <- as.factor(big_sapD$cluster)
+big_sapD$species <- as.factor(big_sapD$species)
+big_sapD$ext_seed <- as.factor(big_sapD$ext_seed)
+big_sapD <- big_sapD %>% dplyr::select(!c(env_clst, stnd_clst, ru, rid))
+
+# strCols <- c("age", "height", "dbh", "n_represented")
+# 
+# w_means_sapD <- big_sapD %>%
+#   dplyr::group_by(clim_scenario, ext_seed, cluster, year, species) %>%
+#   dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),.groups = "drop")
+
+
+
+# put all data together
+# check if cohorst make sense!
+# dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO")
+#head(big_data)
+#head(big_sapl)
+#head(big_sapD)
+
+
+```
+
+
+Test subsets: do I get the data right??? 
+
+```{r, test-subsets}
+
+# subset on one landscape, to make sure I got the cohorts right!
+big_data_sub <- big_data %>%
+  dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & run_nr == 1 ) # & ext_seed == 'noseeed'
+
+View(big_data_sub)
+big_sapl_sub <- big_sapl %>% 
+  dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & ext_seed == 'noseed' & run_nr == 1 )
+View(big_sapl_sub)
+
+big_sapD_sub <- 
+  big_sapD %>% 
+  dplyr::filter(year == 0 & cluster == "1_1"& clim_model == "NCC"  & clim_scenario == "HISTO"& ext_seed == 'noseed' & run_nr == 1 ) #   & clim_scenario == "HIST0"
+View(big_sapD_sub)
+#big_data_sub <- 
+
+
+
+
+
+# clean environment
+#rm(strCols)
+```
+
+Prepare new vertical classification and merge the data:
+
+- for trees > 4 m tall
+- for trees < 4 m tall
+
+```{r final_tab_vert_cat}
+
+# Start with the cohorts: spllit into vertical classes (seedlings (<0.2m), saplings (0.2-2m), juveniles 2m-4m)
+# sum up by vertical classes, get counst_ha and dbh for basal area
+# no need to do this with the saplings table, as i have the counts and BA from teh saplings details
+
+# Trees < 4m of height
+out_sapD <- big_sapD %>% 
+  # get vert_classes
+   mutate(category = case_when(
+    height > 2 ~ "juveniles",
+    height >= 0.2 & height <= 2 ~ "saplings",
+     height < 0.2 ~ "seedlings",
+   # height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
+    TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
+  )) %>% 
+  dplyr::filter(category != 'seedlings') %>% 
+  mutate(r=dbh/100/2, # convert cm to m
+         BA = pi*r^2,
+         basal_area_m2 = BA*n_represented) %>% # how to calculate cohort basal area???
+  group_by(year, species, clim_model, clim_scenario,ext_seed, run_nr, cluster, category) %>% 
+  summarise(count_ha = sum(n_represented),  # summarize by run, and by species and vertical class
+            basal_area_m2 = sum(basal_area_m2)) %>%
+  ungroup()
+  
+# Trees  taller > 4 m
+out_big <- 
+  big_data %>% 
+  # get vert_classes
+   mutate(category = case_when(
+    dbh_avg_cm >= 10 ~ "mature",
+    dbh_avg_cm < 10 ~ "saplings",
+   # height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
+    TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
+  )) %>% 
+  #  rename(ext_seed = external_seed) %>% 
+  #  head()
+ # dplyr::filter(category != 'seedlings') %>% 
+ # mutate(r=dbh/100/2, # convert cm to m
+#         BA = pi*r^2,
+#         basal_area_m2 = BA*n_represented) %>% # how to calculate cohort basal area???
+  group_by(year, species, clim_model, clim_scenario,ext_seed, run_nr, cluster, category) %>% 
+  summarise(count_ha = sum(count_ha ),  # summarize by run, and by species and vertical class
+            basal_area_m2 = sum(basal_area_m2)) %>%
+  ungroup()
+
+head(out_sapD)
+head(out_big)
+
+
+df_simulated <- rbind(out_sapD, out_big)
+getwd()
+
+
+fwrite(df_simulated, 'C:/Users/ge45lep/Documents/2023_PanEuropean/r_paneurop/outTable/df_simulated.csv')
+
+```
+
+
+
+## 2.1 Effect strength
+
+Effect strength of all variables that influence the number of trees is calculated to identify which can be included in the mean calculation.
+
+```{r effect_strength}
+ggplot(w_means, aes(x = count_ha_mean)) + geom_histogram()
+ggplot(w_means, aes(x = count_ha_mean)) + geom_density()
+
+# test for varianzhomogeniocity (if p < 0.05 -> no homogeneity of variance)
+w_means %>% levene_test(count_ha_mean ~ clim_scenario)  #homogeneity of variance
+w_means %>% levene_test(volume_m3_mean ~ clim_scenario)  #homogeneity of variance
+w_means %>% levene_test(count_ha_mean ~ external_seed)  #no homogeneity of var
+w_means %>% levene_test(count_ha_mean ~ cluster)        #no homogeneity of var
+w_means %>% levene_test(count_ha_mean ~ species)        #no homogeneity of var
+
+# test for effect strength - var.equal = FALSE -> no homogeneity of variance
+w_means %>% cohens_d(count_ha_mean ~ clim_scenario, var.equal = TRUE) #negligible effect
+w_means %>% cohens_d(volume_m3_mean ~ clim_scenario, var.equal = TRUE) #negligible effect
+w_means %>% cohens_d(count_ha_mean ~ external_seed, var.equal = FALSE) #small effect
+w_means %>% cohens_d(count_ha_mean ~ cluster, var.equal = FALSE) #no to large effect
+w_means %>% cohens_d(count_ha_mean ~ species, var.equal = FALSE) #no to large effect
+
+ggplot(w_means[w_means$year == 30 & w_means$external_seed == FALSE,], 
+       aes(x = species,y = count_ha_mean, fill = species)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = count_ha_mean - count_ha_sd,
+                    ymax = count_ha_mean + count_ha_sd)) +
+  facet_grid(cluster ~ clim_scenario, scales = "free") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "Count per ha, in Year 30 (no external seed)")
+```
+
+Climate scenarios do not seem to have a huge influence on the dataset and can therefore calculated into the uncertainty.
+
+## 2.2 Mean over all clim_scenarios
+
+Calculate the mean values over all 4 climate scenarios.
+
+```{r mean_clim}
+# stand
+strCols <- c("volume_m3", "dbh_avg_cm", "basal_area_m2",
+             "count_ha", "cohort_count_ha", "cohort_basal_area")
+
+w_means_clim <- big_data %>%
+  dplyr::group_by(external_seed, cluster, year, species) %>%
+  dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),
+                   .groups = "drop")
+
+# saplings
+strCols <- c("count_ha", "count_small_ha", "cohort_count_ha",
+             "height_avg_m", "age_avg")
+
+w_means_sapl_clim <- big_sapl %>%
+  dplyr::group_by(ext_seed, cluster, year, species) %>%
+  dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),
+                   .groups = "drop")
+
+# sapling details
+strCols <- c("n_represented", "dbh", "height", "age")
+
+w_means_sapD_clim <- big_sapD %>%
+  dplyr::group_by(ext_seed, cluster, year, species) %>%
+  dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),
+                   .groups = "drop")
+
+rm(strCols)
+```
+
+# 3. Plots
+
+1.  Development volume, dbh, basal area, count and cohort count over the simulation extend.
+
+```{r development_plots}
+# volume/biomass
+ggplot(w_means_clim, aes(x = year, y = volume_m3_mean, col = species)) +
+  geom_line(aes(linetype = external_seed)) +
+  geom_ribbon(aes(linetype = external_seed,
+                  ymin = volume_m3_mean - volume_m3_sd,
+                  ymax = volume_m3_mean + volume_m3_sd,
+                  fill = species),
+                  alpha = 0.05) +
+  facet_wrap(~cluster, scales = "free") +
+  theme_bw() +
+  labs(title = "Development of mean volume(m³)/biomass per cluster")
+
+# dbh
+ggplot(w_means_clim, aes(x = year, y = dbh_avg_cm_mean, col = species)) +
+  geom_line(aes(linetype = external_seed)) +
+  geom_ribbon(aes(linetype = external_seed,
+                  ymin = dbh_avg_cm_mean - dbh_avg_cm_sd,
+                  ymax = dbh_avg_cm_mean + dbh_avg_cm_sd,
+                  fill = species),
+                  alpha = 0.05) +
+  facet_wrap(~cluster, scales = "free") +
+  theme_bw() +
+  labs(title = "Development of mean dbh(cm) per cluster")
+
+# basal area
+ggplot(w_means_clim, aes(x = year, y = basal_area_m2_mean, col = species)) +
+  geom_line(aes(linetype = external_seed)) +
+  geom_ribbon(aes(linetype = external_seed,
+                  ymin = basal_area_m2_mean - basal_area_m2_sd,
+                  ymax = basal_area_m2_mean + basal_area_m2_sd,
+                  fill = species),
+                  alpha = 0.05) +
+  facet_wrap(~cluster, scales = "free") +
+  theme_bw() +
+  labs(title = "Development of mean basal area (m²) per cluster")
+
+# stem count
+ggplot(w_means_clim, aes(x = year, y = count_ha_mean, col = species)) +
+  geom_line(aes(linetype = external_seed)) +
+  geom_ribbon(aes(linetype = external_seed,
+                  ymin = count_ha_mean - count_ha_sd,
+                  ymax = count_ha_mean + count_ha_sd,
+                  fill = species),
+                  alpha = 0.05) +
+  facet_wrap(~cluster, scales = "free") +
+  theme_bw() +
+  labs(title = "Development of mean stem count (n/ha) per cluster")
+
+# cohort count
+ggplot(w_means_clim[w_means_clim$external_seed == FALSE,],
+       aes(x = year, y = cohort_count_ha_mean, col = species)) +
+  geom_line(aes(linetype = external_seed)) +
+  geom_ribbon(aes(linetype = external_seed,
+                  ymin = cohort_count_ha_mean - cohort_count_ha_sd,
+                  ymax = cohort_count_ha_mean + cohort_count_ha_sd,
+                  fill = species),
+                  alpha = 0.05) +
+  facet_wrap(~cluster, scales = "free") +
+  theme_bw() +
+  labs(title = "Development of mean cohort count (n/ha) per cluster (no seed)")
+
+ggplot(w_means_clim[w_means_clim$external_seed == TRUE,],
+       aes(x = year, y = cohort_count_ha_mean, col = species)) +
+  geom_line(aes(linetype = external_seed)) +
+  geom_ribbon(aes(linetype = external_seed,
+                  ymin = cohort_count_ha_mean - cohort_count_ha_sd,
+                  ymax = cohort_count_ha_mean + cohort_count_ha_sd,
+                  fill = species),
+                  alpha = 0.05) +
+  facet_wrap(~cluster, scales = "free") +
+  theme_bw() +
+  labs(title = "Development of mean cohort count (n/ha) per cluster")
+```
+
+2.  Dominant species on each cluster in Year 30
+
+```{r dominant_species_plots}
+# stem count
+ggplot(w_means_clim[w_means_clim$year == 30,],
+       aes(x = species, y = count_ha_mean, fill = external_seed)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = count_ha_mean - count_ha_sd,
+                    ymax = count_ha_mean + count_ha_sd)) +
+  facet_wrap(~cluster, scales = "free_y", labeller = label_both) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  geom_text(aes(label = species), vjust = 0.25, check_overlap = TRUE) +
+  labs(title = "Species mean stem count per cluster (n/ha) in year 30")
+
+# volume/biomass
+ggplot(w_means_clim[w_means_clim$year == 30,],
+       aes(x = species, y = volume_m3_mean, fill = external_seed)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = volume_m3_mean - volume_m3_sd,
+                    ymax = volume_m3_mean + volume_m3_sd)) +
+  facet_wrap(~cluster, scales = "free_y", labeller = label_both) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  geom_text(aes(label = species), vjust = 0.25, check_overlap = TRUE) +
+  labs(title = "Species mean volume per cluster (m³)/Biomass in year 30")
+
+# DBH
+ggplot(w_means_clim[w_means_clim$year == 30,],
+       aes(x = species, y = dbh_avg_cm_mean, fill = external_seed)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = dbh_avg_cm_mean - dbh_avg_cm_sd,
+                    ymax = dbh_avg_cm_mean + dbh_avg_cm_sd)) +
+  facet_wrap(~cluster, scales = "free_y", labeller = label_both) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  geom_text(aes(label = species), vjust = 0.25, check_overlap = TRUE) +
+  labs(title = "Species mean dbh per cluster (cm) in year 30")
+
+# basal area
+ggplot(w_means_clim[w_means_clim$year == 30,],
+       aes(x = species, y = basal_area_m2_mean, fill = external_seed)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = basal_area_m2_mean - basal_area_m2_sd,
+                    ymax = basal_area_m2_mean + basal_area_m2_sd)) +
+  facet_wrap(~cluster, scales = "free_y", labeller = label_both) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  geom_text(aes(label = species), vjust = 0.25, check_overlap = TRUE) +
+  labs(title = "Species mean basal area per cluster (m²) in year 30")
+
+# cohort count
+ggplot(w_means_clim[w_means_clim$year == 30,],
+       aes(x = species, y = cohort_count_ha_mean, fill = external_seed)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = cohort_count_ha_mean - cohort_count_ha_sd,
+                    ymax = cohort_count_ha_mean + cohort_count_ha_sd)) +
+  facet_wrap(~cluster, scales = "free_y", labeller = label_both) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  geom_text(aes(label = species), vjust = 0.25, check_overlap = TRUE) +
+  labs(title = "Species mean cohort count per cluster (n/ha) in year 30")
+```
+
+## 3.1 Interesting plots
+
+Biomass development and biomass state in year 30. Mean volume per scenario and cluster (y = mean vol, x = cluster).
+
+```{r interesting_plots}
+# Development of biomass/volume over time
+plot1 <- ggplot(w_means_clim, aes(x = year, y = volume_m3_mean, col = species)) +
+  geom_line(aes(linetype = external_seed)) +
+  geom_ribbon(aes(linetype = external_seed,
+                  ymin = volume_m3_mean - volume_m3_sd,
+                  ymax = volume_m3_mean + volume_m3_sd,
+                  fill = species),
+                  alpha = 0.05) +
+  facet_wrap(~cluster, scales = "free") +
+  theme_bw() +
+  labs(title = "Development of mean volume(m³)/biomass per cluster")
+
+# Volume/biomass state in year 30
+plot2 <- ggplot(w_means_clim[w_means_clim$year == 30,],
+       aes(x = species, y = volume_m3_mean, fill = external_seed)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = volume_m3_mean - volume_m3_sd,
+                    ymax = volume_m3_mean + volume_m3_sd)) +
+  facet_wrap(~cluster, scales = "free_y", labeller = label_both) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  geom_text(aes(label = species), vjust = 0.25, check_overlap = TRUE) +
+  labs(title = "Species mean volume per cluster (m³)/Biomass in year 30")
+
+# Mean volume per scenario and cluster in year 30
+plot3 <- ggplot(w_means_clim[w_means_clim$year == 30,],
+       aes(x = cluster, y = volume_m3_mean, fill = species)) +
+  geom_col(col = "black") +
+  geom_text(aes(label = species),
+            position = position_stack(vjust = 0.5),
+            size = 4,
+            check_overlap = TRUE) +
+  facet_wrap(~external_seed, scales = "free", labeller = label_both) +
+  theme_bw() +
+  labs(title = "Mean volume/biomass per cluster in year 30")
+
+plot1
+plot2
+plot3
+```
+
+## 3.2 Save plots
+
+Safe the 3 plots as .png file.
+
+```{r}
+png("plots/plot1_year-vol.png", width = 1200, height = 1200)
+plot1
+dev.off()
+
+png("plots/plot2_species-vol.png", width = 1200, height = 1200)
+plot2
+dev.off()
+
+png("plots/plot3_cluster-vol.png", width = 1200, height = 1200)
+plot3
+dev.off()
+```
+
+# 4. Derive stand parameter
+
+The development of the stand can also be predicted using 6 indicators, 4 of those should be calculated with iLand data (tree species, basal area, stem density, vertical class).
+
+```{r calc_parameters}
+w_means_sapl_clim$external_seed <- FALSE
+w_means_sapl_clim[w_means_sapl_clim$ext_seed == "seed",]$external_seed <- TRUE
+w_means_sapl_clim <- dplyr::select(w_means_sapl_clim, !ext_seed)
+
+w_means_sapD_clim$external_seed <- FALSE
+w_means_sapD_clim[w_means_sapD_clim$ext_seed == "seed",]$external_seed <- TRUE
+w_means_sapD_clim <- dplyr::select(w_means_sapD_clim, !ext_seed)
+
+# Gather data for every cluster
+w_indic <- inner_join(w_means_clim, w_means_sapl_clim,
+                      by = join_by(external_seed, cluster, year, species))
+
+w_indic <- w_indic %>%
+  dplyr::rename(count_ha_4_mean = count_ha_mean.x, # tree count/ha (>4m height)
+                count_ha_4_sd = count_ha_sd.x,
+                co_cnt_ha_mean = cohort_count_ha_mean.x, # number of cohorts (<4m height)
+                co_cnt_ha_sd = cohort_count_ha_sd.x, # number of cohorts (<4m height)
+                cnt_ha_13_mean = count_ha_mean.y, # number of individuals/ha (>1.3m height)
+                cnt_ha_13_sd = count_ha_sd.y # number of individuals/ha (>1.3m height)
+              )
+w_indic <- inner_join(w_indic, w_means_sapD_clim,
+                      by = join_by(external_seed, cluster, year, species))
+w_indic %>%
+  dplyr::rename(n_represented_coho_mean = n_represented_mean,
+                n_represented_coho_sd = n_represented_sd,
+                coho_dbh_mean = dbh_mean,
+                coho_dbh_sd = dbh_sd,
+                coho_age_mean = age_mean,
+                coho_age_sd = age_sd)
+
+```
+
+Description of columns:
+
+| Column name            | Description                                                                    |
+|------------------------------------|------------------------------------|
+| external_seed          | Wheather external seed was considered in the simulation                        |
+| cluster                | To which of the 12 clusters this line belongs                                  |
+| year                   | simulated year (0 is initial state, 30 final state)                            |
+| species                | tree species the data relates to                                               |
+| volume_m3_mean         | volume of species biomass (mean)                                               |
+| volume_m3_sd           | volume of species biomass (standard deviation)                                 |
+| dbh_avg_cm_mean        | average dbh of trees (\>4m height) (mean)                                      |
+| dbh_avg_cm_sd          | average dbh of trees (\>4m height) (standard deviation)                        |
+| basal_area_m2_mean     | total basal area at breast height (\>4m height) (mean)                         |
+| basal_area_m2_sd       | total basal area at breast height (\>4m height) (standard deviation)           |
+| count_ha_4_mean        | tree count (living, \>4m height) per ha (mean)                                 |
+| count_ha_4_sd          | tree count (living, \>4m height) per ha (standard deviation)                   |
+| co_cnt_ha_mean         | number of cohorts in the regeneration layer (\<4m) per ha (mean)               |
+| co_cnt_ha_sd           | number of cohorts in the regeneration layer (\<4m) per ha (standard deviation) |
+| cohort_basal_area_mean | basal area of saplings (\>1.3m and \<4m) (mean)                                |
+| cohort_basal_area_sd   | basal area of saplings (\>1.3m and \<4m) (standard deviation)                  |
+| cnt_ha_13_mean         | number of represented individuals per ha (\>1.3m height) (mean)                |
+| cnt_ha_13_sd           | number of represented individuals per ha (\>1.3m height) (standard deviation)  |
+| count_small_ha_mean    | number of represented individuals per ha (\<=1.3m height) (mean)               |
+| count_small_ha_sd      | number of represented individuals per ha (\<=1.3m height) (standard deviation) |
+| cohort_count_ha_mean.y | number of cohorts per ha (same as co_cnt_ha_mean)                              |
+| cohort_count_ha_sd.y   | number of cohorts per ha (same as co_cnt_ha_sd)                                |
+| height_avg_m_mean      | arithmetic average height of the cohorts (m) (mean)                            |
+| height_avg_m_sd        | arithmetic average height of the cohorts (m) (sd)                              |
+| age_avg_mean           | arithmetric average age of the sapling cohorts (years) (mean)                  |
+| age_avg_sd             | arithmetric average age of the sapling cohorts (years) (standard deviaion)     |
+| age_avg_sd             | arithmetric average age of the sapling cohorts (years) (standard deviaion)     |
+| n_represented_mean     | number of trees that are represented by the cohort (Reineke function) (mean)   |
+| n_represented_sd       | number of trees that are represented by the cohort (Reineke function) (sd)     |
+| dbh_mean               | diameter of the cohort in cm (mean)                                            |
+| dbh_sd                 | diameter of the cohort in cm (sd)                                              |
+| height_mean            | height of the cohort in m (mean)                                               |
+| height_sd              | height of the cohort in m (sd)                                                 |
+| age_mean               | age of the cohort (mean)                                                       |
+| age_sd                 | age of the cohort (sd)                                                         |
+
+: column descriptions
