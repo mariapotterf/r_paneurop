@@ -15,5 +15,8 @@ outTable/
 # Ignore overview directory
 overview/
 
+# ignore all html files 
+process_iLand/*.html
+
 # Ignore temporary commit message (appears to be a typo from a previous command)
 #et --soft HEAD~1
