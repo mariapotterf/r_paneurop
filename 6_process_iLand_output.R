@@ -15,14 +15,14 @@ library(dplyr)
 library(ggplot2)
 library(stringr)
 
-df <- fread('rawData/iLand/iLandoutputs.csv')
-head(df)
+df <- fread('outTable/df_simulated.csv')
+View(df)
 
 
 # inspect single example
 df_sub1 <- df_cl %>% 
-  dplyr::filter(cluster == "1_4") %>% 
-  dplyr::filter(clim_model == "NCC" & clim_scenario == "HISTO" & external_seed == "FALSE")
+  dplyr::filter(cluster == "1_1") %>% 
+  dplyr::filter(clim_model == "NCC" & clim_scenario == "HISTO" & ext_seed == "FALSE")
 
 View(df_sub1)
 
@@ -48,9 +48,7 @@ unique(df$clim_scenario)
 
 # external seed: external seed present or not?? TRUE/FALSE
 # years: 1-30
-
-
-length(unique(df$V1))  # why there is a unique V1 for each of the row???
+unique(df$run_nr)  # 5 repetitions
 
 
 # need to run vertical classification:
@@ -58,14 +56,7 @@ length(unique(df$V1))  # why there is a unique V1 for each of the row???
 # saplings 20cm -2 m
 # juveniles > 2m - 10 cm dbh
 # calculate my summary variables
-df_cl <- df %>%
-  mutate(category = case_when(
-    dbh_avg_cm > 10 ~ "mature",
-    height_avg_m >= 0.2 & height_avg_m <= 2 ~ "saplings",
-    height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
-    TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
-  )) %>% 
-#  dplyr::filter(!category == "unclassified")  %>%  # remove  regeneration < 20 cm of height
+df <- df %>%
   mutate(clim_cluster = str_sub(cluster, 1, 1))  # add indication of the climatic cluster (1,2,3)
 
 # df_cl %>% 
@@ -89,19 +80,6 @@ df_cl <- df %>%
 # "25_150" - "3_3"
 
 
-
-# what are teh V1 values?
-length(unique(df$V1))
-table(df$V1, df$clim_model)
-# I think they indicate the simulation runs: 1-5 - make sure that I am counting my stem density and BA properly! stem density remains the same, BA is different
-
-
-# 07/08/2024 basal area calculation seems a bit fishy, but I go for it as I am using only a relative BA
-# I can ask about this Kilian when he will come back
-  
-  
-
-
 # calculate my variables on site level: ------------------------------------------------------ 
 # richness
 # rIVI
@@ -109,16 +87,18 @@ table(df$V1, df$clim_model)
 # vertical classes
 
 ### Species richness ------------------------------------
-df_richness <- df_cl %>% 
-  group_by(year, clim_cluster, cluster, clim_model , clim_scenario, external_seed) %>% 
-  summarize(unique_species_count = n_distinct(species))
+df_richness <- df %>% 
+  group_by(year, clim_cluster, cluster, clim_model , clim_scenario, ext_seed, run_nr) %>% 
+  summarize(richness = n_distinct(species))
 
-ggplot(df_richness) + 
+df_richness %>% 
+  dplyr::filter(run_nr == 5)  %>% 
+  ggplot() + 
   geom_line(aes(x = year,
-                y = unique_species_count,
+                y = richness,
                 color = cluster,
                 group = cluster)) + 
-  facet_wrap(clim_scenario~external_seed)
+  facet_wrap(clim_scenario~ext_seed)
 
 
 ### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
