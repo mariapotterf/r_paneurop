@@ -242,7 +242,10 @@ simul_columns <- gsub("_field$", "_simul", field_columns)
 for (i in seq_along(field_columns)) {
   p <- ggplot(df_compare, aes_string(x = field_columns[i], y = simul_columns[i])) +
     geom_point(aes(color = clim_cluster), size = 1.5) +
-    labs(x = field_columns[i], y = simul_columns[i], title = paste(field_columns[i], "vs", simul_columns[i])) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +  # Add diagonal line
+    labs(x = field_columns[i], y = simul_columns[i], 
+         title =""  #paste(field_columns[i], "vs", simul_columns[i])
+         ) +
     theme_bw()
   
   plot_list[[i]] <- p
@@ -278,7 +281,7 @@ p_noseed <-df_sim_indicators  %>%
              color = str_cluster)) +
   geom_line(alpha = .5) + 
   #geom_point() +
-  facet_grid(clim_scenario ~clim_cluster)
+  facet_grid(. ~clim_cluster)
 
 p_seed <-df_sim_indicators  %>% 
   dplyr::filter(ext_seed == 'seed') %>% 
@@ -288,6 +291,6 @@ p_seed <-df_sim_indicators  %>%
              color = str_cluster)) +
   geom_line(alpha = .5) + 
   #geom_point() +
-  facet_grid(clim_scenario ~clim_cluster)
+  facet_grid(. ~clim_cluster)
 
-ggarrange(p_noseed, p_seed, common.legend = TRUE)
+ggarrange(p_noseed, p_seed, common.legend = TRUE, labels = c('no seed', 'seeds'))
