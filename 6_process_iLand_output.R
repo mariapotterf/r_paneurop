@@ -15,6 +15,7 @@ library(dplyr)
 library(ggplot2)
 library(stringr)
 library(ggpubr)
+library(tidyr)
 
 # get simulated data
 df_sim <- fread('outTable/df_simulated.csv')
@@ -194,7 +195,7 @@ ggplot(df_structure) +
 # change in stem density
 ggplot(df_structure) + 
   geom_line(aes(x = year,
-                y = stem_dens,
+                y = stem_density,
                 color = cluster,
                 group = cluster)) + 
   facet_wrap(clim_scenario~ext_seed)
@@ -203,7 +204,12 @@ ggplot(df_structure) +
 # merge df indicators 
 df_sim_indicators <- df_richness %>% 
   left_join(df_IVI, by = join_by(year, cluster, clim_scenario, ext_seed)) %>%
-  left_join(df_structure, by = join_by(year, cluster, clim_scenario, ext_seed))
+  left_join(df_structure, by = join_by(year, cluster, clim_scenario, ext_seed)) %>% 
+  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
+         str_cluster = str_sub(cluster, -1, -1))  #%>% # add indication of the strutural cluster (1,2,3,4)
+ 
+  
+
   
   
 # filterr initial state: year == 0
@@ -215,7 +221,11 @@ df_sim_indicators0 <- df_sim_indicators %>%
 
 df_compare <- df_inicators_sub %>% 
   left_join(df_sim_indicators0, by = "cluster", suffix = c("_field", "_simul")) %>% 
-  dplyr::select(cluster, site, ext_seed, ends_with("_field"), ends_with("_simul"))
+  dplyr::select(cluster, site, ext_seed, ends_with("_field"), ends_with("_simul")) %>% 
+  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
+         str_cluster = str_sub(cluster, -1, -1))  %>% # add indication of the strutural cluster (1,2,3,4)
+ na.omit() # remove empty one
+  
   
 
 print(df_compare)
@@ -231,7 +241,7 @@ simul_columns <- gsub("_field$", "_simul", field_columns)
 # Generate scatter plots for each pair of columns
 for (i in seq_along(field_columns)) {
   p <- ggplot(df_compare, aes_string(x = field_columns[i], y = simul_columns[i])) +
-    geom_point() +
+    geom_point(aes(color = clim_cluster), size = 1.5) +
     labs(x = field_columns[i], y = simul_columns[i], title = paste(field_columns[i], "vs", simul_columns[i])) +
     theme_bw()
   
@@ -243,6 +253,41 @@ p1 <- plot_list[[1]]
 p2 <- plot_list[[2]]
 p3 <- plot_list[[3]]
 p4 <- plot_list[[4]]
+p5 <- plot_list[[5]]
 
-ggarrange(p1, p2, p3, p4)
-  
+windows()
+ggarrange(p1, p2, p3, p4,p5, common.legend = TRUE , ncol = 3, nrow = 2)
+
+
+# Plot: indicators development oevr time -------------------------------------
+
+# df_wide <- df_sim_indicators %>%
+#   dplyr::select(year, cluster, clim_scenario, ext_seed, richness, dominant_species, rIVI, n_vertical, stem_density, clim_cluster,str_cluster) %>% 
+#   pivot_wider(
+#     names_from = !clim_scenario,clim_cluster, str_cluster),
+#     values_from = c(richness, dominant_species, rIVI, n_vertical, stem_density)
+#   )
+
+
+
+p_noseed <-df_sim_indicators  %>% 
+  dplyr::filter(ext_seed == 'noseed') %>% 
+  ggplot(aes(x = year,
+             y = rIVI,
+             group = cluster,
+             color = str_cluster)) +
+  geom_line(alpha = .5) + 
+  #geom_point() +
+  facet_grid(clim_scenario ~clim_cluster)
+
+p_seed <-df_sim_indicators  %>% 
+  dplyr::filter(ext_seed == 'seed') %>% 
+  ggplot(aes(x = year,
+             y = rIVI,
+             group = cluster,
+             color = str_cluster)) +
+  geom_line(alpha = .5) + 
+  #geom_point() +
+  facet_grid(clim_scenario ~clim_cluster)
+
+ggarrange(p_noseed, p_seed, common.legend = TRUE)
