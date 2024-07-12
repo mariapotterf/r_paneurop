@@ -147,6 +147,10 @@ in Sapling table: counts_ha and count_small_ha are calculated from teh n_represe
 
 
 ```{r data_handling}
+# correct, there is 5 structural clusters in climate cluster 2, and 2 clusters in clkimate cluster 3
+
+
+
 # 1. stand table
 big_data <- OG_big_data |>
   separate_wider_delim(filenm, delim = "_", names = c("clim_model",
