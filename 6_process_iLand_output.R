@@ -178,16 +178,15 @@ p3 <- ggplot(df_indicators, aes(x = tmp_z, y = prcp_z)) +
 
 ggarrange(p1,p2,p3, common.legend = T, ncol = 3, nrow = 1)
 
-
-
-
-
+# plot only subset: climatic clusters (12 points)
 df_indicators_sub %>% 
   ggplot(aes(x = spei,
                  y = tmp_z)) +
   geom_point(aes(color = clim_cluster)) + 
   geom_smooth()
 
+
+# the clim cluster 2_1  seems a bit strange: get the characteristic of clusters 
 
 # # inspect single example
 # df_sub1 <- df_sim %>% 
