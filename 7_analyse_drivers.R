@@ -34,8 +34,10 @@ library(effects) #what do my marginal effects look like?
 library(performance) #binomial model diagnostics
 library(emmeans) #post hoc for categorical predictors
 
-library(AER)  # for hurdle model
-
+#library(AER)  # for hurdle model
+library(mgcv)
+library(gratia)
+library(ggeffects)
 
 ### read data --------------------------------------------------------------------
 
@@ -48,82 +50,6 @@ terrain           <- fread("outData/terrain.csv")
 
 # get vegetation data
 load("outData/veg.Rdata")
-
-# climate full
-climate_full           <- fread("outData/climate_1980_2023.csv")
-
-# get simple plot over time
-climate_full %>% 
-  group_by(ID) %>% 
-  ggplot(aes(x = year,
-             y = prec)) +
-  stat_summary()
-
-
-# test: how does the anomalies calculation works? is it correct?
-# filter climate data: remove italy: 17_21 - temperatrures are correct (checked for San Canido, Italy)
-
-# the z-score is corret!
-dd <- data.frame(tmp = c(5,6,4,3,2,3,4,5,6),
-                 year = 1:9)
-ref = 1:5
-dd <- dd %>% 
-  mutate(tmp_z  = (tmp - mean(tmp[year %in% ref])) / sd(tmp[year %in% ref]))
-
-plot( dd$year, dd$tmp)
-plot( dd$year, dd$tmp_z)
-
-
-hist(climate_full$tmp)
-hist(climate_full$tmp_z)
-
-plot(climate_full$tmp, climate_full$tmp_z )
-
-unique(climate_full$name)
-
-clim_overview <- climate_full %>% 
-  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
-  mutate(cluster = str_sub(ID, 1, -3)) %>% 
-  ungroup(.) %>% 
-  group_by(cluster, year) %>% 
-  dplyr::summarize(tmp = mean(tmp),
-            prec = mean(prec)) %>%
-  mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
-                           TRUE ~ 'ref')) #%>% 
-
-reference_period <- 1980:2015
-# make plots for map:
-ref_tmp <- mean(clim_overview$tmp[clim_overview$year %in% reference_period])
-ref_prec <- mean(clim_overview$prec[clim_overview$year %in% reference_period])
-
-p.map.temp <- clim_overview %>% 
-  ggplot(aes(x = year,
-             y = tmp,
-             color = class)) +
-   stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
-  # This will add a point for the mean of Local Variance
-  stat_summary(fun = mean, geom = "point", size = 0.7) +
-  geom_hline(yintercept = ref_tmp, lty = 'dashed', col = 'grey70') +
-  scale_color_manual(values = c('red', 'black')) +
-  labs(x = "", y =  expression(paste("Mean temperature [", degree, "C]", sep=""))) +
-  theme_classic() +
-  theme(legend.position = "NULL") 
-
-
-p.map.prec <- clim_overview %>% 
-  ggplot(aes(x = year,
-             y = prec,
-             color = class)) +
-  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
-  # This will add a point for the mean of Local Variance
-  stat_summary(fun = mean, geom = "point", size = 0.7) +
-  geom_hline(yintercept = ref_prec , lty = 'dashed', col = 'grey70') +
-  scale_color_manual(values = c('red', 'black')) +
-  labs(x = "", y =  expression(paste("Sum precipitation [mm]", sep=""))) +
-  theme_classic() +
-  theme(legend.position = "NULL") 
-
-
 
 
 
@@ -256,6 +182,88 @@ df_predictors_ID <-
 fwrite(df_predictors_ID, 'outData/all_predictors_ID.csv')
 
 #fwrite(df_predictors_cluster, 'outData/all_predictors_cluster.csv')
+
+# Get climate plots for map: TEMP, PREC, SPEI  -------------
+
+# climate full
+reference_period <- 1980:2015
+
+# read temp and prec over years
+climate_full           <- fread("outData/climate_1980_2023.csv")
+
+spei_overview <- spei %>% 
+  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
+  filter(!if_any(everything(), is.infinite)) %>% 
+  group_by(cluster, year) %>% 
+  dplyr::summarise(spei = mean(spei, na.rm =T)) %>% 
+  mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
+                           TRUE ~ 'ref')) #%>% 
+
+ref_spei <- mean(spei_overview$spei[spei_overview$year %in% reference_period], na.rm =T)
+
+p.map.spei <- spei_overview %>% 
+  ggplot(aes(x = year,
+             y = spei,
+             color = class)) +
+  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
+  # This will add a point for the mean of Local Variance
+  stat_summary(fun = mean, geom = "point", size = 0.7) +
+  geom_hline(yintercept = ref_spei, lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y =  expression(paste("SPEI [dim.]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL") 
+
+
+# get simplified df
+clim_overview <- climate_full %>% 
+  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
+  mutate(cluster = str_sub(ID, 1, -3)) %>% 
+  ungroup(.) %>% 
+  group_by(cluster, year) %>% 
+  dplyr::summarize(tmp = mean(tmp),
+                   prec = mean(prec)) %>%
+  mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
+                           TRUE ~ 'ref')) #%>% 
+
+# make plots for map:
+ref_tmp <- mean(clim_overview$tmp[clim_overview$year %in% reference_period])
+ref_prec <- mean(clim_overview$prec[clim_overview$year %in% reference_period])
+
+p.map.temp <- clim_overview %>% 
+  ggplot(aes(x = year,
+             y = tmp,
+             color = class)) +
+  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
+  # This will add a point for the mean of Local Variance
+  stat_summary(fun = mean, geom = "point", size = 0.7) +
+  geom_hline(yintercept = ref_tmp, lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y =  expression(paste("Temperature [", degree, "C]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL") 
+
+
+p.map.prec <- clim_overview %>% 
+  ggplot(aes(x = year,
+             y = prec,
+             color = class)) +
+  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
+  # This will add a point for the mean of Local Variance
+  stat_summary(fun = mean, geom = "point", size = 0.7) +
+  geom_hline(yintercept = ref_prec , lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y =  expression(paste("Precipitation [mm]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL") 
+
+windows(7,2)
+p.clim.map <- ggarrange(p.map.temp, p.map.prec,p.map.spei, ncol = 3)
+p.clim.map
+ggsave(filename = 'outFigs/Fig1.png', plot = p.clim.map, width = 7, height = 2, dpi = 300, bg = 'white')
+
+
+
 
 # merge with vegetation data
 # select the dominant species per cluster
@@ -897,7 +905,7 @@ df_stock_density <-
    mutate(dens_category = factor(dens_category, levels = 
                                   c('0', '1-500','500-1000','1000-1500', '1500-2000', '>2000' )),
           dens_class = factor(dens_class, levels = c('low', 'sufficient')))# %>% 
-View(df_stock_density)
+#View(df_stock_density)
 
 # make a table for potential regeneration delay - link with climate data
 # make a barplots
@@ -919,18 +927,17 @@ median_iqr <- function(y) {
 
 # Define the function
 create_plot <- function(data, 
-                        #x_var, 
+                        x_var, 
                         y_var, 
                         #x_label = "", 
                         y_label = y_var,
                        x_annotate = 0, lab_annotate = "lab ann") {
   
-  p <- ggplot(data, aes_string(x = "reg_delay_class", 
+  p <- ggplot(data, aes_string(x = x_var, #"reg_delay_class", 
                           y = y_var)) +
     stat_summary(fun.data = median_iqr, geom = "pointrange") +
     stat_summary(fun = median, geom = "point") +
-   # stat_summary(fun.data = "mean_se", geom = "pointrange") + # Specify the summary function explicitly
-    labs(xlab = NULL) +
+     labs(xlab = NULL) +
     annotate("text", x = x_annotate, y = Inf, label = lab_annotate, hjust = 0.5, vjust = 1.5) +
     theme_minimal(base_size = 10) +
     theme(aspect.ratio = 1, 
@@ -950,15 +957,15 @@ create_plot <- function(data,
 
 
 
-
+# for climate ------------------------------------------------------------------
 # Using the function to create plots
-p1 <- create_plot(df_regen_delay, #x_var = "reg_delay_class", 
+p1 <- create_plot(df_regen_delay, x_var = "reg_delay_class", 
                   y_var = "tmp",  x_annotate = 1.5, lab_annotate = "0.06")
 p2 <- create_plot(df_regen_delay, 
-                  #x_var = "reg_delay_class", 
+                  x_var = "reg_delay_class", 
                   y_var = "prec",  x_annotate = 1.5, lab_annotate = "***")
 p3 <- create_plot(df_regen_delay, 
-                  #x_var = "reg_delay_class", 
+                  x_var = "reg_delay_class", 
                   y_var = "spei", x_annotate = 1.5, lab_annotate = "***")
 
 windows(7,3)
@@ -1011,6 +1018,62 @@ print(test_result_temp)
 # Example usage for 'prcp' comparing 'low' vs 'sufficient'
 test_result_prcp <- perform_wilcox_test(df_regen_delay, "prec", "low", "sufficient")
 print(test_result_prcp)
+
+
+
+
+# For disturbance size and intensity -------------------------------------------
+
+# Using the function to create plots
+p1 <- create_plot(df_regen_delay, x_var = "reg_delay_class", 
+                  y_var = "disturbance_severity",  x_annotate = 1.5, lab_annotate = "n.s.")
+p2 <- create_plot(df_regen_delay, 
+                  x_var = "reg_delay_class", 
+                  y_var = "distance_edge",  x_annotate = 1.5, lab_annotate = "n.s.", y_label = 'distance edge [m]')
+
+windows(5,3)
+ggarrange(p1, p2,  ncol = 2, labels = c('[a]', '[b]'))
+
+hist(df_regen_delay$disturbance_severity)
+
+# get summary statistics
+df_regen_delay %>% 
+  ungroup() %>% 
+  group_by(reg_delay_class) %>% 
+  summarize(
+    severity_med = median(disturbance_severity, na.rm = TRUE),
+    severity_sd = sd(disturbance_severity, na.rm = TRUE),
+    severity_25 = quantile(disturbance_severity, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
+    severity_75 = quantile(disturbance_severity, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
+    dist_edge_med = median(distance_edge   , na.rm = TRUE),
+    dist_edge_sd   = sd(distance_edge  , na.rm = TRUE),
+    dist_edge_25 = quantile(distance_edge  , 0.25, na.rm = TRUE), 
+    dist_edge_75 = quantile(distance_edge  , 0.75, na.rm = TRUE), 
+    .groups = 'drop')
+
+
+# test differences between medians of teh classes -----------------------------
+
+##### Loop over wilcx test
+
+perform_wilcox_test <- function(data, variable_name, group1, group2) {
+  # Subset variable values for each specified 'reg_delay_class' group
+  group1_values <- data[[variable_name]][data$reg_delay_class == group1]
+  group2_values <- data[[variable_name]][data$reg_delay_class == group2]
+  
+  # Perform the Mann-Whitney U test between the two subsets
+  test_result <- wilcox.test(group1_values, group2_values)
+  
+  # Return the test result
+  return(test_result)
+}
+
+# Example usage for 'spei' comparing 'low' vs 'sufficient'
+perform_wilcox_test(df_regen_delay, "disturbance_severity", "low", "sufficient")
+
+# Example usage for 'temp' comparing 'low' vs 'sufficient'
+perform_wilcox_test(df_regen_delay, "distance_edge", "low", "sufficient")
+
 
 
 
@@ -1307,9 +1370,9 @@ df_model %>%
 str(df_model)
 
 # test predictors
-ggplot(df_model, aes(x = spei, y = stem_density)) +
+ggplot(df_model, aes(x = tmp, y = stem_density)) +
   geom_point() +
-  geom_smooth(method = "lm", se = F) +
+  geom_smooth(method = "loess", se = F) +
   theme_bw()
 
 
@@ -1453,7 +1516,7 @@ simulateResiduals(global.negbin2, plot = T)
 # include random effects of countries:
 library(glmmTMB)
 
-glmm1 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + prec +
+glmm1 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + prec + spei +
                    disturbance_severity + distance_edge  + 
                    management_intensity + 
                    clay_extract + 
@@ -1495,157 +1558,42 @@ testZeroInflation(glmm4)
 # the p is significant, so it has too many zeros!
 
 
-# use zero inflated model:
-m.zi1 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + prec + spei + tmp:spei +
+# use zero inflated model: ----------------------------------------------------
+
+# check which one of clim data are the best predistors:
+m.zi.clim <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + prec + spei + #tmp:spei +
+                   # disturbance_severity + distance_edge  + 
+                   # # management_intensity + 
+                   # clay_extract + 
+                   # #country+
+                   # sand_extract + depth_extract + av.nitro +
+                   (1 | country/management_intensity), 
+                 ziformula = ~1,
+                 data = df_model, 
+                 family = nbinom2, na.action = "na.fail")
+
+
+zi.clim.full <- dredge(m.zi.clim)
+
+m.zi0 <- glmmTMB(stem_density ~ tmp  + #tmp_z + prcp_z + 
+                   prec + spei + #tmp:spei +
                    disturbance_severity + distance_edge  + 
-                   management_intensity + 
+                   # management_intensity + 
                    clay_extract + 
                    #country+
                    sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
+                   (1 | country/management_intensity), 
                  ziformula = ~1,
                  data = df_model, 
                  family = nbinom2, na.action = "na.fail")
 
+summary(m.zi0)
 
-m.zi2 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + 
-                   prec + #remove, as it has lower effect then prc_z 
-                   spei + tmp:spei +
+m.zi01 <- glmmTMB(stem_density ~ tmp  + #tmp_z + prcp_z + 
+                  # prec + 
+                    spei + #tmp:spei +
                    disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-
-# remove spei, get interaction between tmp_z and prcp_z
-m.zi3 <- glmmTMB(stem_density ~ tmp  +# tmp_z + prcp_z + 
-                   prec + #remove, as it has lower effect then prc_z 
-                   #spei + 
-                   tmp_z*prcp_z +
-                   disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-
-# Chek for multicollinearity
-library(performance)
-
-# Assuming your model is an 'lme4' or 'glmmTMB' object
-(vif_values <- performance::check_collinearity(m.zi7))
-
-# remove highly correlated values: tmp_z*prcp_z
-m.zi4 <- glmmTMB(stem_density ~ #tmp*prec  +# tmp_z + prcp_z + 
-                   #prec + #remove, as it has lower effect then prc_z 
-                   #spei + 
-                   tmp_z*prcp_z +
-                   disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-
-
-m.zi5 <- glmmTMB(stem_density ~ tmp  + tmp_z + prcp_z + 
-                   prec + #remove, as it has lower effect then prc_z 
-                   #spei + 
-                   tmp:prec +
-                   disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-
-
-m.zi6 <- glmmTMB(stem_density ~ #tmp  + 
-                   tmp_z*prcp_z + 
-                   #prec + #remove, as it has lower effect then prc_z 
-                   #spei + 
-                   #tmp:prec +
-                   disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-
-# remove high VIF values
-m.zi7 <- glmmTMB(stem_density ~ #tmp  + 
-                   #tmp_z + 
-                   #prec + #remove, as it has lower effect then prc_z 
-                   spei + 
-                   #tmp:prec +
-                   disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-
-# keep only one of climatic predictors
-m.zi8 <- glmmTMB(stem_density ~ #tmp  + 
-                   tmp_z + 
-                   #prec + #remove, as it has lower effect then prc_z 
-                   #spei + 
-                   #tmp:prec +
-                   disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-# !!!! what is the meaning of teh prec_z??
-ggplot(df_model, aes(y = stem_density,x = prcp_z )) +
-  geom_smooth()
-
-m.zi9 <- glmmTMB(stem_density ~ poly(prcp_z,2) + #tmp  + 
-                   #tmp_z + 
-                   #prec + #remove, as it has lower effect then prc_z 
-                   #spei + 
-                   #tmp:prec +
-                   disturbance_severity + distance_edge  + 
-                   management_intensity + 
-                   clay_extract + 
-                   #country+
-                   #sand_extract + depth_extract + av.nitro +
-                   (1 | country), 
-                 ziformula = ~1,
-                 data = df_model, 
-                 family = nbinom2, na.action = "na.fail")
-
-
-m.zi10 <- glmmTMB(stem_density ~ prcp_z + #tmp  + 
-                   #tmp_z + 
-                   #prec + #remove, as it has lower effect then prc_z 
-                   #spei + 
-                   #tmp:prec +
-                   disturbance_severity + distance_edge  + 
-                  # management_intensity + 
+                   # management_intensity + 
                    clay_extract + 
                    #country+
                    #sand_extract + depth_extract + av.nitro +
@@ -1654,12 +1602,40 @@ m.zi10 <- glmmTMB(stem_density ~ prcp_z + #tmp  +
                  data = df_model, 
                  family = nbinom2, na.action = "na.fail")
 
-# with tmp_z
-m.zi11 <- glmmTMB(stem_density ~ #prcp_z + #tmp  + 
-                    tmp_z + 
-                    #prec + #remove, as it has lower effect then prc_z 
-                    #spei + 
-                    #tmp:prec +
+AIC(m.zi0, m.zi01)
+
+m.zi01 <- glmmTMB(stem_density ~ tmp  + #tmp_z + prcp_z + 
+                     prec + 
+                    spei + #tmp:spei +
+                    disturbance_severity + distance_edge  + 
+                    # management_intensity + 
+                    clay_extract + 
+                    #country+
+                    #sand_extract + depth_extract + av.nitro +
+                    (1 | country/management_intensity), 
+                  ziformula = ~1,
+                  data = df_model, 
+                  family = nbinom2, na.action = "na.fail")
+
+fin.m <- m.zi01  # the best, also has good residuals
+# add poly, only meaningful for prec
+m.zi02 <- glmmTMB(stem_density ~ poly(tmp,2)  + #tmp_z + prcp_z + 
+                    poly(prec,2) + 
+                    poly(spei,2) + #tmp:spei +
+                    disturbance_severity + distance_edge  + 
+                    # management_intensity + 
+                    clay_extract + 
+                    #country+
+                    #sand_extract + depth_extract + av.nitro +
+                    (1 | country/management_intensity), 
+                  ziformula = ~1,
+                  data = df_model, 
+                  family = nbinom2, na.action = "na.fail")
+
+# add poly, only meaningful for prec - cnvergece issues, remove
+m.zi03 <- glmmTMB(stem_density ~ tmp  + #tmp_z + prcp_z + 
+                    poly(prec,2) + 
+                    spei + #tmp:spei +
                     disturbance_severity + distance_edge  + 
                     # management_intensity + 
                     clay_extract + 
@@ -1671,35 +1647,30 @@ m.zi11 <- glmmTMB(stem_density ~ #prcp_z + #tmp  +
                   family = nbinom2, na.action = "na.fail")
 
 
-# with spei
-m.zi12 <- glmmTMB(stem_density ~ #prcp_z + #tmp  + 
-                    #tmp_z + 
-                    #prec + #remove, as it has lower effect then prc_z 
-                    spei + 
-                    #tmp:prec +
-                    disturbance_severity + distance_edge  + 
-                    # management_intensity + 
-                    clay_extract + 
-                    #country+
-                    #sand_extract + depth_extract + av.nitro +
-                    (1 | country/management_intensity), 
-                  ziformula = ~1,
-                  data = df_model, 
-                  family = nbinom2, na.action = "na.fail")
+AIC(m.zi02, m.zi01,m.zi03)
+summary(m.zi01)
+plot(allEffects(m.zi01))
+
+simulateResiduals(m.zi01, plot = T)
+
+library(sjPlot)
+sjPlot::tab_model(m.zi01,
+               #col.header = c(as.character(qntils), 'mean'),
+               #show.rownames = F,
+               file="outTable/drivers.doc") 
+
+
+# vertical structure vs disturbance patch size? ---------------------------
+
+df_cluster_full %>% 
+  ggplot(aes(x = distance_edge,
+             y  = n_vertical)) +
+  geom_jitter() +
+  geom_smooth() +
+  theme_classic()
 
 
 
-AIC(#m.zi1, m.zi2,m.zi3,m.zi4,m.zi5,m.zi6,m.zi7,m.zi8,m.zi9,
-    m.zi10, m.zi11,m.zi12)
-summary(m.zi12)
-plot(allEffects(m.zi10))
-
-simulateResiduals(m.zi12, plot = T)
-
-fin.m <- m.zi10
-
-
-AIC(global.negbin4, glmm1,glmm2,glmm3,glmm4)
 # Country effect ----------------------------------------------------------
 
 
