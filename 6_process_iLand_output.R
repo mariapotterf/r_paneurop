@@ -23,9 +23,10 @@ df_sim <- fread('outTable/df_simulated.csv')
 
 # get field data to compare with simulated ones
 df_field     <- fread('outData/veg_density_DBH.csv')
-df_inicators <- fread('outData/indicators_for_cluster_analysis.csv')
+df_indicators <- fread('outData/indicators_for_cluster_analysis.csv')
 
-
+df_indicators <- df_inicators %>% 
+  rename(prcp = prec)
 # list of teh sites vs Kilian's clusters: 
 # #Site - Cluster
 # 
@@ -51,33 +52,137 @@ df_sites_clusters <- data.frame(
 )
 
 
-# filter field data for selected clusters (simulate dlandscapes) --------------
+# filter field data for selected clusters (simulated landscapes) --------------
 df_field_sub <- df_field %>% 
   rename(site = cluster) %>% 
   right_join(df_sites_clusters) %>% 
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4)
+         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
+
+
+# get plot for all of locations:
+df_indicators <- df_indicators %>% 
+  rename(site = cluster) %>% 
+  left_join(df_sites_clusters) %>%
+ # mutate()
+  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
+         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
 
 
-df_inicators_sub <- df_inicators %>% 
+
+
+df_indicators_sub <- df_indicators %>% 
   rename(site = cluster) %>% 
   right_join(df_sites_clusters) %>% 
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4)
+         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
 
 df_sim <- df_sim %>%
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4)
+         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
 
 
 
-# Plots: how teh clusters looks like for temp and prec? ----------------------
-#summary(df_inicators_sub) 
+# Plots: only for cluster data: analyse clim clusters tmp and prcp? ----------------------
+#summary(df_indicators_sub) 
 
-df_inicators_sub %>% 
+
+# List of combinations to plot
+plot_combinations <- list(
+  list(x = "tmp", y = "prcp"),
+  list(x = "tmp_z", y = "prcp_z"),
+  list(x = "tmp", y = "spei"),
+  list(x = "tmp_z", y = "spei"),
+  list(x = "prcp", y = "spei"),
+  list(x = "prcp_z", y = "spei")
+)
+
+# Create an empty list to store the plots
+plot_list_sub <- list()
+
+# Loop through combinations and create plots
+for (combination in plot_combinations) {
+  p <- df_indicators_sub %>%
+    ggplot(aes_string(x = combination$x, y = combination$y)) +
+    geom_point(aes(color = clim_cluster)) + 
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(title = paste(combination$x, "vs", combination$y),
+         x = combination$x,
+         y = combination$y) +
+    theme_bw() +
+    theme(aspect.ratio = 1)  # Ensure the plot is square
+  
+  plot_list_sub[[paste(combination$x, combination$y, sep = "_vs_")]] <- p
+}
+
+# Arrange and print all plots using ggarrange
+ggarrange(plotlist = plot_list_sub, ncol = 2, nrow = 3, common.legend = T)
+
+
+### For all sites  -------------------
+
+# Create an empty list to store the plots
+plot_list_all <- list()
+
+# Loop through combinations and create plots
+for (combination in plot_combinations) {
+  p <- ggplot(df_indicators, aes_string(x = combination$x, y = combination$y)) +
+    geom_point(color = 'grey', alpha = 0.3) + 
+   # geom_point(data = df_indicators_sub, aes_string(x = combination$x, y = combination$y, color = clim_cluster), size = 4) +
+   # geom_smooth(method = "loess", se = FALSE) +
+   # geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
+    labs(title = paste(combination$x, "vs", combination$y),
+         x = combination$x,
+         y = combination$y) +
+    theme_bw() +
+    theme(aspect.ratio = 1)  # Ensure the plot is square
+  
+  plot_list_all[[paste(combination$x, combination$y, sep = "_vs_")]] <- p
+}
+# Arrange and print all plots using ggarrange
+ggarrange(plotlist = plot_list_all, ncol = 2, nrow = 3, common.legend = TRUE) # 
+ 
+
+# make a plot manually: tmp spei
+p1 <- ggplot(df_indicators, aes(x = tmp, y = spei)) +
+  geom_point(color = 'grey', alpha = 0.3) + 
+  geom_text(data = df_indicators_sub, aes(x = tmp, y = spei, label = cluster, color = clim_cluster), 
+            vjust = -0.1, size = 6) +
+  geom_point(data = df_indicators_sub, aes(x = tmp, y = spei, color = clim_cluster), size = 3) +
+  # labs(#title = paste(combination$x, "vs", combination$y),
+  #   x = "tmp",
+  #   y = "spei") +
+  theme_bw() +
+  theme(aspect.ratio = 1)  # Ensure the plot is square
+
+
+p2 <- ggplot(df_indicators, aes(x = tmp_z, y = spei)) +
+  geom_point(color = 'grey', alpha = 0.3) + 
+  geom_text(data = df_indicators_sub, aes(x = tmp_z, y = spei, label = cluster, color = clim_cluster), 
+            vjust = -0.1, size = 6) +
+  geom_point(data = df_indicators_sub, aes(x = tmp_z, y = spei, color = clim_cluster), size = 3) +
+   theme_bw() +
+  theme(aspect.ratio = 1)  # Ensure the plot is square
+
+
+p3 <- ggplot(df_indicators, aes(x = tmp_z, y = prcp_z)) +
+  geom_point(color = 'grey', alpha = 0.3) + 
+  geom_text(data = df_indicators_sub, aes(x = tmp_z, y = prcp_z, label = cluster, color = clim_cluster), 
+            vjust = -0.1, size = 6) +
+  geom_point(data = df_indicators_sub, aes(x = tmp_z, y = prcp_z, color = clim_cluster), size = 3) +
+  theme_bw() +
+  theme(aspect.ratio = 1)  # Ensure the plot is square
+
+ggarrange(p1,p2,p3, common.legend = T, ncol = 3, nrow = 1)
+
+
+
+
+
+df_indicators_sub %>% 
   ggplot(aes(x = spei,
                  y = tmp_z)) +
   geom_point(aes(color = clim_cluster)) + 
@@ -219,7 +324,7 @@ df_sim_indicators0 <- df_sim_indicators %>%
 
 # merge field with simulated data in year 0 ----------------------------------
 
-df_compare <- df_inicators_sub %>% 
+df_compare <- df_indicators_sub %>% 
   left_join(df_sim_indicators0, by = "cluster", suffix = c("_field", "_simul")) %>% 
   dplyr::select(cluster, site, ext_seed, ends_with("_field"), ends_with("_simul")) %>% 
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
