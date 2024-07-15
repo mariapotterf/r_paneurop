@@ -525,7 +525,7 @@ df_indi_merged <- df_indi_merged %>%
 custom_palette <- c("wet-cold" = "#4575b4", "medium" = "#ffffbf", "hot-dry" = "#d73027")
 
 # 
-# Create the ggplot: -------------------------------------------------------------
+# Create the ggplot: -------------------------
 # compare the fiel ata with medians over 30 years! (or select just the year ==30??)
 
 
@@ -580,3 +580,33 @@ p_vert <- create_plot(filtered_data, "n_vertical", "Vertical Structure")
 
 
 ggarrange(p_IVI, p_rich, p_stem_dens, p_vert, nrow = 2, ncol = 2, common.legend = T )
+
+
+# filetr only final date
+# Filter the data once
+filtered_data_end <- df_indi_merged %>% 
+  dplyr::filter(clim_scenario == "HISTO") %>% 
+  dplyr::filter(year == 0 | year == 30)
+
+# Create plots
+p_IVI <- create_plot(filtered_data_end, "rIVI", "rIVI")
+p_rich <- create_plot(filtered_data_end, "richness", "Richness")
+p_stem_dens <- create_plot(filtered_data_end, "stem_density", "Stem Density")
+p_vert <- create_plot(filtered_data_end, "n_vertical", "Vertical Structure")
+
+
+ggarrange(p_IVI, p_rich, p_stem_dens, p_vert, nrow = 2, ncol = 2, common.legend = T )
+
+
+
+# get Kruska test
+# Perform Kruskal-Wallis Test for each indicator
+kruskal_test_results <- filtered_data_end %>% 
+ # filter(clim_scenario == "HISTO") %>%
+  group_by(source) %>%
+  summarise(
+    rIVI_kruskal = kruskal.test(rIVI ~ clim_class)$p.value,
+    richness_kruskal = kruskal.test(richness ~ clim_class)$p.value,
+    stem_density_kruskal = kruskal.test(stem_density ~ clim_class)$p.value,
+    n_vertical_kruskal = kruskal.test(n_vertical ~ clim_class)$p.value
+  )
