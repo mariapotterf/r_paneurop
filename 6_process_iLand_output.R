@@ -1,10 +1,18 @@
 
+# Process: 
+# Get indicators from simulated data
+# - read iLand simulated data - simulated by Kilian on 29/06/2024
+# - get vertical classes
+# - calculate indicators form simulated data
+# - average values between no seed and seed scenario - complete later by sensitivity analysis
+# - evaluate they cchange change over time, how thtable they are given the clim cluster
 
-# read iLand simulated data
-# simulated by Kilian on 29/06/2024
-# calculate my variables
-# evaluate how my indicators will change over time
-# classify teh vertical classes
+# Process my data:
+# - run k means clustering to classify clim_cluster
+# - compare my indicators with 
+
+# pre-analysis
+# - inspect the development of 12 iLand landscapes
 
 
 # check data:
@@ -17,6 +25,13 @@ library(stringr)
 library(ggpubr)
 library(tidyr)
 
+
+# Cluster analysis
+library(cluster)
+#library(factoextra)
+#library(NbClust)
+
+
 # get simulated data
 df_sim <- fread('outTable/df_simulated.csv')
 #View(df_sim)
@@ -25,7 +40,7 @@ df_sim <- fread('outTable/df_simulated.csv')
 df_field     <- fread('outData/veg_density_DBH.csv')
 df_indicators <- fread('outData/indicators_for_cluster_analysis.csv')
 
-df_indicators <- df_inicators %>% 
+df_indicators <- df_indicators %>% 
   rename(prcp = prec)
 # list of teh sites vs Kilian's clusters: 
 # #Site - Cluster
@@ -52,6 +67,87 @@ df_sites_clusters <- data.frame(
 )
 
 
+# Cluster analysis based on environmental condistion(climate) -------------------
+# Subset the relevant columns
+data_subset <- df_indicators[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
+
+# Standardize the data
+data_scaled <- scale(data_subset)
+
+# Perform K-means clustering for different values of k
+set.seed(3)
+max_clusters <- 10
+sil_width <- numeric(max_clusters)
+for (k in 2:max_clusters) {
+  kmeans_result <- kmeans(data_scaled, centers = k, nstart = 25)
+  sil <- silhouette(kmeans_result$cluster, dist(data_scaled))
+  sil_width[k] <- mean(sil[, 3])
+}
+
+# Plot Silhouette width for different values of k
+plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
+
+# Determine the optimal number of clusters
+optimal_k <- 3  # from Kilian's study
+
+
+# Perform K-means clustering with the optimal number of clusters
+set.seed(3)
+kmeans_result <- kmeans(data_scaled, centers = optimal_k, nstart = 25)
+
+# Add cluster assignments to the original data
+df_indicators$clim_cluster_test <- kmeans_result$cluster
+
+# Perform PCA for visualization - use Pc1 and Pc1
+pca_result <- prcomp(data_scaled)
+
+# plot PCA results with the most important variables: 
+biplot(pca_result, main = "PCA Biplot")
+
+
+# Plot the PCA results with clusters
+plot(pca_result$x[, 1:2], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
+points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
+
+# Add legend
+legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+
+
+# color the PCa by the cluster numebrs:
+# Plot the PCA results with clusters
+plot(pca_result$x[, 1], pca_result$x[, 2], col = kmeans_result$cluster, pch = 20, 
+     main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
+points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
+
+
+# Visualize the clustering result
+plot(data_scaled, col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result")
+points(kmeans_result$centers, col = 1:optimal_k, pch = 8, cex = 2)
+legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+
+
+
+
+# Visualize the clustering result
+plot(x = data_scaled[, "tmp_z"], y = data_scaled[, "spei"], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result")
+legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+
+# Extract cluster centers for the specified x and y axes
+centers_scaled <- scale(kmeans_result$centers, center = attr(data_scaled, "scaled:center"), scale = attr(data_scaled, "scaled:scale"))
+
+# Plot the cluster centers on the same axes
+points(centers_scaled[, "tmp_z"], centers_scaled[, "spei"], col = 1:optimal_k, pch = 8, cex = 2)
+# Add legend
+legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+
+
+# Silhouette plot for the chosen number of clusters
+silhouette_result <- silhouette(kmeans_result$cluster, dist(data_scaled))
+plot(silhouette_result, main = "Silhouette Plot", col = as.numeric(silhouette_result[, 1]))
+
+
+
+
 # filter field data for selected clusters (simulated landscapes) --------------
 df_field_sub <- df_field %>% 
   rename(site = cluster) %>% 
@@ -67,9 +163,6 @@ df_indicators <- df_indicators %>%
  # mutate()
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
          str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
-
-
-
 
 
 df_indicators_sub <- df_indicators %>% 
