@@ -9,7 +9,12 @@
 
 # Process my data:
 # - run k means clustering to classify clim_cluster
-# - compare my indicators with 
+# - compare my indicators with simulated data over time
+# - clim_clusters: 
+# --	Cluster 1 – wet, colds
+# --	Cluster 2 – hot, dry
+# --	Cluster 3 – in between 1-2
+
 
 # pre-analysis
 # - inspect the development of 12 iLand landscapes
@@ -28,10 +33,8 @@ library(tidyr)
 
 # Cluster analysis
 library(cluster)
-#library(factoextra)
-#library(NbClust)
 
-
+# Process input data -----------------------------------------------------------
 # get simulated data
 df_sim <- fread('outTable/df_simulated.csv')
 #View(df_sim)
@@ -41,10 +44,11 @@ df_field     <- fread('outData/veg_density_DBH.csv')
 df_indicators <- fread('outData/indicators_for_cluster_analysis.csv')
 
 df_indicators <- df_indicators %>% 
-  rename(prcp = prec)
-# list of teh sites vs Kilian's clusters: 
-# #Site - Cluster
-# 
+  rename(prcp = prec) %>% 
+  rename(site = cluster)
+
+
+# List average field data as input for the landscape level simulation
 # "23_132" - "1_1"
 # "26_134" - "1_2"
 # "15_133" - "1_3"
@@ -60,14 +64,15 @@ df_indicators <- df_indicators %>%
 
 # Create the data frame with the given pairs
 df_sites_clusters <- data.frame(
-  site = c("23_132", "26_134", "15_133", "17_104", "22_101", "12_151",
+  site = c("23_132", 
+           "26_134", "15_133", "17_104", "22_101", "12_151",
            "24_146", "20_116", "12_117", "11_145", "19_160", "25_150"),
   cluster = c("1_1", "1_2", "1_3", "1_4", "2_1", "2_2",
               "2_3", "2_4", "2_5", "3_1", "3_2", "3_3")
 )
 
 
-# Cluster analysis based on environmental condistion(climate) -------------------
+# Field data cluster analysis: env-climate condition) -------------------
 # Subset the relevant columns
 data_subset <- df_indicators[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
 
@@ -104,46 +109,46 @@ pca_result <- prcomp(data_scaled)
 # plot PCA results with the most important variables: 
 biplot(pca_result, main = "PCA Biplot")
 
-
+#### Plotting cluster analysis --------------------------------------------------
 # Plot the PCA results with clusters
-plot(pca_result$x[, 1:2], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
-points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
-
-# Add legend
-legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
-
-
-# color the PCa by the cluster numebrs:
-# Plot the PCA results with clusters
-plot(pca_result$x[, 1], pca_result$x[, 2], col = kmeans_result$cluster, pch = 20, 
-     main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
-points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
-
-
-# Visualize the clustering result
-plot(data_scaled, col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result")
-points(kmeans_result$centers, col = 1:optimal_k, pch = 8, cex = 2)
-legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
-
-
-
-
-# Visualize the clustering result
-plot(x = data_scaled[, "tmp_z"], y = data_scaled[, "spei"], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result")
-legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
-
-# Extract cluster centers for the specified x and y axes
-centers_scaled <- scale(kmeans_result$centers, center = attr(data_scaled, "scaled:center"), scale = attr(data_scaled, "scaled:scale"))
-
-# Plot the cluster centers on the same axes
-points(centers_scaled[, "tmp_z"], centers_scaled[, "spei"], col = 1:optimal_k, pch = 8, cex = 2)
-# Add legend
-legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
-
+# plot(pca_result$x[, 1:2], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
+# points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
+# 
+# # Add legend
+# legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+# 
+# 
+# # color the PCa by the cluster numebrs:
+# # Plot the PCA results with clusters
+# plot(pca_result$x[, 1], pca_result$x[, 2], col = kmeans_result$cluster, pch = 20, 
+#      main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
+# points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
+# 
+# 
+# # Visualize the clustering result
+# plot(data_scaled, col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result")
+# points(kmeans_result$centers, col = 1:optimal_k, pch = 8, cex = 2)
+# legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+# 
+# 
+# 
+# 
+# # Visualize the clustering result
+# plot(x = data_scaled[, "tmp_z"], y = data_scaled[, "spei"], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result")
+# legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+# 
+# # Extract cluster centers for the specified x and y axes
+# centers_scaled <- scale(kmeans_result$centers, center = attr(data_scaled, "scaled:center"), scale = attr(data_scaled, "scaled:scale"))
+# 
+# # Plot the cluster centers on the same axes
+# points(centers_scaled[, "tmp_z"], centers_scaled[, "spei"], col = 1:optimal_k, pch = 8, cex = 2)
+# # Add legend
+# legend("topright", legend = paste("Cluster", 1:optimal_k), col = 1:optimal_k, pch = 8)
+# 
 
 # Silhouette plot for the chosen number of clusters
-silhouette_result <- silhouette(kmeans_result$cluster, dist(data_scaled))
-plot(silhouette_result, main = "Silhouette Plot", col = as.numeric(silhouette_result[, 1]))
+# silhouette_result <- silhouette(kmeans_result$cluster, dist(data_scaled))
+# plot(silhouette_result, main = "Silhouette Plot", col = as.numeric(silhouette_result[, 1]))
 
 
 
@@ -179,44 +184,9 @@ df_sim <- df_sim %>%
 
 
 
-# Plots: only for cluster data: analyse clim clusters tmp and prcp? ----------------------
-#summary(df_indicators_sub) 
 
-
-# List of combinations to plot
-plot_combinations <- list(
-  list(x = "tmp", y = "prcp"),
-  list(x = "tmp_z", y = "prcp_z"),
-  list(x = "tmp", y = "spei"),
-  list(x = "tmp_z", y = "spei"),
-  list(x = "prcp", y = "spei"),
-  list(x = "prcp_z", y = "spei")
-)
-
-# Create an empty list to store the plots
-plot_list_sub <- list()
-
-# Loop through combinations and create plots
-for (combination in plot_combinations) {
-  p <- df_indicators_sub %>%
-    ggplot(aes_string(x = combination$x, y = combination$y)) +
-    geom_point(aes(color = clim_cluster)) + 
-    geom_smooth(method = "loess", se = FALSE) +
-    labs(title = paste(combination$x, "vs", combination$y),
-         x = combination$x,
-         y = combination$y) +
-    theme_bw() +
-    theme(aspect.ratio = 1)  # Ensure the plot is square
-  
-  plot_list_sub[[paste(combination$x, combination$y, sep = "_vs_")]] <- p
-}
-
-# Arrange and print all plots using ggarrange
-ggarrange(plotlist = plot_list_sub, ncol = 2, nrow = 3, common.legend = T)
-
-
-### For all sites  -------------------
-
+### Inspect clim drivers: For all sites  -------------------
+# to understand which cluster is what:
 # Create an empty list to store the plots
 plot_list_all <- list()
 
@@ -288,8 +258,8 @@ df_indicators_sub %>%
 # 
 # head(df_sub1)
 
-
-# Check simulation data: ------------------------------------------------------
+# Process simulated data --------------------------------------------------------
+### Inspect simulated data: ------------------------------------------------------
 # 12 clusters, 
 # 3 climatic models
 # 4 climate scenarios
@@ -320,14 +290,14 @@ unique(df_sim$run_nr)  # 5 repetitions
 
 
 
-# calculate my variables on site level: ------------------------------------------------------ 
+### Indicators from simulated ata : ------------------------------------------------------ 
 # richness
 # rIVI
 # stem density
 # vertical classes
 # summarize across simulation repetition and across the clim model
 
-### Species richness ------------------------------------
+##### Species richness ------------------------------------
 df_richness <- df_sim %>% 
   group_by(year, cluster,  clim_scenario, ext_seed) %>%  #clim_modelclim_cluster, 
   summarize(richness = n_distinct(species))
@@ -342,7 +312,7 @@ df_richness %>%
   facet_wrap(clim_scenario~ext_seed)
 
 
-### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
+##### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
 # get species importance value: from relative density, relative BA
 # first calculate the total values per ha, then add it to original table to calculate teh rIVI based on relative dominance
 df_sum_cluster <- df_sim %>% 
@@ -371,7 +341,7 @@ df_IVI <- df_sim %>%
   
 
 
-# Structure: Vertical classes & stem density -------------------------------------------------------------
+##### Structure: Vertical classes & stem density -------------------------------------------------------------
 # inspeact vertical classes
 df_structure <- df_sim %>% 
   group_by(year, cluster, clim_scenario, ext_seed) %>% #clim_model , 
@@ -408,14 +378,13 @@ df_sim_indicators <- df_richness %>%
   
 
   
-  
+##### evaluate initial state with my sites (only 12 sites! )   -------------------------
 # filterr initial state: year == 0
 df_sim_indicators0 <- df_sim_indicators %>% 
   dplyr::filter(year == 0 & clim_scenario == "HISTO")
 
 
-# merge field with simulated data in year 0 ----------------------------------
-
+###### merge field with simulated data in year 0 
 df_compare <- df_indicators_sub %>% 
   left_join(df_sim_indicators0, by = "cluster", suffix = c("_field", "_simul")) %>% 
   dplyr::select(cluster, site, ext_seed, ends_with("_field"), ends_with("_simul")) %>% 
@@ -468,8 +437,6 @@ ggarrange(p1, p2, p3, p4,p5, common.legend = TRUE , ncol = 3, nrow = 2)
 #     values_from = c(richness, dominant_species, rIVI, n_vertical, stem_density)
 #   )
 
-
-
 p_noseed <-df_sim_indicators  %>% 
   dplyr::filter(ext_seed == 'noseed') %>% 
   ggplot(aes(x = year,
@@ -491,3 +458,279 @@ p_seed <-df_sim_indicators  %>%
   facet_grid(. ~clim_cluster)
 
 ggarrange(p_noseed, p_seed, common.legend = TRUE, labels = c('no seed', 'seeds'))
+
+
+
+# PLot --------------------------------------------------------------------------
+# compare all field indicators with simulated indicators in time 0 and year 30
+# make a common table
+
+# Calculate the average values of numeric columns across ext_seed scenarios
+df_sim_indicators_avg <- df_sim_indicators %>%
+  group_by(year, cluster, clim_scenario, dominant_species, clim_cluster , str_cluster) %>%  # Group by the relevant columns excluding ext_seed
+  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%  # Calculate the mean for numeric columns
+  ungroup()  # Remove grouping
+
+
+df_sim_indicators_avg_sub <- df_sim_indicators %>%
+  group_by(year, cluster, clim_scenario, dominant_species, clim_cluster , str_cluster) %>%  # Group by the relevant columns excluding ext_seed
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = 'drop')  %>%  
+  # Calculate the mean for numeric columns
+  ungroup(.) %>% 
+  dplyr::select(year, cluster, clim_cluster,clim_scenario , dominant_species, rIVI, richness , stem_density, n_vertical) %>% 
+  rename(site = cluster)  %>% 
+  mutate(source = 'simulated')
+
+# Create plot overtime, all scenarios, ad on top the range of teh fiel data (corresponds to year  0/1)
+df_sim_indicators_avg %>% 
+  dplyr::filter(clim_scenario == 'HISTO') %>% 
+ # View()
+  ggplot(aes(x = year,y = richness, color = site)) +
+  geom_jitter() +
+  facet_grid(.~clim_cluster)
+
+
+
+##### make a simple plot: just compare the ranges -------------------------------
+# need to merge simulated and field data - complete teh necessary columns!
+df_indicators_sub <- 
+  df_indicators %>% 
+  dplyr::select(site, clim_cluster_test, dominant_species,rIVI, richness, stem_density, n_vertical) %>% 
+  rename(clim_cluster = clim_cluster_test) %>% 
+  mutate(year = 0,
+         clim_scenario  = "HISTO") %>% 
+  dplyr::select(year, site, clim_cluster, clim_scenario, dominant_species, rIVI, richness, stem_density, n_vertical) %>% 
+  mutate(source = 'observed')
+
+ 
+# merge tables into one
+df_indi_merged <- rbind(df_indicators_sub,df_sim_indicators_avg_sub)
+
+df_indi_merged <- df_indi_merged %>% 
+  mutate(clim_class = case_when(clim_cluster  == '1' ~ 'wet-cold',
+                                clim_cluster  == '2'  ~ 'hot-dry',
+                                clim_cluster  == '3'  ~ 'medium',
+                                TRUE ~ NA_character_
+                                )) %>% 
+  mutate(clim_class = factor(clim_class, levels = c('wet-cold','medium', 'hot-dry' )),
+         clim_cluster = factor(clim_cluster, levels = c('1','3', '2' )))
+
+# reorder and rename clim cluster: 
+# 1 - cold, wet
+# 2 - hot, dry
+# 3 - medium, in between 1-2
+
+
+# Define custom color palette mimicking RdYlBu for discrete values
+custom_palette <- c("wet-cold" = "#4575b4", "medium" = "#ffffbf", "hot-dry" = "#d73027")
+
+# 
+# Create the ggplot:
+# compare the fiel ata with medians over 30 years! (or select just the year ==30??)
+p_IVI <- 
+  df_indi_merged %>% 
+  dplyr::filter(clim_scenario == "HISTO") %>% 
+  ggplot(aes(x = source, y = rIVI, fill = clim_class)) +
+  geom_violin(position = position_dodge(width = 0.5)) +
+  stat_summary(
+    fun = median,
+    geom = "point",
+    color = "white",
+    size = 3.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  stat_summary(
+    fun = median,
+    fun.min = function(x) { quantile(x, probs = 0.25) },
+    fun.max = function(x) { quantile(x, probs = 0.75) },
+    geom = "pointrange",
+    position = position_dodge(width = 0.5)#,
+   # size = 1  # Adjust point and line size
+  ) +
+  scale_color_manual(values = custom_palette) +  # Use the custom discrete palette
+  
+  stat_summary(
+    fun = median,
+    geom = "point",
+    aes(color =   clim_class), #"white",
+    size = 2.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  
+    scale_fill_manual(values = custom_palette) +  # Use the custom discrete palette
+   labs(#title = "Median and IQR of rIVI by Source and Climate Cluster",
+       x = "Source",
+       y = "rIVI",
+       color = "Climate Cluster",
+       fill = "Climate Cluster") +
+  theme_bw()
+
+
+
+p_rich <- df_indi_merged %>% 
+  dplyr::filter(clim_scenario == "HISTO") %>% 
+  ggplot(aes(x = source, y = richness, fill = clim_class)) +
+  geom_violin(position = position_dodge(width = 0.5)) +
+  stat_summary(
+    fun = median,
+    geom = "point",
+    color = "white",
+    size = 3.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  scale_color_manual(values = custom_palette) +  # Use the custom discrete palette
+  stat_summary(
+    fun = median,
+    fun.min = function(x) { quantile(x, probs = 0.25) },
+    fun.max = function(x) { quantile(x, probs = 0.75) },
+    geom = "pointrange",
+    position = position_dodge(width = 0.5)#,
+   # size = 1  # Adjust point and line size
+  ) +
+  stat_summary(
+    fun = median,
+    geom = "point",
+    aes(color =   clim_class), #"white",
+    size = 2.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  labs(#title = "Median and IQR of rIVI by Source and Climate Cluster",
+       x = "Source",
+       y = "richness",
+       color = "Climate Cluster",
+       fill = "Climate Cluster") +
+  scale_fill_manual(values = custom_palette) +  # Use the custom discrete palette
+  theme_bw()
+
+
+
+p_stem_dens <- df_indi_merged %>% 
+  dplyr::filter(clim_scenario == "HISTO") %>% 
+  ggplot(aes(x = source, y = stem_density, fill = clim_class)) +
+  geom_violin(position = position_dodge(width = 0.5)) +
+  stat_summary(
+    fun = median,
+    geom = "point",
+    color = "white",
+    size = 3.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  stat_summary(
+    fun = median,
+    fun.min = function(x) { quantile(x, probs = 0.25) },
+    fun.max = function(x) { quantile(x, probs = 0.75) },
+    geom = "pointrange",
+   aes(fill = clim_class) ,
+    position = position_dodge(width = 0.5)#,
+   # size = 1  # Adjust point and line size
+  ) +
+  scale_color_manual(values = custom_palette) +  # Use the custom discrete palette
+  
+  stat_summary(
+    fun = median,
+    geom = "point",
+    aes(color =   clim_class), #"white",
+    size = 2.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  
+  scale_fill_manual(values = custom_palette) +  # Use the custom discrete palette
+  #scale_color_manual(values = custom_palette) +  # Use the custom discrete palette
+  labs(#title = "Median and IQR of rIVI by Source and Climate Cluster",
+    x = "Source",
+    y = "stem_density",
+    color = "Climate Cluster",
+    fill = "Climate Cluster") +
+  theme_bw()
+
+(p_stem_dens)
+
+p_vert <- df_indi_merged %>% 
+  dplyr::filter(clim_scenario == "HISTO") %>% 
+  ggplot(aes(x = source, y = n_vertical, fill = clim_class)) +
+  geom_violin(position = position_dodge(width = 0.5)) +
+  scale_fill_manual(values = custom_palette) +  # Use the custom discrete palette
+  stat_summary(
+    fun = median,
+    geom = "point",
+    color = "white",
+    size = 3.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  stat_summary(
+    fun = median,
+    fun.min = function(x) { quantile(x, probs = 0.25) },
+    fun.max = function(x) { quantile(x, probs = 0.75) },
+    geom = "pointrange",
+    position = position_dodge(width = 0.5)#,
+   # size = 1  # Adjust point and line size
+  ) +
+  scale_color_manual(values = custom_palette) +  # Use the custom discrete palette
+  
+  stat_summary(
+    fun = median,
+    geom = "point",
+    aes(color =   clim_class), #"white",
+    size = 2.5,  # Adjust point size
+    position = position_dodge(width = 0.5)
+  ) +
+  labs(#title = "Median and IQR of rIVI by Source and Climate Cluster",
+    x = "Source",
+    y = "n_vertical",
+    color = "Climate Cluster",
+    fill = "Climate Cluster") +
+  theme_bw()
+
+
+
+# simplified:
+# Function to create the plot
+create_plot <- function(data, y_var, y_label) {
+  ggplot(data, aes(x = source, y = !!sym(y_var), fill = clim_class)) +
+    geom_violin(position = position_dodge(width = 0.5)) +
+    
+    stat_summary(
+      fun = median,
+      fun.min = function(x) { quantile(x, probs = 0.25) },
+      fun.max = function(x) { quantile(x, probs = 0.75) },
+      geom = "pointrange",
+      position = position_dodge(width = 0.5),
+      size = 1  # Adjust point and line size
+    ) +
+    stat_summary(
+      fun = median,
+      geom = "point",
+      color = "white",
+      size = 3.5,  # Adjust point size
+      position = position_dodge(width = 0.5)
+    ) +
+    stat_summary(
+      fun = median,
+      geom = "point",
+      aes(color = clim_class),
+      size = 2.5,  # Adjust point size
+      position = position_dodge(width = 0.5)
+    ) +
+    scale_fill_manual(values = custom_palette) +  # Use the custom discrete palette
+    scale_color_manual(values = custom_palette) +  # Use the custom discrete palette
+    labs(
+      x = "Source",
+      y = y_label,
+      color = "Climate Cluster",
+      fill = "Climate Cluster"
+    ) +
+    theme_bw()
+}
+
+# Filter the data once
+filtered_data <- df_indi_merged %>% 
+  dplyr::filter(clim_scenario == "HISTO")
+
+# Create plots
+p_IVI <- create_plot(filtered_data, "rIVI", "rIVI")
+p_rich <- create_plot(filtered_data, "richness", "Richness")
+p_stem_dens <- create_plot(filtered_data, "stem_density", "Stem Density")
+p_vert <- create_plot(filtered_data, "n_vertical", "Vertical Structure")
+
+
+ggarrange(p_IVI, p_rich, p_stem_dens, p_vert, nrow = 2, ncol = 2, common.legend = T )
