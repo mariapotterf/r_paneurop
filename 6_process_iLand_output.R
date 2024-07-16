@@ -163,7 +163,7 @@ df_field_sub <- df_field %>%
 
 # get plot for all of locations:
 df_indicators <- df_indicators %>% 
-  rename(site = cluster) %>% 
+ # rename(site = cluster) %>% 
   left_join(df_sites_clusters) %>%
  # mutate()
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
@@ -171,7 +171,7 @@ df_indicators <- df_indicators %>%
 
 
 df_indicators_sub <- df_indicators %>% 
-  rename(site = cluster) %>% 
+#  rename(site = cluster) %>% 
   right_join(df_sites_clusters) %>% 
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
          str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
