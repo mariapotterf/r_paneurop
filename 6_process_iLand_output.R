@@ -72,44 +72,54 @@ df_sites_clusters <- data.frame(
 )
 
 
-# Field data cluster analysis: env-climate condition) -------------------
+# cluster analysis: ------------------------------------------------------------
+# for cliamtic and environmental condistions to be on the same page with Kilian's clusters
+
+# env-climate condition) -------------------
 # Subset the relevant columns
-data_subset <- df_indicators[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
+data_subset_clim <- df_indicators[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
+#data_subset_str  <- df_indicators[, c( "rIVI", "richness", "management_intensity", "stem_density", "n_vertical", "distance_edge", "disturbance_severity")]
 
+#"dominant_species",
 # Standardize the data
-data_scaled <- scale(data_subset)
+data_scaled_clim <- scale(data_subset_clim)
+#data_scaled_str  <- scale(data_subset_str)
+#data_scaled_str  <- df_indicators$dominant_species
 
+# Find which number of clusters is teh best
 # Perform K-means clustering for different values of k
 set.seed(3)
 max_clusters <- 10
 sil_width <- numeric(max_clusters)
 for (k in 2:max_clusters) {
-  kmeans_result <- kmeans(data_scaled, centers = k, nstart = 25)
-  sil <- silhouette(kmeans_result$cluster, dist(data_scaled))
+  kmeans_result_clim <- kmeans(data_scaled_clim, centers = k, nstart = 25)
+  sil <- silhouette(kmeans_result_clim$cluster, dist(data_scaled_clim))
   sil_width[k] <- mean(sil[, 3])
 }
 
 # Plot Silhouette width for different values of k
 plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
 
+
+
 # Determine the optimal number of clusters
-optimal_k <- 3  # from Kilian's study
+optimal_k_clim <- 3  # from Kilian's study
 
 
 # Perform K-means clustering with the optimal number of clusters
 set.seed(3)
-kmeans_result <- kmeans(data_scaled, centers = optimal_k, nstart = 25)
+kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
 
 # Add cluster assignments to the original data
-df_indicators$clim_cluster_test <- kmeans_result$cluster
+df_indicators$clim_cluster <- kmeans_result$cluster
 
 # Perform PCA for visualization - use Pc1 and Pc1
-pca_result <- prcomp(data_scaled)
+pca_result <- prcomp(data_scaled_clim)
 
 # plot PCA results with the most important variables: 
 biplot(pca_result, main = "PCA Biplot")
 
-#### Plotting cluster analysis --------------------------------------------------
+#### Plotting ENV_CLIM cluster analysis --------------------------------------------------
 # Plot the PCA results with clusters
 # plot(pca_result$x[, 1:2], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
 # points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
@@ -149,6 +159,55 @@ biplot(pca_result, main = "PCA Biplot")
 # Silhouette plot for the chosen number of clusters
 # silhouette_result <- silhouette(kmeans_result$cluster, dist(data_scaled))
 # plot(silhouette_result, main = "Silhouette Plot", col = as.numeric(silhouette_result[, 1]))
+
+# add country indication 
+country_regions <- tribble(
+  ~country, ~regions, ~country_abbr,
+  "germany", "11, 12, 14, 18, 19, 20, 25", "DE",
+  "poland", "17", "PL",
+  "czech", "15, 26", "CZ",
+  "austria", "13", "AT",
+  "slovakia", "16", "SK",
+  "slovenia", "23", "SI",
+  "italy", "21", "IT",
+  "switzerland", "22", "CH",
+  "france", "24, 27", "FR"
+) %>%
+  separate_rows(regions, sep = ", ") %>%
+  mutate(region = as.integer(regions))
+
+
+# Extract the region number from the site column in df_indicators
+df_indicators <- df_indicators %>%
+  mutate(region = as.integer(substr(site, 1, 2)))
+
+# Merge the country information with df_indicators
+df_indicators_with_country <- df_indicators %>%
+  left_join(country_regions, by = "region") %>%
+  mutate(country_abbr = case_when(
+    site %in% c("24_136", "24_137") ~ "BE",  # Belgium
+    site %in% c("24_133", "24_134", "24_135") ~ "LU",  # Luxembourg
+    TRUE ~ country_abbr
+  )) %>% 
+  mutate(clim_class = case_when(clim_cluster  == '1' ~ 'wet-cold',
+                                clim_cluster  == '2'  ~ 'hot-dry',
+                                clim_cluster  == '3'  ~ 'medium',
+                                TRUE ~ NA_character_
+  ))  
+  
+
+# investigate the clim clusters by country
+df_indicators_with_country %>% 
+  ggplot(aes(x = country_abbr,
+             fill = factor(clim_class))) +
+  geom_bar(position = 'dodge')
+
+head(df_indicators)
+
+
+# split the ENV-CLIM clusters into each group, as each one can have a different number of clusters
+# data into 3 groups
+
 
 
 
