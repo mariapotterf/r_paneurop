@@ -184,6 +184,96 @@ df_sim <- df_sim %>%
 
 
 
+# Get summary stats for 3 clusters;
+# Calculate summary statistics grouped by 'clim_cluster_test'
+summary_stats_clim_cluster <- df_indicators %>%
+  group_by(clim_cluster_test) %>%
+  summarise(
+    tmp_min = min(tmp, na.rm = TRUE),
+    tmp_max = max(tmp, na.rm = TRUE),
+    tmp_median = median(tmp, na.rm = TRUE),
+    tmp_mean = mean(tmp, na.rm = TRUE),
+    tmp_sd = sd(tmp, na.rm = TRUE),
+    #tmp_iqr = IQR(tmp, na.rm = TRUE),
+    prcp_min = min(prcp, na.rm = TRUE),
+    prcp_max = max(prcp, na.rm = TRUE),
+    prcp_median = median(prcp, na.rm = TRUE),
+    prcp_mean = mean(prcp, na.rm = TRUE),
+    prcp_sd = sd(prcp, na.rm = TRUE),
+    #prcp_iqr = IQR(prcp, na.rm = TRUE),
+    # tmp_z_min = min(tmp_z, na.rm = TRUE),
+    # tmp_z_max = max(tmp_z, na.rm = TRUE),
+    # tmp_z_median = median(tmp_z, na.rm = TRUE),
+    # tmp_z_mean = mean(tmp_z, na.rm = TRUE),
+    # tmp_z_sd = sd(tmp_z, na.rm = TRUE),
+    # tmp_z_iqr = IQR(tmp_z, na.rm = TRUE),
+    # prcp_z_min = min(prcp_z, na.rm = TRUE),
+    # prcp_z_max = max(prcp_z, na.rm = TRUE),
+    # prcp_z_median = median(prcp_z, na.rm = TRUE),
+    # prcp_z_mean = mean(prcp_z, na.rm = TRUE),
+    # prcp_z_sd = sd(prcp_z, na.rm = TRUE),
+    # prcp_z_iqr = IQR(prcp_z, na.rm = TRUE),
+    spei_min = min(spei, na.rm = TRUE),
+    spei_max = max(spei, na.rm = TRUE),
+    spei_median = median(spei, na.rm = TRUE),
+    spei_mean = mean(spei, na.rm = TRUE),
+    spei_sd = sd(spei, na.rm = TRUE),
+    #spei_iqr = IQR(spei, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = -clim_cluster_test,
+    names_to = c("variable", "stat"),
+    names_pattern = "(.*)_(.*)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  )
+
+
+sjPlot::tab_df(summary_stats_clim_cluster,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = F,
+               file="outTable/clim_cluster_summary.doc",
+               digits = 2) 
+
+
+
+# # overall stats
+summary_stats_all <- df_indicators %>%
+  ungroup(.) %>% 
+ # group_by(clim_cluster_test) %>%
+  summarise(
+    tmp_min = min(tmp, na.rm = TRUE),
+    tmp_max = max(tmp, na.rm = TRUE),
+    tmp_median = median(tmp, na.rm = TRUE),
+    tmp_mean = mean(tmp, na.rm = TRUE),
+    tmp_sd = sd(tmp, na.rm = TRUE),
+    tmp_iqr = IQR(tmp, na.rm = TRUE),
+    prcp_min = min(prcp, na.rm = TRUE),
+    prcp_max = max(prcp, na.rm = TRUE),
+    prcp_median = median(prcp, na.rm = TRUE),
+    prcp_mean = mean(prcp, na.rm = TRUE),
+    prcp_sd = sd(prcp, na.rm = TRUE),
+    prcp_iqr = IQR(prcp, na.rm = TRUE),
+    spei_min = min(spei, na.rm = TRUE),
+    spei_max = max(spei, na.rm = TRUE),
+    spei_median = median(spei, na.rm = TRUE),
+    spei_mean = mean(spei, na.rm = TRUE),
+    spei_sd = sd(spei, na.rm = TRUE),
+    spei_iqr = IQR(spei, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("variable", "stat"),
+    names_pattern = "(.*)_(.*)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  )
+
+summary_stats_all
 
 ### Inspect clim drivers: For all sites  -------------------
 # to understand which cluster is what:
