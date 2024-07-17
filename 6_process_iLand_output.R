@@ -78,9 +78,9 @@ df_sites_clusters <- data.frame(
 # env-climate condition) -------------------
 # Subset the relevant columns
 data_subset_clim <- df_indicators[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
-#data_subset_str  <- df_indicators[, c( "rIVI", "richness", "management_intensity", "stem_density", "n_vertical", "distance_edge", "disturbance_severity")]
+#data_subset_str  <- df_indicators[, c("dominant_species", "rIVI", "richness", "management_intensity", "stem_density", "n_vertical", "distance_edge", "disturbance_severity")]
 
-#"dominant_species",
+#
 # Standardize the data
 data_scaled_clim <- scale(data_subset_clim)
 #data_scaled_str  <- scale(data_subset_str)
@@ -98,13 +98,10 @@ for (k in 2:max_clusters) {
 }
 
 # Plot Silhouette width for different values of k
-plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
-
-
+#plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
 
 # Determine the optimal number of clusters
 optimal_k_clim <- 3  # from Kilian's study
-
 
 # Perform K-means clustering with the optimal number of clusters
 set.seed(3)
@@ -114,10 +111,10 @@ kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
 df_indicators$clim_cluster <- kmeans_result$cluster
 
 # Perform PCA for visualization - use Pc1 and Pc1
-pca_result <- prcomp(data_scaled_clim)
+pca_result_clim <- prcomp(data_scaled_clim)
 
 # plot PCA results with the most important variables: 
-biplot(pca_result, main = "PCA Biplot")
+biplot(pca_resultpca_result_clim, main = "PCA Biplot")
 
 #### Plotting ENV_CLIM cluster analysis --------------------------------------------------
 # Plot the PCA results with clusters
@@ -159,6 +156,20 @@ biplot(pca_result, main = "PCA Biplot")
 # Silhouette plot for the chosen number of clusters
 # silhouette_result <- silhouette(kmeans_result$cluster, dist(data_scaled))
 # plot(silhouette_result, main = "Silhouette Plot", col = as.numeric(silhouette_result[, 1]))
+
+# Cluster analysis for structural characteristics -------------------------------
+# first split data in 3 atasets, run the cluste analysis for each one of them
+# from Kilian: 4, 5, 2 clusters for 1.2.3 clim clusters;
+# need to used k-prototypes
+# Add cluster assignments to the original data
+df_indicators$clim_cluster <- kmeans_result$cluster
+
+
+
+
+
+
+# Get country indications ----------------------------------------------------------
 
 # add country indication 
 country_regions <- tribble(
