@@ -11,6 +11,7 @@ gc()
 
 library(data.table)
 library(dplyr)
+library(tidyr)
 library(terra)
 library(ggplot2)
 library(lubridate)
@@ -96,13 +97,66 @@ spei <- spei %>%
   mutate(cluster = str_sub(ID, 4, -3))#%>%
 
 
-spei_ID <- spei %>% 
+# SPEI - development over years by scale (number of months)
+# Step 1: Create a Date Column
+spei_date <- spei %>%
+  mutate(date = ymd(paste(year, month, "01", sep = "-")))  # Create a date column
+
+# Step 2: Calculate Summary Statistics
+spei_summary <- spei_date %>%
+  group_by(scale, date) %>%
+  summarise(
+    mean_spei = mean(spei, na.rm = TRUE),
+    sd_spei = sd(spei, na.rm = TRUE)
+  )
+
+# Step 3: Plot
+fig_spei_all <- ggplot(spei_summary, aes(x = date, y = mean_spei)) +
+  # Blue fill for positive values
+  geom_ribbon(data = subset(spei_summary, mean_spei > 0),
+              aes(ymin = 0, ymax = mean_spei),
+              fill = "blue", alpha = 1) +
+  # Red fill for negative values
+  geom_ribbon(data = subset(spei_summary, mean_spei <= 0),
+              aes(ymin = mean_spei, ymax = 0),
+              fill = "red", alpha = 1) +
+  theme_bw() +
+  labs(title = "SPEI Mean values by Scale",
+       x = "Year",
+       y = "SPEI Value",
+       color = "Scale",
+       fill = "Scale") +
+  theme(legend.position = "bottom") +
+  facet_grid(scale~.)
+
+
+
+ggsave(filename = 'outFigs/fig_spei_all.png', 
+       plot = fig_spei_all, 
+       width = 7, height = 7, dpi = 300, bg = 'white')
+
+
+
+
+# Convert to wide format using pivot_wider()
+spei_wide <- spei %>%
+  mutate(scale = paste0("spei", scale)) %>%  # Create column names like spei1, spei3, etc.
+  pivot_wider(names_from = scale, values_from = spei)
+
+
+
+
+spei_ID <- spei_wide %>% 
   ungroup(.) %>% 
   dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID, year) %>%
-  summarise(spei = mean(spei, na.rm = T)) #%>% 
+  summarise(spei1 = mean(spei1, na.rm = T),
+            spei3 = mean(spei3, na.rm = T),
+            spei6 = mean(spei6, na.rm = T),
+            spei12 = mean(spei12, na.rm = T),
+            spei24 = mean(spei24, na.rm = T)) #%>% 
 
 
 spei_cluster <- spei %>% 
