@@ -59,17 +59,30 @@ load("outData/veg.Rdata")
 ### clean up data -----------------------------------------------------------------
 # sum stems first up across vertical groups!!
 
-# get only samplings
-df_stems_sapl <- stem_dens_ha_cluster_sum %>% 
+# create idividual table for each of the vertical regeneration class 
+df_stems_saplings <- stem_dens_ha_cluster_sum %>% 
   filter(VegType == 'Saplings') %>% 
+  group_by(cluster, management_intensity) %>% 
+  summarise(sum_stems_sapling = sum(total_stems))# %>% 
+
+df_stems_mature <- stem_dens_ha_cluster_sum %>% 
+  filter(VegType == 'Mature') %>% 
   group_by(cluster, management_intensity) %>% 
   summarise(sum_stems = sum(total_stems))# %>% 
 
+df_stems_juveniles <- stem_dens_ha_cluster_sum %>% 
+  filter(VegType == 'Juveniles') %>% 
+  group_by(cluster, management_intensity) %>% 
+  summarise(sum_stems_juvenile = sum(total_stems))# %>% 
+
+
+
 # get saplings and juveniles
-df_stems_both <- stem_dens_ha_cluster_sum %>% 
+df_stems_sapl_juveniles <- stem_dens_ha_cluster_sum %>% 
   filter(VegType != 'Mature') %>% 
   group_by(cluster, management_intensity) %>% 
-  summarise(sum_stems = sum(total_stems))# %>% 
+  summarise(sum_stem_sapl_juven = sum(total_stems))# %>% 
+
 
 table(stem_dens_species_long$VegType,stem_dens_species_long$Species)
 
@@ -159,6 +172,21 @@ spei_subplot <- spei_wide %>%
             spei24 = mean(spei24, na.rm = T)) #%>% 
 
 
+spei_subplot_drought <- spei_wide %>% 
+  ungroup(.) %>% 
+  dplyr::filter(year %in% 2018:2020 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
+  #View()
+  group_by(ID, year) %>%
+  summarise(drought_spei1 = mean(spei1, na.rm = T),
+            drought_spei3 = mean(spei3, na.rm = T),
+            drought_spei6 = mean(spei6, na.rm = T),
+            drought_spei12 = mean(spei12, na.rm = T),
+            drought_spei24 = mean(spei24, na.rm = T)) #%>% 
+
+
+
+
 spei_plot <- spei %>% 
   ungroup(.) %>% 
   dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
@@ -175,7 +203,9 @@ df_predictors <-
   left_join(dplyr::select(distance_to_edge, c(-country, -dist_ID ))) %>% 
   left_join(dplyr::select(disturbance_chars, c(-region, -country ))) %>% 
   left_join(soil) %>%
-  left_join(spei_subplot) %>% 
+  left_join(spei_subplot) %>%          # clim values are means from 2018-2023
+  left_join(spei_subplot_drought) %>%  # clim values are means from 2018-2020
+  
   left_join(dplyr::select(terrain, c(-country, -region, -cluster.x, -cluster.y))) #%>% 
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
@@ -185,7 +215,7 @@ anyNA(df_predictors)
 # keep only temp and prcp: 2021-2023 average
 df_predictors_plot <- 
   df_predictors %>% 
-  dplyr::filter(year %in% 2018:2023) %>% 
+  #dplyr::filter(year %in% 2018:2023) %>% 
   group_by(cluster) %>% 
   summarise(tmp = mean(tmp, na.rm = T),
             prec = mean(prec, na.rm = T),
@@ -196,6 +226,11 @@ df_predictors_plot <-
             spei6   = mean(spei6, na.rm = T),
             spei12   = mean(spei12, na.rm = T),
             spei24   = mean(spei24, na.rm = T),
+            drought_spei1   = mean(drought_spei1, na.rm = T),
+            drought_spei3   = mean(drought_spei3, na.rm = T),
+            drought_spei6   = mean(drought_spei6, na.rm = T),
+            drought_spei12   = mean(drought_spei12, na.rm = T),
+            drought_spei24   = mean(drought_spei24, na.rm = T),
             distance = mean(distance, na.rm = T),
             disturbance_year= as.integer(mean(disturbance_year, na.rm = T)),
             disturbance_severity= mean(disturbance_severity, na.rm = T),
@@ -212,9 +247,9 @@ df_predictors_plot <-
             aspect= mean(aspect, na.rm = T))
 
 
-df_predictors_subplot <- 
+ df_predictors_subplot <- 
   df_predictors %>% 
-  dplyr::filter(year %in% 2018:2023) %>% 
+ # dplyr::filter(year %in% 2018:2023) %>% 
   group_by(ID) %>% 
   summarise(tmp = mean(tmp, na.rm = T),
             prec = mean(prec, na.rm = T),
@@ -241,7 +276,7 @@ df_predictors_subplot <-
             aspect= mean(aspect, na.rm = T))
 
 
-fwrite(df_predictors_subplot, 'outData/all_predictors_subplot.csv')
+#fwrite(df_predictors_subplot, 'outData/all_predictors_subplot.csv')
 
 fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
@@ -327,7 +362,7 @@ ggsave(filename = 'outFigs/Fig1.png', plot = p.clim.map, width = 7, height = 2, 
 
 
 
-# merge with vegetation data ---------------------------------------------------
+# Merge predictors with vegetation data ---------------------------------------------------
 # select the dominant species per cluster
 df_IVI_max <- df_IVI %>% 
   dplyr::select(cluster, Species, country,rIVI) %>% 
@@ -477,43 +512,61 @@ df_summary <- df_plot_full %>%
 
 
 ### explore general trends of vegetation along management gradient: -------------------------------
-p1 <- df_plot_full %>% 
-  ggplot(aes(x = management_intensity ,
-             y = rIVI))+ 
-  geom_jitter(alpha = 0.5) +
-  geom_smooth(method = 'loess') +
-  theme_bw() +
-  theme(aspect.ratio = 1) 
-  
-  
-p2 <- df_plot_full %>% 
-    ggplot(aes(x = management_intensity,
-               y = richness))+ 
-  geom_jitter(alpha = 0.5) +
-    geom_smooth(method = 'loess')+
-  theme_bw() +
-  theme(aspect.ratio = 1) 
 
-p3 <- df_plot_full %>% 
-  ggplot(aes(x = management_intensity,
-             y = stem_density))+ 
-  geom_jitter(alpha = 0.5) +
-  geom_smooth(method = 'loess')+
-  theme_bw() +
-  theme(aspect.ratio = 1) 
+# Define the function
+create_xy_plot_loess <- function(data, x_var, y_var) {
+  data %>%
+    ggplot(aes_string(x = x_var, y = y_var)) +  # Use aes_string to allow for dynamic variable names
+    geom_jitter(alpha = 0.5) +
+    geom_smooth(method = 'loess') +
+    theme_bw() +
+    theme(aspect.ratio = 1)
+}
 
-p4 <- df_plot_full %>% 
-  ggplot(aes(x = management_intensity,
-             y = n_vertical))+
-  geom_jitter(alpha = 0.5) +
-  geom_smooth(method = 'loess')+
- 
-  theme_bw() +
-  theme(aspect.ratio = 1) 
-  
+# Example usage
+# Replace 'management_intensity' and 'rIVI' with any desired variables
+p1 <- create_xy_plot_loess(df_plot_full, "management_intensity", "rIVI")
+p2 <- create_xy_plot_loess(df_plot_full, "management_intensity", "richness")
+p3 <- create_xy_plot_loess(df_plot_full, "management_intensity", "stem_density")
+p4 <- create_xy_plot_loess(df_plot_full, "management_intensity", "n_vertical")
+
+# Print the plots (or use in a grid with gridExtra or patchwork)
+print(p1)
+print(p2)
+print(p3)
+print(p4)
+
+# add variables:
+
+#library(patchwork)  # Optional: for arranging multiple plots together
 
 
-ggarrange(p1, p2, p3,p4, nrow = 2, ncol = 2, align = 'hv')
+# List of variables to plot against 'stem_density'
+variables <- c("tmp", "prec", "tmp_z", "prcp_z", "spei1", "spei3", "spei6", "spei12", "spei24")
+
+# Generate plots and store them in a list
+plots <- lapply(variables, function(var) {
+  create_xy_plot_loess(df_plot_full, var, "stem_density")
+})
+
+# Optional: Name each plot in the list for easier reference
+names(plots) <- paste0("p", 5:(4 + length(variables)))
+
+# Print or save each plot
+for (i in seq_along(plots)) {
+  print(plots[[i]])  # This will print each plot to the R graphics device
+}
+
+# Optional: Combine all plots into a single figure (if needed)
+# e.g., using patchwork to arrange all plots together
+combined_plot <- ggarrange(plotlist = plots, ncol = 3, nrow = 3)  # Adjust ncol to set the number of columns
+
+# Display the combined plot
+(combined_plot)
+
+# Save the combined plot (optional)
+ggsave("outFigs/combined_stem_density_plots.png", combined_plot, width = 10, height = 8, dpi = 300)
+
 
 
 # try simple glm: values between 0-1 - use beta distribution:
@@ -533,7 +586,7 @@ ggarrange(p1, p2, p3,p4, nrow = 2, ncol = 2, align = 'hv')
 
 
 
-###### prepare density plot with raster -------------------------------
+###### Climate space:  density plot with raster -------------------------------
 
 library(MASS)
 library(RColorBrewer)
