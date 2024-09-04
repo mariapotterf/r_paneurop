@@ -146,7 +146,7 @@ spei_wide <- spei %>%
 
 
 
-spei_ID <- spei_wide %>% 
+spei_subplot <- spei_wide %>% 
   ungroup(.) %>% 
   dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
@@ -159,7 +159,7 @@ spei_ID <- spei_wide %>%
             spei24 = mean(spei24, na.rm = T)) #%>% 
 
 
-spei_cluster <- spei %>% 
+spei_plot <- spei %>% 
   ungroup(.) %>% 
   dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
@@ -169,13 +169,13 @@ spei_cluster <- spei %>%
 
 
 
-# merge all predictors together, ID level
+# merge all predictors together, ID (=subplot) level
 df_predictors <- 
   climate %>% 
   left_join(dplyr::select(distance_to_edge, c(-country, -dist_ID ))) %>% 
   left_join(dplyr::select(disturbance_chars, c(-region, -country ))) %>% 
   left_join(soil) %>%
-  left_join(spei_ID) %>% 
+  left_join(spei_subplot) %>% 
   left_join(dplyr::select(terrain, c(-country, -region, -cluster.x, -cluster.y))) #%>% 
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
@@ -183,7 +183,7 @@ length(unique(df_predictors$cluster)) # 957
 anyNA(df_predictors)
 # merge predcitors on cluster level: calculate means
 # keep only temp and prcp: 2021-2023 average
-df_predictors_cluster <- 
+df_predictors_plot <- 
   df_predictors %>% 
   dplyr::filter(year %in% 2018:2023) %>% 
   group_by(cluster) %>% 
@@ -191,7 +191,11 @@ df_predictors_cluster <-
             prec = mean(prec, na.rm = T),
             tmp_z = mean(tmp_z, na.rm = T),
             prcp_z = mean(prcp_z, na.rm = T),
-            spei   = mean(spei, na.rm = T),
+            spei1   = mean(spei1, na.rm = T),
+            spei3   = mean(spei3, na.rm = T),
+            spei6   = mean(spei6, na.rm = T),
+            spei12   = mean(spei12, na.rm = T),
+            spei24   = mean(spei24, na.rm = T),
             distance = mean(distance, na.rm = T),
             disturbance_year= as.integer(mean(disturbance_year, na.rm = T)),
             disturbance_severity= mean(disturbance_severity, na.rm = T),
@@ -208,7 +212,7 @@ df_predictors_cluster <-
             aspect= mean(aspect, na.rm = T))
 
 
-df_predictors_ID <- 
+df_predictors_subplot <- 
   df_predictors %>% 
   dplyr::filter(year %in% 2018:2023) %>% 
   group_by(ID) %>% 
@@ -216,7 +220,11 @@ df_predictors_ID <-
             prec = mean(prec, na.rm = T),
             tmp_z = mean(tmp_z, na.rm = T),
             prcp_z = mean(prcp_z, na.rm = T),
-            spei   = mean(spei, na.rm = T),
+            spei1   = mean(spei1, na.rm = T),
+            spei3   = mean(spei3, na.rm = T),
+            spei6   = mean(spei6, na.rm = T),
+            spei12   = mean(spei12, na.rm = T),
+            spei24   = mean(spei24, na.rm = T),
             distance = mean(distance, na.rm = T),
             disturbance_year= as.integer(mean(disturbance_year, na.rm = T)),
             disturbance_severity= mean(disturbance_severity, na.rm = T),
@@ -233,14 +241,14 @@ df_predictors_ID <-
             aspect= mean(aspect, na.rm = T))
 
 
-fwrite(df_predictors_ID, 'outData/all_predictors_ID.csv')
+fwrite(df_predictors_subplot, 'outData/all_predictors_subplot.csv')
 
-#fwrite(df_predictors_cluster, 'outData/all_predictors_cluster.csv')
+fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
 # Get climate plots for map: TEMP, PREC, SPEI  -------------
 
 # climate full
-reference_period <- 1980:2015
+reference_period <- 1980:2010
 
 # read temp and prec over years
 climate_full           <- fread("outData/climate_1980_2023.csv")
@@ -319,7 +327,7 @@ ggsave(filename = 'outFigs/Fig1.png', plot = p.clim.map, width = 7, height = 2, 
 
 
 
-# merge with vegetation data
+# merge with vegetation data ---------------------------------------------------
 # select the dominant species per cluster
 df_IVI_max <- df_IVI %>% 
   dplyr::select(cluster, Species, country,rIVI) %>% 
@@ -328,19 +336,19 @@ df_IVI_max <- df_IVI %>%
   filter(rIVI == max(rIVI)) %>% 
   slice(1)
 
-# cluster level
-df_cluster_veg <-
+# plot level
+df_plot_veg <-
   df_IVI_max %>% 
   left_join(df_richness) %>%
   left_join(df_vert) %>%
   left_join(df_stems)# %>%
 
-anyNA(df_cluster_veg)
+anyNA(df_plot_veg)
 
-# cluster data share with predictors:
-# rename not necessary predictors for clustering, rename veg variables
-df_cluster_full <- df_cluster_veg %>% 
-  left_join(df_predictors_cluster, by = join_by(cluster)) %>% 
+# plot data share with predictors:
+# rename not necessary predictors for climate clustering, rename veg variables
+df_plot_full <- df_plot_veg %>% 
+  left_join(df_predictors_plot, by = join_by(cluster)) %>% 
   ungroup() %>% 
   dplyr::select(-c(disturbance_year, 
                    disturbance_agent,
@@ -348,20 +356,20 @@ df_cluster_full <- df_cluster_veg %>%
                    elevation,
                    slope, aspect)) %>% 
   dplyr::rename(dominant_species = Species, 
-                stem_density = sum_stems,
-                distance_edge = distance,
-                n_vertical = n_layers) %>% 
+                stem_density     = sum_stems,
+                distance_edge    = distance,
+                n_vertical       = n_layers) %>% 
   left_join(dat_manag_intensity_cl, by = join_by(cluster, management_intensity))# %>% 
   
   
 
-fwrite(df_cluster_full, 'outData/indicators_for_cluster_analysis.csv')
+fwrite(df_plot_full, 'outData/indicators_for_cluster_analysis.csv')
 
-length(unique(df_cluster$cluster))
-length(unique(df_cluster_full$cluster)) # 849!   - final clusters, 4-5 plots
-length(unique(df_predictors_cluster$cluster))  # 957 - all clusters, from even with less plots
+length(unique(df_plot$cluster))
+length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
+length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with less plots
 
-cluster_n <- length(unique(df_cluster_full$cluster))
+plot_n <- length(unique(df_plot_full$cluster))
 
 
 # Analysis ------------------------------------------------------------
@@ -382,6 +390,9 @@ cluster_n <- length(unique(df_cluster_full$cluster))
 # higher managemnet, less of teh advanced regeneration - 
 #   due to the salvage logging and following 
 
+# predictors: investigate, which SPEI is the best? 
+#             correlate with stem density
+
 # drivers:
 # apply drivers for all 4 veg indicators??
 # effect of climate: 
@@ -396,14 +407,59 @@ cluster_n <- length(unique(df_cluster_full$cluster))
 #    - more stem density at better soil conditions (higher depth, nutrient content)
 
 
+
+
+#### Find teh best SPEI for stem density:  ------------------------------------------------------
+library(GGally)
+
+# Select relevant columns for the plot
+df_pairs <- df_plot_full %>%
+  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24)
+
+# Create a pairs plot with correlations, distributions, and scatter plots
+ggpairs(df_pairs,
+        lower = list(continuous = "smooth"),  # Scatter plots with smoothing lines
+        diag = list(continuous = "barDiag"),  # Histograms on the diagonal
+        upper = list(continuous = "cor"),     # Correlation coefficients in the upper triangle
+        title = "Pairs Plot: Stem Density and SPEI Scales"
+)
+
+
+# very little correlations: try spearman
+
+library(dplyr)
+
+# Calculate Spearman correlations between stem_density and each SPEI scale
+spearman_correlations <- df_plot_full %>%
+  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24) %>%
+  summarise(
+    spearman_spei1 = cor(stem_density, spei1, method = "spearman", use = "complete.obs"),
+    spearman_spei3 = cor(stem_density, spei3, method = "spearman", use = "complete.obs"),
+    spearman_spei6 = cor(stem_density, spei6, method = "spearman", use = "complete.obs"),
+    spearman_spei12 = cor(stem_density, spei12, method = "spearman", use = "complete.obs"),
+    spearman_spei24 = cor(stem_density, spei24, method = "spearman", use = "complete.obs")
+  )
+
+# Print the Spearman correlations
+print(spearman_correlations)
+
+print(spearman_correlations)
+# A tibble: 1 x 5
+#spearman_spei1 spearman_spei3 spearman_spei6 spearman_spei12 spearman_spei24
+#<dbl>          <dbl>          <dbl>           <dbl>           <dbl>
+#  1         0.0837          0.106          0.112          0.0961          0.0924
+
+# the best preictors seems to be SPEI6, but still has a low correlation: 0.11
+
+
 # Make 2d denisty plots: 
 
 # Merge structure & composition into single space 
 
 
-#View(df_cluster_full)
+#View(df_plot_full)
 # get summary for the scatter plot, one point is one country & management
-df_summary <- df_cluster_full %>%
+df_summary <- df_plot_full %>%
  # group_by(manag) %>% # country, 
   summarize(
     rich_med = median(rIVI, na.rm = TRUE),
@@ -421,7 +477,7 @@ df_summary <- df_cluster_full %>%
 
 
 ### explore general trends of vegetation along management gradient: -------------------------------
-p1 <- df_cluster_full %>% 
+p1 <- df_plot_full %>% 
   ggplot(aes(x = management_intensity ,
              y = rIVI))+ 
   geom_jitter(alpha = 0.5) +
@@ -430,7 +486,7 @@ p1 <- df_cluster_full %>%
   theme(aspect.ratio = 1) 
   
   
-p2 <- df_cluster_full %>% 
+p2 <- df_plot_full %>% 
     ggplot(aes(x = management_intensity,
                y = richness))+ 
   geom_jitter(alpha = 0.5) +
@@ -438,7 +494,7 @@ p2 <- df_cluster_full %>%
   theme_bw() +
   theme(aspect.ratio = 1) 
 
-p3 <- df_cluster_full %>% 
+p3 <- df_plot_full %>% 
   ggplot(aes(x = management_intensity,
              y = stem_density))+ 
   geom_jitter(alpha = 0.5) +
@@ -446,7 +502,7 @@ p3 <- df_cluster_full %>%
   theme_bw() +
   theme(aspect.ratio = 1) 
 
-p4 <- df_cluster_full %>% 
+p4 <- df_plot_full %>% 
   ggplot(aes(x = management_intensity,
              y = n_vertical))+
   geom_jitter(alpha = 0.5) +
@@ -462,7 +518,7 @@ ggarrange(p1, p2, p3,p4, nrow = 2, ncol = 2, align = 'hv')
 
 # try simple glm: values between 0-1 - use beta distribution:
 # # make sure that no dat are equal 0 or 1
-# df_cluster_full
+# df_plot_full
 # # Ensure that the transformed variable is strictly between 0 and 1, not 0 or 1
 # dat_fin$tr_agg_doy  <- pmin(pmax(dat_fin$tr_agg_doy, 1e-4),  1 - 1e-4)
 # dat_fin$tr_peak_doy <- pmin(pmax(dat_fin$tr_peak_doy, 1e-4), 1 - 1e-4)
@@ -477,7 +533,7 @@ ggarrange(p1, p2, p3,p4, nrow = 2, ncol = 2, align = 'hv')
 
 
 
-###### prepare plot with raster -------------------------------
+###### prepare density plot with raster -------------------------------
 
 library(MASS)
 library(RColorBrewer)
@@ -499,11 +555,11 @@ calculate_levels <- function(density, percentages) {
 
 
 ##### Define the function to prepare density data --------------------------
-prepare_density_data <- function(df_cluster_full, 
+prepare_density_data <- function(df_plot_full, 
                                  x = 'rIVI', y = 'stem_density',
                                  percentages = c(0.25, 0.50, 0.75, 0.90, 1)) {
   # Calculate 2D density
-  d <- kde2d(df_cluster_full[[x]], df_cluster_full[[y]], n = 300)
+  d <- kde2d(df_plot_full[[x]], df_plot_full[[y]], n = 300)
   density_values <- d$z
   
   # Set densities outside the range of your data to zero
@@ -569,7 +625,7 @@ make_2D_plot <- function(data = plot_data,
 
 
 ######### rIVI vs sum_stems 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      x = 'stem_density',
                                      y = 'rIVI')
 
@@ -580,7 +636,7 @@ p_IVI_stems <- make_2D_plot(df_plot_data,
 
 (p_IVI_stems)
 ####### rIVI vs richnes
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      x = 'rIVI', 
                                      y = 'richness')
 
@@ -591,7 +647,7 @@ p_IVI_richness <- make_2D_plot(df_plot_data,
 
 
 ####### rIVI vs vertical 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      x = 'rIVI', 
                                      y = 'n_vertical')
 
@@ -603,7 +659,7 @@ p_IVI_vert <- make_2D_plot(df_plot_data,
 
 
 ####### stem_density vs richness 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      x = 'stem_density', 
                                      y = 'richness')
 
@@ -615,7 +671,7 @@ p_dens_richness <- make_2D_plot(df_plot_data,
 
 
 ####### stem_density vs n_vertcal 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      x = 'stem_density', 
                                      y = 'n_vertical')
 
@@ -626,7 +682,7 @@ p_dens_vertical <- make_2D_plot(df_plot_data,
 
 
 ####### n_vertical vs richness 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      x = 'n_vertical', 
                                      y = 'richness')
 
@@ -646,7 +702,7 @@ ggarrange(p_IVI_stems,
           labels = c("[a]","[b]","[c]","[d]","[e]","[f]"))
 #### DEnsity plot wth management 
 ###### rIVI vs management 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      y = 'rIVI', 
                                      x = 'management_intensity')
 
@@ -658,7 +714,7 @@ p_IVI_manag <- make_2D_plot(df_plot_data,
 (p_IVI_manag)
 
 ###### richness vs management 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      y = 'richness', 
                                      x = 'management_intensity')
 
@@ -672,7 +728,7 @@ p_richness_manag <- make_2D_plot(df_plot_data,
 
 
 ###### stem_density vs management
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      y = 'stem_density', 
                                      x = 'management_intensity')
 
@@ -687,7 +743,7 @@ p_stem_dens_manag <- make_2D_plot(df_plot_data,
 
 
 ###### n_vertical vs management 
-df_plot_data <- prepare_density_data(df_cluster_full, 
+df_plot_data <- prepare_density_data(df_plot_full, 
                                      y = 'n_vertical', 
                                      x = 'management_intensity')
 
@@ -718,7 +774,7 @@ ggarrange(p_IVI_manag, p_richness_manag,
 qntils = c(0, 0.01, 0.25, 0.5, 0.75, 0.90, 1)
 
 qs_dat_fin <- 
-  df_cluster_full %>% 
+  df_plot_full %>% 
   ungroup(.) %>% 
   #filter(year %in% 2015:2021) %>% 
   dplyr::reframe(stem_density    = quantile(stem_density , qntils, na.rm = T ),
@@ -734,7 +790,7 @@ qs_dat_fin <-
 
 
 means_dat_fin <- 
-  df_cluster_full %>% 
+  df_plot_full %>% 
   ungroup(.) %>% 
   dplyr::reframe(stem_density    = mean(stem_density , na.rm = T ),
                  n_vertical      = mean(n_vertical, na.rm = T ),
@@ -902,14 +958,14 @@ ggplot(top_species_per_group, aes(x = VegType, y = share, fill = Species)) +
 # Richness desc 
 
 # decrsibe richness: how many clusters have how many species?
-df_cluster_full %>% 
+df_plot_full %>% 
   group_by(richness) %>% 
   dplyr::summarize(count = n(),
                    prop = count/cluster_n*100)
 
 
 # what are dominant species??
-df_cluster_full %>% 
+df_plot_full %>% 
  dplyr::filter(rIVI> 0.5) %>%
  # nrow()
   group_by(dominant_species) %>% 
@@ -963,7 +1019,7 @@ df_stock_density <-
 
 # make a table for potential regeneration delay - link with climate data
 # make a barplots
-df_regen_delay <- df_cluster_full %>% 
+df_regen_delay <- df_plot_full %>% 
   mutate(reg_delay_class = case_when(stem_density  < 2001 ~ 'low',
                                 stem_density  >= 2001 ~ 'sufficient')) %>% 
   mutate(reg_delay_class = factor(reg_delay_class, levels = c('low', 'sufficient')))
@@ -1336,54 +1392,54 @@ print(residuals_table)
 
 # 4. stems vs weather - mean 2018-2023 ---------------------------------
 
-df_cluster_full
+df_plot_full
 windows()
-pairs(stem_density    ~ tmp + tmp_z + prec + prcp_z + management_intensity+ salvage_intensity + protection_intensity + distance_edge, df_cluster_full)
+pairs(stem_density    ~ tmp + tmp_z + prec + prcp_z + management_intensity+ salvage_intensity + protection_intensity + distance_edge, df_plot_full)
 
-pairs(stem_density    ~  management_intensity+ salvage_intensity + protection_intensity, df_cluster_full)
+pairs(stem_density    ~  management_intensity+ salvage_intensity + protection_intensity, df_plot_full)
 
 
 # test corelations 
 
-plot(df_cluster_full$tmp, df_cluster_full$spei)
-plot(df_cluster_full$prec, df_cluster_full$spei)
-plot(df_cluster_full$tmp, df_cluster_full$prec)
+plot(df_plot_full$tmp, df_plot_full$spei)
+plot(df_plot_full$prec, df_plot_full$spei)
+plot(df_plot_full$tmp, df_plot_full$prec)
 
-plot( df_cluster_full$management_intensity, df_cluster_full$stem_density)
-plot( df_cluster_full$salvage_intensity, df_cluster_full$stem_density)
-plot( df_cluster_full$protection_intensity, df_cluster_full$stem_density)
+plot( df_plot_full$management_intensity, df_plot_full$stem_density)
+plot( df_plot_full$salvage_intensity, df_plot_full$stem_density)
+plot( df_plot_full$protection_intensity, df_plot_full$stem_density)
 
 
 # keep only spei instead of the tmp and prec
 
 # keep also annomalies?
-plot(df_cluster_full$tmp_z, df_cluster_full$spei)
+plot(df_plot_full$tmp_z, df_plot_full$spei)
 
 # test, which one of teh variables exaplin teh stem density better?
 
 
 
 
-cor(df_cluster_full$tmp_z, df_cluster_full$spei, method = 'spearman')
-cor(df_cluster_full$tmp, df_cluster_full$spei, method = 'spearman')
+cor(df_plot_full$tmp_z, df_plot_full$spei, method = 'spearman')
+cor(df_plot_full$tmp, df_plot_full$spei, method = 'spearman')
 #[1] -0.7187752
-cor(df_cluster_full$prec, df_cluster_full$spei, method = 'spearman')
+cor(df_plot_full$prec, df_plot_full$spei, method = 'spearman')
 # [1] 0.2349638
 
 # check how management is correlated?
-cor(df_cluster_full$management_intensity, df_cluster_full$salvage_intensity, method = 'spearman')
-cor(df_cluster_full$protection_intensity, df_cluster_full$salvage_intensity, method = 'spearman')
+cor(df_plot_full$management_intensity, df_plot_full$salvage_intensity, method = 'spearman')
+cor(df_plot_full$protection_intensity, df_plot_full$salvage_intensity, method = 'spearman')
 
 
 
 # decide: which parameters are better: temp_z, temp, prcp, prcp_z or spei?? or their interation?
 
 # Calculate correlation matrix for predictors
-correlation_matrix <- cor(df_cluster_full[, c('tmp_z', 'tmp', 'prec', 'prcp_z', 'spei')])
+correlation_matrix <- cor(df_plot_full[, c('tmp_z', 'tmp', 'prec', 'prcp_z', 'spei')])
 
 
 # remove spei
-correlation_matrix <- cor(df_cluster_full[, c('tmp_z', 'tmp', 'prec', 'prcp_z')], method = 'spearman')
+correlation_matrix <- cor(df_plot_full[, c('tmp_z', 'tmp', 'prec', 'prcp_z')], method = 'spearman')
 
 correlation_matrix
 
@@ -1392,7 +1448,7 @@ correlation_matrix
 
 #5. test model ---------------------------------
 
-df_model <- df_cluster_full %>% 
+df_model <- df_plot_full %>% 
   mutate(stem_density = as.integer(stem_density)) %>% 
   # create a factor for country based on region ID
   mutate(
@@ -1716,7 +1772,7 @@ sjPlot::tab_model(m.zi01,
 
 # vertical structure vs disturbance patch size? ---------------------------
 
-df_cluster_full %>% 
+df_plot_full %>% 
   ggplot(aes(x = distance_edge,
              y  = n_vertical)) +
   geom_jitter() +
