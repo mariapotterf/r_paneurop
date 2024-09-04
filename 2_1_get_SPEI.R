@@ -18,7 +18,7 @@ library(R.utils)
 library(stringr)
 
 # SPEI scales:
-my_spei_scales = c(3) #c(3,12) # 3,6,12
+my_spei_scales = c(1,3,6,12, 24) #c(3) # #c(3,12) # 3,6,12
 # filter through years: >1980 ------------------------
 # 
 #pattern_years = "^19(8[0-9]|9[0-9])|^20(0[0-9]|1[0-9]|2[0-3]).*\\.gz$" # filter data 1980-2023
