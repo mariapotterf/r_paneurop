@@ -442,11 +442,86 @@ sjPlot::tab_df(summary_stats_clim_cluster,
                digits = 1) 
 
 
-# Make a scatter plot: how does the spei correlate with temperature?
+# Make a scatter plot: how does the spei correlate with temperature -----------------------------------
 
-df_indicators_with_country %>% 
-  ggplot(aes(x = tmp, y = spei, color = clim_class )) + 
-  geom_point()
+# Calculate the mean and standard deviation for each cluster
+mean_sd_df <- df_indicators_with_country %>%
+  group_by(clim_class) %>%
+  summarise(
+    mean_tmp = mean(tmp, na.rm = TRUE),
+    sd_tmp = sd(tmp, na.rm = TRUE),
+    mean_spei = mean(spei, na.rm = TRUE),
+    sd_spei = sd(spei, na.rm = TRUE)
+  )
+
+
+
+# Create the scatter plot with ellipses, mean points, and error bars
+fig_spei_tmp_clusters <- ggplot(data = df_indicators_with_country, aes(x = tmp, y = spei, color = clim_class, fill = clim_class)) + 
+  geom_point(size = 0.5) +
+  stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
+  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo efferct
+  
+  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 1.5, shape = 16) +  # Mean points
+  geom_errorbar(data = mean_sd_df, aes(x = mean_tmp, ymin = mean_spei - sd_spei, ymax = mean_spei + sd_spei, y = mean_spei), 
+                width = 0.2) +  # Vertical error bars
+  geom_errorbarh(data = mean_sd_df, aes(y = mean_spei, xmin = mean_tmp - sd_tmp, xmax = mean_tmp + sd_tmp, x = mean_tmp), 
+                 height = 0.01) +  # Horizontal error bars
+  theme_classic2() +
+  labs(title = "",
+       x = expression(Temperature ~ (degree*C)),
+       y = "SPEI") +
+  scale_fill_manual(values = c("red", "orange", "blue")) +  # Customize fill colors
+  scale_color_manual(values = c("red", "orange", "blue"))   # Customize point colors
+
+
+
+
+(fig_spei_tmp_clusters )
+ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters, 
+       width = 4, height = 3, dpi = 300, 
+       bg = 'white')
+
+
+
+### Make climate space for each country ---------------------------------------------
+
+mean_sd_df_country <- df_indicators_with_country %>%
+  group_by(clim_class, country_pooled) %>%
+  summarise(
+    mean_tmp = mean(tmp, na.rm = TRUE),
+    sd_tmp = sd(tmp, na.rm = TRUE),
+    mean_spei = mean(spei, na.rm = TRUE),
+    sd_spei = sd(spei, na.rm = TRUE)
+  )
+
+
+
+
+fig_spei_tmp_clusters_country <- 
+  ggplot(data = df_indicators_with_country, aes(x = tmp, y = spei, color = clim_class, fill = clim_class)) + 
+  geom_point(size = 0.5) +
+  stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
+  geom_point(data = mean_sd_df_country, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo effect
+  geom_point(data = mean_sd_df_country, aes(x = mean_tmp, y = mean_spei), size = 1.5, shape = 16) +  # Mean points
+  geom_errorbar(data = mean_sd_df_country, aes(x = mean_tmp, ymin = mean_spei - sd_spei, ymax = mean_spei + sd_spei, y = mean_spei), 
+                width = 0) +  # Vertical error bars
+  geom_errorbarh(data = mean_sd_df_country, aes(y = mean_spei, xmin = mean_tmp - sd_tmp, xmax = mean_tmp + sd_tmp, x = mean_tmp), 
+                 height = 0) +  # Horizontal error bars
+  theme_classic2() +
+  labs(title = "",
+       x = expression(Temperature ~ (degree*C)),
+       y = "SPEI") +
+  scale_fill_manual(values = c("red", "orange", "blue")) +  # Customize fill colors
+  scale_color_manual(values = c("red", "orange", "blue")) +  # Customize point colors
+  facet_wrap(~ country_pooled)  # Add facet_wrap to create separate panels for each country
+
+# Display and save the plot
+print(fig_spei_tmp_clusters_country)
+ggsave(filename = 'outFigs/fig_spei_tmp_clusters_country.png', plot = fig_spei_tmp_clusters_country, 
+       width = 7, height = 7, dpi = 300, 
+       bg = 'white')
+
 
 
 
