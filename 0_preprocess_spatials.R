@@ -77,13 +77,13 @@ sl <- ne_countries(country = "slovenia",    type = "countries", returnclass = 's
 fr <- ne_countries(country = "france",      type = "countries", returnclass = 'sf', scale = 'medium')
 ch <- ne_countries(country = "switzerland", type = "countries", returnclass = 'sf', scale = 'medium')
 pl <- ne_countries(country = "poland",      type = "countries", returnclass = 'sf', scale = 'medium')
-cz <- ne_countries(country = "czech republic", type = "countries", returnclass = 'sf', scale = 'medium')
+cz <- ne_countries(country = "czechia",     type = "countries", returnclass = 'sf', scale = 'medium')
 it <- ne_countries(country = "italy",       type = "countries", returnclass = 'sf', scale = 'medium')
 lu <- ne_countries(country = "luxembourg",  type = "countries", returnclass = 'sf', scale = 'medium')
 be <- ne_countries(country = "belgium",     type = "countries", returnclass = 'sf', scale = 'medium')
 
 # rename czechia:
-cz$sovereignt[cz$sovereignt == "Czech Republic"] <- "Czechia"
+#cz$sovereignt[cz$sovereignt == "Czech Republic"] <- "Czechia"
 
 # list cuntrues for a lapply loop
 cntrs_ls <- list(ge, at, sk, sl,fr, ch, pl, cz, it, lu, be) # 
