@@ -62,17 +62,17 @@ load("outData/veg.Rdata")
 # create idividual table for each of the vertical regeneration class 
 df_stems_saplings <- stem_dens_ha_cluster_sum %>% 
   filter(VegType == 'Saplings') %>% 
-  group_by(cluster, management_intensity) %>% 
+  group_by(cluster) %>% 
   summarise(sum_stems_sapling = sum(total_stems))# %>% 
 
 df_stems_mature <- stem_dens_ha_cluster_sum %>% 
   filter(VegType == 'Mature') %>% 
-  group_by(cluster, management_intensity) %>% 
-  summarise(sum_stems = sum(total_stems))# %>% 
+  group_by(cluster) %>% 
+  summarise(sum_stems_mature = sum(total_stems))# %>% 
 
 df_stems_juveniles <- stem_dens_ha_cluster_sum %>% 
   filter(VegType == 'Juveniles') %>% 
-  group_by(cluster, management_intensity) %>% 
+  group_by(cluster) %>% 
   summarise(sum_stems_juvenile = sum(total_stems))# %>% 
 
 
@@ -123,30 +123,30 @@ spei_summary <- spei_date %>%
     sd_spei = sd(spei, na.rm = TRUE)
   )
 
-# Step 3: Plot
-fig_spei_all <- ggplot(spei_summary, aes(x = date, y = mean_spei)) +
-  # Blue fill for positive values
-  geom_ribbon(data = subset(spei_summary, mean_spei > 0),
-              aes(ymin = 0, ymax = mean_spei),
-              fill = "blue", alpha = 1) +
-  # Red fill for negative values
-  geom_ribbon(data = subset(spei_summary, mean_spei <= 0),
-              aes(ymin = mean_spei, ymax = 0),
-              fill = "red", alpha = 1) +
-  theme_bw() +
-  labs(title = "SPEI Mean values by Scale",
-       x = "Year",
-       y = "SPEI Value",
-       color = "Scale",
-       fill = "Scale") +
-  theme(legend.position = "bottom") +
-  facet_grid(scale~.)
+# Step 3: Plot - skip, long to run
+# fig_spei_all <- ggplot(spei_summary, aes(x = date, y = mean_spei)) +
+#   # Blue fill for positive values
+#   geom_ribbon(data = subset(spei_summary, mean_spei > 0),
+#               aes(ymin = 0, ymax = mean_spei),
+#               fill = "blue", alpha = 1) +
+#   # Red fill for negative values
+#   geom_ribbon(data = subset(spei_summary, mean_spei <= 0),
+#               aes(ymin = mean_spei, ymax = 0),
+#               fill = "red", alpha = 1) +
+#   theme_bw() +
+#   labs(title = "SPEI Mean values by Scale",
+#        x = "Year",
+#        y = "SPEI Value",
+#        color = "Scale",
+#        fill = "Scale") +
+#   theme(legend.position = "bottom") +
+#   facet_grid(scale~.)
+# 
 
 
-
-ggsave(filename = 'outFigs/fig_spei_all.png', 
-       plot = fig_spei_all, 
-       width = 7, height = 7, dpi = 300, bg = 'white')
+# ggsave(filename = 'outFigs/fig_spei_all.png', 
+#        plot = fig_spei_all, 
+#        width = 7, height = 7, dpi = 300, bg = 'white')
 
 
 
@@ -376,9 +376,13 @@ df_plot_veg <-
   df_IVI_max %>% 
   left_join(df_richness) %>%
   left_join(df_vert) %>%
-  left_join(df_stems)# %>%
+  left_join(df_stems) %>%
+  left_join(df_stems_juveniles) %>%
+  left_join(df_stems_saplings ) %>% 
+  left_join(df_stems_mature)
 
 anyNA(df_plot_veg)
+
 
 # plot data share with predictors:
 # rename not necessary predictors for climate clustering, rename veg variables
@@ -387,7 +391,7 @@ df_plot_full <- df_plot_veg %>%
   ungroup() %>% 
   dplyr::select(-c(disturbance_year, 
                    disturbance_agent,
-                   silt_extract, country,
+                   silt_extract, #country,
                    elevation,
                    slope, aspect)) %>% 
   dplyr::rename(dominant_species = Species, 
@@ -396,9 +400,14 @@ df_plot_full <- df_plot_veg %>%
                 n_vertical       = n_layers) %>% 
   left_join(dat_manag_intensity_cl, by = join_by(cluster, management_intensity))# %>% 
   
-  
+# set up proper structure (df) fr analysis  and claim characters as factors
+df_fin <- as.data.frame(df_plot_full) %>% 
+  mutate(cluster = factor(cluster),
+         dominant_species = factor(dominant_species),
+         country = factor(country))
 
-fwrite(df_plot_full, 'outData/indicators_for_cluster_analysis.csv')
+
+fwrite(df_fin, 'outData/indicators_for_cluster_analysis.csv')
 
 length(unique(df_plot$cluster))
 length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
@@ -429,9 +438,9 @@ plot_n <- length(unique(df_plot_full$cluster))
 #             correlate with stem density
 
 # drivers:
-# apply drivers for all 4 veg indicators??
+# - apply drivers for all 4 veg indicators??
 # effect of climate: 
-#   - higher drought, less regeneration; higher change of delayed regeneration
+#   - higher drought, less regeneration; higher change of delayed regeneration?
 
 # effect of disturbance size:
 #   - higher patch size, less regeneration
@@ -462,8 +471,6 @@ ggpairs(df_pairs,
 
 # very little correlations: try spearman
 
-library(dplyr)
-
 # Calculate Spearman correlations between stem_density and each SPEI scale
 spearman_correlations <- df_plot_full %>%
   dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24) %>%
@@ -485,6 +492,113 @@ print(spearman_correlations)
 #  1         0.0837          0.106          0.112          0.0961          0.0924
 
 # the best preictors seems to be SPEI6, but still has a low correlation: 0.11
+
+# check for multicollinearity -----------------------------------------------------
+
+library(car)
+model <- lm(stem_density ~ richness + management_intensity + rIVI + n_vertical + spei6 + drought_spei6, data = df_fin)
+vif(model)
+
+
+
+# test with univariate models & AIC ----------------------------------------------
+hist(df_fin$stem_density)
+
+
+# Fit a GAM model with a Negative Binomial distribution
+m1 <- gam(stem_density ~ s(spei6, k = 15),  # Factors included without s() for categorical variables
+                 family = nb,  # Negative Binomial to handle overdispersion
+                 data = df_fin)
+
+
+
+# Fit a GAM with Tweedie distribution (useful for zero-inflation)
+m.tw1 <- gam(stem_density ~ s(spei6, k = 10), 
+                   family = tw,  # Adjust var.power based on data
+                   data = df_fin)
+AIC(m1, m.tw1)
+
+appraise(m.tw1)
+summary(m.tw1)
+draw(m.tw1)
+gam.check(m.tw1)
+k.check(m.tw1)
+
+# TW has a better fit, also can handle zero!
+
+# Run univariate models for set of dependent variables (stem density)
+# and spei predictors to se teh best spei
+
+# List of dependent variables
+dependent_vars <- c("sum_stems_juvenile", "sum_stems_sapling", "sum_stems_mature", "stem_density")
+
+# List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
+predictor_vars <- c("spei1", "spei3", "spei6", "spei12", "spei24", 
+                    "drought_spei1", "drought_spei3", "drought_spei6", 
+                    "drought_spei12", "drought_spei24")
+
+
+
+# TEST
+
+# Initialize a data frame to store AIC values and deviance explained
+model_metrics <- data.frame(Predictor = character(), 
+                                  Dependent = character(), 
+                                  AIC = numeric(), DevianceExplained = numeric())
+
+
+
+# Loop over each dependent variable
+for (dep in dependent_vars) {
+  #print(dep)
+  # Loop over each predictor
+  for (pred in predictor_vars) {
+    #print(pred)
+    # Fit the model
+    formula <- as.formula(paste(dep, "~ s(", pred, ", k = 10)"))
+    #print(formula)
+    model <- gam(formula, family = tw(), method = 'REML', data = df_fin)
+    
+    # Extract model summary
+    model_summary <- summary(model)
+    
+    # Store the AIC value and deviance explained
+    model_metrics <- rbind(model_metrics, 
+                           data.frame(Predictor = pred, 
+                                      Dependent = dep, 
+                                      AIC = AIC(model), 
+                                      DevianceExplained = round(model_summary$dev.expl*100,1)))
+  }
+}
+
+# View the AIC values and deviance explained
+View(model_metrics)
+
+# # Select the best predictor for each dependent variable based on the lowest AIC
+# best_predictors <- model_metrics %>% 
+#   mutate(category = case_when(
+#     grepl("tmp", Predictor  ) ~ "tmp",
+#     grepl("spei", Predictor  ) ~ "spei",
+#     TRUE ~ "other"
+#   )) %>% 
+#   group_by(Dependent, category) %>% 
+#   slice_min(AIC, n = 1)   # Select the best 3 based on AIC
+# # slice(which.max(DevianceExplained))
+
+#best_predictors_counts
+
+sjPlot::tab_df(model_metrics,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = FALSE,
+               file="outTable/find_best_spei.doc",
+               digits = 1) 
+
+# we found that for every vegetation vertical cla has different sentiticity to SPEI scale:
+
+
+
+
+
 
 
 # Make 2d denisty plots: 
