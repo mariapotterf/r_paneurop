@@ -414,14 +414,14 @@ df_fin <- as.data.frame(df_plot_full) %>%
          country = factor(country))
 
 
-fwrite(df_fin, 'outData/indicators_for_cluster_analysis.csv')
-
-length(unique(df_plot$cluster))
-length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
-length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with less plots
-
 plot_n <- length(unique(df_plot_full$cluster))
 
+
+fwrite(df_fin, 'outData/indicators_for_cluster_analysis.csv')
+
+#length(unique(df_plot$cluster))
+length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
+length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with less plots
 
 # Analysis ------------------------------------------------------------
 # desription of current regeneration state
