@@ -333,89 +333,6 @@ df_fin <- df_fin %>%
     
 #### Make a scatter plot: how does the spei correlate with temperature -----------------------------------
 
-####### for drought_spei6 ; 7 cluster? --------------------------------------------
-
-# Calculate the mean and standard deviation for each cluster
-mean_sd_df <- df_fin %>%
-  group_by(clim_cluster_spei6) %>%
-  summarise(
-    mean_tmp = mean(tmp, na.rm = TRUE),
-    sd_tmp = sd(tmp, na.rm = TRUE),
-    mean_spei = mean(drought_spei6 , na.rm = TRUE),
-    sd_spei = sd(drought_spei6, na.rm = TRUE)
-  )
-
-
-
-# Create the scatter plot with ellipses, mean points, and error bars
-fig_spei6_tmp_clusters <- ggplot(data = df_fin, aes(x = tmp, y = drought_spei6, 
-                                                    color = clim_cluster_spei6, fill = clim_cluster_spei6)) + 
-  geom_point(size = 0.5) +
-  stat_ellipse(aes(group = clim_cluster_spei6), type = "norm", alpha = 0.3, geom = "polygon") +
-  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo efferct
-  
-  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 1.5, shape = 16) +  # Mean points
-  geom_errorbar(data = mean_sd_df, aes(x = mean_tmp, ymin = mean_spei - sd_spei, ymax = mean_spei + sd_spei, y = mean_spei), 
-                width = 0.2) +  # Vertical error bars
-  geom_errorbarh(data = mean_sd_df, aes(y = mean_spei, xmin = mean_tmp - sd_tmp, xmax = mean_tmp + sd_tmp, x = mean_tmp), 
-                 height = 0.01) +  # Horizontal error bars
-  theme_classic2() +
-  labs(title = "",
-       x = expression(Temperature ~ (degree*C)),
-       y = "SPEI") #+
- # scale_fill_manual(values = c("red", "orange", "blue")) +  # Customize fill colors
- # scale_color_manual(values = c("red", "orange", "blue"))   # Customize point colors
-
-
-
-
-(fig_spei6_tmp_clusters )
-# ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters, 
-#        width = 4, height = 3, dpi = 300, 
-#        bg = 'white')
-
-
-# Get median instead
-
-# Calculate the median and interquartile range for each cluster
-median_iqr_df <- df_fin %>%
-  group_by(clim_cluster_spei6) %>%
-  summarise(
-    median_tmp = median(tmp, na.rm = TRUE),
-    iqr_tmp = IQR(tmp, na.rm = TRUE),
-    median_spei = median(drought_spei6, na.rm = TRUE),
-    iqr_spei = IQR(drought_spei6, na.rm = TRUE)
-  )
-
-# Create the scatter plot with ellipses, median points, and error bars
-fig_spei6_tmp_clusters <- ggplot(data = df_fin, aes(x = tmp, y = drought_spei6, 
-                                                    color = clim_cluster_spei6, fill = clim_cluster_spei6)) + 
-  geom_point(size = 0.5) +
-  stat_ellipse(aes(group = clim_cluster_spei6), type = "norm", alpha = 0.3, geom = "polygon") +
-  
-  # Add halo effect for median points
-  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
-  
-  # Median points
-  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
-  
-  # Vertical error bars for SPEI using IQR
-  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
-                width = 0.2) +
-  
-  # Horizontal error bars for temperature using IQR
-  geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
-                 height = 0.01) +
-  
-  theme_classic2() +
-  labs(title = "",
-       x = expression(Temperature ~ (degree*C)),
-       y = "SPEI")
-
-
-
-
-
 
 ###### for spei 3 - ---------------------------------------
 
@@ -478,19 +395,19 @@ ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters,
 ### Make climate space for each country ---------------------------------------------
 
 mean_sd_df_country <- df_fin %>%
-  group_by(clim_cluster_spei6 , country_pooled) %>%
+  group_by(clim_class , country) %>%
   summarise(
     mean_tmp = mean(tmp, na.rm = TRUE),
     sd_tmp = sd(tmp, na.rm = TRUE),
-    mean_spei = mean(spei, na.rm = TRUE),
-    sd_spei = sd(spei, na.rm = TRUE)
+    mean_spei = mean(spei3, na.rm = TRUE),
+    sd_spei = sd(spei3, na.rm = TRUE)
   )
 
 
 
 
 fig_spei_tmp_clusters_country <- 
-  ggplot(data = df_fin, aes(x = tmp, y = spei, color = clim_class, fill = clim_class)) + 
+  ggplot(data = df_fin, aes(x = tmp, y = spei3, color = clim_class, fill = clim_class)) + 
   geom_point(size = 0.5) +
   stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
   geom_point(data = mean_sd_df_country, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo effect
@@ -512,66 +429,24 @@ print(fig_spei_tmp_clusters_country)
 ggsave(filename = 'outFigs/fig_spei_tmp_clusters_country.png', plot = fig_spei_tmp_clusters_country, 
        width = 7, height = 7, dpi = 300, 
        bg = 'white')
-
-
-
-))
-# Calculate the mean and standard deviation for each cluster
-mean_sd_df <- df_fin %>%
-  group_by(clim_cluster_spei6) %>%
-  summarise(
-    mean_tmp = mean(tmp, na.rm = TRUE),
-    sd_tmp = sd(tmp, na.rm = TRUE),
-    mean_spei = mean(spei, na.rm = TRUE),
-    sd_spei = sd(spei, na.rm = TRUE)
-  )
-
-
-
-# Create the scatter plot with ellipses, mean points, and error bars
-fig_spei_tmp_clusters <- ggplot(data = df_fin, aes(x = tmp, y = spei, color = clim_class, fill = clim_class)) + 
-  geom_point(size = 0.5) +
-  stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
-  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo efferct
-  
-  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 1.5, shape = 16) +  # Mean points
-  geom_errorbar(data = mean_sd_df, aes(x = mean_tmp, ymin = mean_spei - sd_spei, ymax = mean_spei + sd_spei, y = mean_spei), 
-                width = 0.2) +  # Vertical error bars
-  geom_errorbarh(data = mean_sd_df, aes(y = mean_spei, xmin = mean_tmp - sd_tmp, xmax = mean_tmp + sd_tmp, x = mean_tmp), 
-                 height = 0.01) +  # Horizontal error bars
-  theme_classic2() +
-  labs(title = "",
-       x = expression(Temperature ~ (degree*C)),
-       y = "SPEI") +
-  scale_fill_manual(values = c("red", "orange", "blue")) +  # Customize fill colors
-  scale_color_manual(values = c("red", "orange", "blue"))   # Customize point colors
-
-
-
-
-(fig_spei_tmp_clusters )
-ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters, 
-       width = 4, height = 3, dpi = 300, 
-       bg = 'white')
-
 
 
 ### Make climate space for each country ---------------------------------------------
 
 mean_sd_df_country <- df_fin %>%
-  group_by(clim_cluster_spei6 , country_pooled) %>%
+  group_by(clim_class , country) %>%
   summarise(
     mean_tmp = mean(tmp, na.rm = TRUE),
     sd_tmp = sd(tmp, na.rm = TRUE),
-    mean_spei = mean(spei, na.rm = TRUE),
-    sd_spei = sd(spei, na.rm = TRUE)
+    mean_spei = mean(spei3, na.rm = TRUE),
+    sd_spei = sd(spei3, na.rm = TRUE)
   )
 
 
 
 
 fig_spei_tmp_clusters_country <- 
-  ggplot(data = df_fin, aes(x = tmp, y = spei, color = clim_class, fill = clim_class)) + 
+  ggplot(data = df_fin, aes(x = tmp, y = spei3, color = clim_class, fill = clim_class)) + 
   geom_point(size = 0.5) +
   stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
   geom_point(data = mean_sd_df_country, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo effect
@@ -586,20 +461,13 @@ fig_spei_tmp_clusters_country <-
        y = "SPEI") +
   scale_fill_manual(values = c("red", "orange", "blue")) +  # Customize fill colors
   scale_color_manual(values = c("red", "orange", "blue")) +  # Customize point colors
-  facet_wrap(~ country_pooled)  # Add facet_wrap to create separate panels for each country
+  facet_wrap(~ country)  # Add facet_wrap to create separate panels for each country
 
 # Display and save the plot
 print(fig_spei_tmp_clusters_country)
 ggsave(filename = 'outFigs/fig_spei_tmp_clusters_country.png', plot = fig_spei_tmp_clusters_country, 
        width = 7, height = 7, dpi = 300, 
        bg = 'white')
-
-
-
-
-
-
-
 
 
 
@@ -707,7 +575,7 @@ sjPlot::tab_df(summary_stats_clim_cluster,
 
 
 
-# # overall stats
+## overall stats --------------------------------------------------------------
 summary_stats_all <- df_fin %>%
   ungroup(.) %>% 
   # group_by(clim_cluster_test) %>%
@@ -786,11 +654,11 @@ summary_stats_all
 
 
 #### Find teh best SPEI for stem density:  ------------------------------------------------------
-library(GGally)
 
 # Select relevant columns for the plot
 df_pairs <- df_fin %>%
-  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24)
+  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24,
+                drought_spei1, drought_spei3, drought_spei6, drought_spei12, drought_spei24)
 
 # Create a pairs plot with correlations, distributions, and scatter plots
 ggpairs(df_pairs,
@@ -805,24 +673,36 @@ ggpairs(df_pairs,
 
 # Calculate Spearman correlations between stem_density and each SPEI scale
 spearman_correlations <- df_fin %>%
-  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24) %>%
+  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24,
+                drought_spei1, drought_spei3, drought_spei6, drought_spei12, drought_spei24,
+                tmp, tmp_z, prcp, prcp_z) %>%
   summarise(
     spearman_spei1 = cor(stem_density, spei1, method = "spearman", use = "complete.obs"),
     spearman_spei3 = cor(stem_density, spei3, method = "spearman", use = "complete.obs"),
     spearman_spei6 = cor(stem_density, spei6, method = "spearman", use = "complete.obs"),
     spearman_spei12 = cor(stem_density, spei12, method = "spearman", use = "complete.obs"),
-    spearman_spei24 = cor(stem_density, spei24, method = "spearman", use = "complete.obs")
+    spearman_spei24 = cor(stem_density, spei24, method = "spearman", use = "complete.obs"),
+    spearman_drought_spei1 = cor(stem_density, drought_spei1, method = "spearman", use = "complete.obs"),
+    spearman_drought_spei3 = cor(stem_density, drought_spei3, method = "spearman", use = "complete.obs"),
+    spearman_drought_spei6 = cor(stem_density, drought_spei6, method = "spearman", use = "complete.obs"),
+    spearman_drought_spei12 = cor(stem_density, drought_spei12, method = "spearman", use = "complete.obs"),
+    spearman_drought_spei24 = cor(stem_density, drought_spei24, method = "spearman", use = "complete.obs"),
+    spearman_tmp = cor(stem_density, tmp, method = "spearman", use = "complete.obs"),
+    spearman_tmp_z = cor(stem_density, tmp_z, method = "spearman", use = "complete.obs"),
+    spearman_prcp = cor(stem_density, prcp, method = "spearman", use = "complete.obs"),
+    spearman_prcp_z = cor(stem_density, prcp_z, method = "spearman", use = "complete.obs"),
   )
 
 # Print the Spearman correlations
 print(spearman_correlations)
 
-print(spearman_correlations)
 # A tibble: 1 x 5
-#spearman_spei1 spearman_spei3 spearman_spei6 spearman_spei12 spearman_spei24
-#<dbl>          <dbl>          <dbl>           <dbl>           <dbl>
-#  1         0.0837          0.106          0.112          0.0961          0.0924
-
+# spearman_spei1 spearman_spei3 spearman_spei6 spearman_spei12 spearman_spei24
+# 1     0.08372297      0.1055484      0.1115534      0.09614637      0.09239677
+# spearman_drought_spei1 spearman_drought_spei3 spearman_drought_spei6 spearman_drought_spei12
+# 1              0.1209669               0.129298              0.1353753               0.1249824
+# spearman_drought_spei24
+# 1               0.1712411
 # the best preictors seems to be SPEI6, but still has a low correlation: 0.11
 
 # check for multicollinearity -----------------------------------------------------
@@ -835,6 +715,19 @@ vif(model)
 
 # test with univariate models & AIC ----------------------------------------------
 hist(df_fin$stem_density)
+
+
+df_fin <- df_fin %>% 
+  as.data.frame() %>% 
+  dplyr::select(-country.x, -country.y, regions) %>% 
+  mutate(
+    site                  = factor(site),
+    region                = factor(region),
+    dominant_species      = factor(dominant_species),
+    clim_cluster_spei3    = factor(clim_cluster_spei3  ),
+    clim_cluster_spei6    = factor(clim_cluster_spei6),
+    country_abbr          = factor(country_abbr), 
+    country_pooled        = factor(country_pooled))
 
 
 # Fit a GAM model with a Negative Binomial distribution
@@ -882,7 +775,7 @@ dependent_vars <- c("sum_stems_juvenile",
 
 # List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
 predictor_vars <- c("spei1", "spei3", "spei6", "spei12", "spei24",
-                    "tmp", "tmp_z", "prec", "prcp_z", 
+                    "tmp", "tmp_z", "prcp", "prcp_z", 
                     "drought_spei1", "drought_spei3", "drought_spei6", 
                     "drought_spei12", "drought_spei24")
 
@@ -946,9 +839,73 @@ sjPlot::tab_df(model_metrics,
 # we found that for every vegetation vertical cla has different sentiticity to SPEI scale:
 
 
+#### identify the most important predictors -----------------------------------------
+
+# Vector of possible predictors
+predictors_all <- c("management_intensity", 
+               # "n_vertical", 
+                #"tmp", 
+               # "prcp", 
+                "tmp_z", 
+                "prcp_z", 
+               # "spei1", 
+              #  "spei3", 
+              #  "spei6", 
+              #  "spei12", 
+               # "spei24", 
+                #"drought_spei1", 
+                "drought_spei3", 
+                #"drought_spei6", 
+                "drought_spei12", 
+                "drought_spei24", 
+                "distance_edge", 
+                "disturbance_severity", 
+                "sand_extract", 
+                "clay_extract", 
+                "depth_extract", 
+                "av.nitro" #, 
+                #"salvage_intensity", 
+                #"protection_intensity" #, 
+               # "clim_cluster_spei3", 
+                #"clim_cluster_spei6" #, 
+                #"region", 
+                #"clim_class", 
+                #"regions", 
+                #"country_abbr", 
+                #"country_pooled"
+               )
 
 
 
+# Get correlation analysis: 
+
+# Calculate correlation matrix for numeric variables
+cor_matrix    <- cor(df_fin[, c("sum_stems_juvenile", "sum_stems_sapling", "sum_stems_mature", predictors_all)], method = 'spearman')
+
+#library(corrplot)
+# Plot the correlation matrix using corrplot
+corrplot(cor_matrix)
+
+
+
+# Identify variables using randm forests
+library(randomForest)
+
+# Create a Random Forest model to identify important predictors
+rf_model <- randomForest(sum_stems_juvenile ~ ., data = df_fin[, c("sum_stems_juvenile", predictors_all)], importance = TRUE)
+importance(rf_model)
+varImpPlot(rf_model)
+
+# Check correlations among important predictors
+important_vars <- df_fin[, c("tmp", "prcp", "tmp_z", "prcp_z", "drought_spei3", "av.nitro")]
+cor(important_vars)
+
+
+# Fit a linear model to check VIF
+fit <- lm(sum_stems_juvenile ~ tmp + prcp + tmp_z + prcp_z + drought_spei3 + av.nitro, data = df_fin)
+
+# Check VIF
+vif(fit)
 
 
 # Make 2d denisty plots: 
