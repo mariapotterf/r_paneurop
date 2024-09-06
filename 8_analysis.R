@@ -144,7 +144,7 @@ df_fin$clim_cluster <- kmeans_result$cluster
 
 
 
-#### Sstructural cluster analysis --------------------------------------------------
+#### Structural cluster analysis --------------------------------------------------
 # Subset the data
 # "dominant_species", 
 data_subset_str  <- df_fin[, c("dominant_species", "rIVI", "richness", "management_intensity", 
