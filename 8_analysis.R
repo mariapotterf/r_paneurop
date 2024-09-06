@@ -27,6 +27,9 @@ library(ggeffects)
 
 # Cluster analysis
 library(cluster)
+library(ggbiplot)
+
+
 
 
 # Read data -----------------------------------------------------------------------
@@ -40,19 +43,13 @@ df_fin <- df_fin %>%
 
 # Cluster analysis ----------------------------------------------------------------
 ### Climate-environment  -----------------------------------------------
-# cluster analysis: ------------------------------------------------------------
-# for cliamtic and environmental condistions to be on the same page with Kilian's clusters
+# for spei3 - mean per 2018-2023 
 
-# env-climate condition) -------------------
 # Subset the relevant columns
 data_subset_clim <- df_fin[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei3", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
-#data_subset_str  <- df_fin[, c("dominant_species", "rIVI", "richness", "management_intensity", "stem_density", "n_vertical", "distance_edge", "disturbance_severity")]
-
 #
 # Standardize the data
 data_scaled_clim <- scale(data_subset_clim)
-#data_scaled_str  <- scale(data_subset_str)
-#data_scaled_str  <- df_fin$dominant_species
 
 # Find which number of clusters is teh best
 # Perform K-means clustering for different values of k
@@ -76,7 +73,7 @@ set.seed(3)
 kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
 
 # Add cluster assignments to the original data
-df_fin$clim_cluster <- kmeans_result$cluster
+df_fin$clim_cluster_spei3 <- kmeans_result$cluster
 
 # Perform PCA for visualization - use Pc1 and Pc1
 pca_result_clim <- prcomp(data_scaled_clim)
@@ -140,7 +137,60 @@ ggpairs(data_scaled_clim_df)
 # from Kilian: 4, 5, 2 clusters for 1.2.3 clim clusters;
 # need to used k-prototypes
 # Add cluster assignments to the original data
-df_fin$clim_cluster <- kmeans_result$cluster
+
+
+
+### clim cluster for drought years: drought SPEI6 --------------------------------------------------------------------------------
+# Subset the relevant columns
+data_subset_clim <- df_fin[, c("tmp", "prcp", "tmp_z", "prcp_z", "drought_spei6", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
+
+# Standardize the data
+data_scaled_clim <- scale(data_subset_clim)
+
+# Find which number of clusters is teh best
+# Perform K-means clustering for different values of k
+set.seed(3)
+max_clusters <- 10
+sil_width <- numeric(max_clusters)
+for (k in 2:max_clusters) {
+  kmeans_result_clim <- kmeans(data_scaled_clim, centers = k, nstart = 25)
+  sil <- silhouette(kmeans_result_clim$cluster, dist(data_scaled_clim))
+  sil_width[k] <- mean(sil[, 3])
+}
+
+# Plot Silhouette width for different values of k
+plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
+
+# Determine the optimal number of clusters
+optimal_k_clim <- 7  # from my silhouette plot and from using drought_SPEI6 (mean spei6 per drought year 2018-2020) 
+
+# Perform K-means clustering with the optimal number of clusters
+set.seed(3)
+kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
+
+# Add cluster assignments to the original data
+df_fin$clim_cluster_spei6 <- kmeans_result$cluster
+
+# Perform PCA for visualization - use Pc1 and Pc1
+pca_result_clim <- prcomp(data_scaled_clim)
+
+# plot PCA results with the most important variables: 
+biplot(pca_result_clim, main = "PCA Biplot")
+
+pairs(data_scaled_clim)
+
+library(GGally) # for pairwise comparions of the variables 1:1, also calculates the correlation and sinificance
+
+# Convert to data frame if it's not already
+data_scaled_clim_df <- as.data.frame(data_scaled_clim)
+
+# Create a ggpairs plot
+ggpairs(data_scaled_clim_df)
+
+
+
+
+
 
 
 
@@ -185,6 +235,10 @@ kmeans_result1 <- kmeans(df1, centers = 4, nstart = 25) # Adjust centers as need
 kmeans_result2 <- kmeans(df2, centers = 5, nstart = 25) # Adjust centers as needed
 kmeans_result3 <- kmeans(df3, centers = 3, nstart = 25) # Adjust centers as needed
 
+# Add cluster assignments to the original data
+df_fin$clim_cluster <- kmeans_result$cluster
+
+
 # Perform PCA for visualization - use Pc1 and Pc1
 pca_result_str1 <- prcomp(df1)#prcomp(data_for_clustering)
 pca_result_str2 <- prcomp(df2)#prcomp(data_for_clustering)
@@ -193,8 +247,6 @@ pca_result_str3 <- prcomp(df3)#prcomp(data_for_clustering)
 # plot PCA results with the most important variables: 
 #biplot(pca_result_str1, main = "PCA Biplot")
 
-
-library(ggbiplot)
 
 
 p1 <- ggbiplot(pca_result_str1,varname.color = "red", circle = TRUE) + ggtitle('1 = cold')
@@ -214,10 +266,13 @@ df1$str_cluster <- kmeans_result1$cluster
 df2$str_cluster <- kmeans_result2$cluster
 df3$str_cluster <- kmeans_result3$cluster
 
-df <- rbind(df1, df2, df3)
+#df <- rbind(df1, df2, df3)
 
-
-
+# add structural cluster indicators to df_fin
+#df_fin2 <- df_fin %>% 
+#  left_join(df, by = join_by(rIVI, richness, management_intensity, stem_density, n_vertical, distance_edge,
+#                             disturbance_severity))
+# structural cluster is not needed for now, potentially to update later
 
 
 # Get country indications ----------------------------------------------------------
@@ -244,7 +299,7 @@ df_fin <- df_fin %>%
   mutate(region = as.integer(substr(site, 1, 2)))
 
 # Merge the country information with df_fin
-df_fin_with_country <- df_fin %>%
+df_fin <- df_fin %>%
   left_join(country_regions, by = "region") %>%
   mutate(country_abbr = case_when(
     site %in% c("24_136", "24_137") ~ "BE",  # Belgium
@@ -262,7 +317,7 @@ df_fin_with_country <- df_fin %>%
 
 
 # investigate the clim clusters by country
-df_fin_with_country %>% 
+df_fin %>% 
   ggplot(aes(x = country_abbr,
              fill = factor(clim_class))) +
   geom_bar(position = 'dodge')
@@ -270,12 +325,228 @@ df_fin_with_country %>%
 head(df_fin)
 
 
-# split the ENV-CLIM clusters into each group, as each one can have a different number of clusters
-# data into 3 groups
+# Gets stats --------------------------------------------------------------
+### visualized cluster --------------------------------------------------------
+
+# Get summary stats for 3 clusters ----------------------------------------------------
+# Calculate summary statistics grouped by 'clim_cluster_test'
+summary_stats_clim_cluster_country <- 
+  df_fin %>%
+  group_by(clim_class, country_abbr) %>%
+  summarise(
+    tmp_min = min(tmp, na.rm = TRUE),
+    tmp_max = max(tmp, na.rm = TRUE),
+    tmp_median = median(tmp, na.rm = TRUE),
+    tmp_mean = mean(tmp, na.rm = TRUE),
+    tmp_sd = sd(tmp, na.rm = TRUE),
+    #tmp_iqr = IQR(tmp, na.rm = TRUE),
+    prcp_min = min(prcp, na.rm = TRUE),
+    prcp_max = max(prcp, na.rm = TRUE),
+    prcp_median = median(prcp, na.rm = TRUE),
+    prcp_mean = mean(prcp, na.rm = TRUE),
+    prcp_sd = sd(prcp, na.rm = TRUE),
+    spei_min = min(spei, na.rm = TRUE),
+    spei_max = max(spei, na.rm = TRUE),
+    spei_median = median(spei, na.rm = TRUE),
+    spei_mean = mean(spei, na.rm = TRUE),
+    spei_sd = sd(spei, na.rm = TRUE),
+    #spei_iqr = IQR(spei, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = -c(clim_class,country_abbr),
+    names_to = c("variable", "stat"),
+    names_pattern = "(.*)_(.*)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>% 
+  mutate(
+    mean_sd = paste0(round(mean, 1), " ± ", round(sd, 1)),
+    min = round(min, 1),
+    max = round(max, 1),
+    median = round(median, 1)
+  ) %>%
+  dplyr::select(clim_class, country_abbr, variable, mean_sd, median, min, max) # Reorder columns
+
+
+
+sjPlot::tab_df(summary_stats_clim_cluster_country,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = F,
+               file="outTable/clim_cluster_summary_country.doc",
+               digits = 2) 
+
+
+# Sumary stat per climate cluster
+summary_stats_clim_cluster <- 
+  df_fin %>%
+  group_by(clim_class) %>%
+  summarise(
+    tmp_min = min(tmp, na.rm = TRUE),
+    tmp_max = max(tmp, na.rm = TRUE),
+    tmp_median = median(tmp, na.rm = TRUE),
+    tmp_mean = mean(tmp, na.rm = TRUE),
+    tmp_sd = sd(tmp, na.rm = TRUE),
+    #tmp_iqr = IQR(tmp, na.rm = TRUE),
+    prcp_min = min(prcp, na.rm = TRUE),
+    prcp_max = max(prcp, na.rm = TRUE),
+    prcp_median = median(prcp, na.rm = TRUE),
+    prcp_mean = mean(prcp, na.rm = TRUE),
+    prcp_sd = sd(prcp, na.rm = TRUE),
+    spei_min = min(spei, na.rm = TRUE),
+    spei_max = max(spei, na.rm = TRUE),
+    spei_median = median(spei, na.rm = TRUE),
+    spei_mean = mean(spei, na.rm = TRUE),
+    spei_sd = sd(spei, na.rm = TRUE),
+    #spei_iqr = IQR(spei, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = -c(clim_class),
+    names_to = c("variable", "stat"),
+    names_pattern = "(.*)_(.*)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>% 
+  mutate(
+    mean_sd = paste0(round(mean, 1), " ± ", round(sd, 1)),
+    min = round(min, 1),
+    max = round(max, 1),
+    median = round(median, 1)
+  ) %>%
+  dplyr::select(clim_class,variable, mean_sd, median, min, max) # Reorder columns
+
+
+
+sjPlot::tab_df(summary_stats_clim_cluster,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = F,
+               file="outTable/clim_cluster_summary.doc",
+               digits = 1) 
+
+
+# Make a scatter plot: how does the spei correlate with temperature -----------------------------------
+
+# Calculate the mean and standard deviation for each cluster
+mean_sd_df <- df_fin %>%
+  group_by(clim_class) %>%
+  summarise(
+    mean_tmp = mean(tmp, na.rm = TRUE),
+    sd_tmp = sd(tmp, na.rm = TRUE),
+    mean_spei = mean(spei, na.rm = TRUE),
+    sd_spei = sd(spei, na.rm = TRUE)
+  )
+
+
+
+# Create the scatter plot with ellipses, mean points, and error bars
+fig_spei_tmp_clusters <- ggplot(data = df_fin, aes(x = tmp, y = spei, color = clim_class, fill = clim_class)) + 
+  geom_point(size = 0.5) +
+  stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
+  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo efferct
+  
+  geom_point(data = mean_sd_df, aes(x = mean_tmp, y = mean_spei), size = 1.5, shape = 16) +  # Mean points
+  geom_errorbar(data = mean_sd_df, aes(x = mean_tmp, ymin = mean_spei - sd_spei, ymax = mean_spei + sd_spei, y = mean_spei), 
+                width = 0.2) +  # Vertical error bars
+  geom_errorbarh(data = mean_sd_df, aes(y = mean_spei, xmin = mean_tmp - sd_tmp, xmax = mean_tmp + sd_tmp, x = mean_tmp), 
+                 height = 0.01) +  # Horizontal error bars
+  theme_classic2() +
+  labs(title = "",
+       x = expression(Temperature ~ (degree*C)),
+       y = "SPEI") +
+  scale_fill_manual(values = c("red", "orange", "blue")) +  # Customize fill colors
+  scale_color_manual(values = c("red", "orange", "blue"))   # Customize point colors
 
 
 
 
+(fig_spei_tmp_clusters )
+ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters, 
+       width = 4, height = 3, dpi = 300, 
+       bg = 'white')
+
+
+
+### Make climate space for each country ---------------------------------------------
+
+mean_sd_df_country <- df_fin %>%
+  group_by(clim_class, country_pooled) %>%
+  summarise(
+    mean_tmp = mean(tmp, na.rm = TRUE),
+    sd_tmp = sd(tmp, na.rm = TRUE),
+    mean_spei = mean(spei, na.rm = TRUE),
+    sd_spei = sd(spei, na.rm = TRUE)
+  )
+
+
+
+
+fig_spei_tmp_clusters_country <- 
+  ggplot(data = df_fin, aes(x = tmp, y = spei, color = clim_class, fill = clim_class)) + 
+  geom_point(size = 0.5) +
+  stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
+  geom_point(data = mean_sd_df_country, aes(x = mean_tmp, y = mean_spei), size = 2.8, shape = 16, color = 'white') +  # Add halo effect
+  geom_point(data = mean_sd_df_country, aes(x = mean_tmp, y = mean_spei), size = 1.5, shape = 16) +  # Mean points
+  geom_errorbar(data = mean_sd_df_country, aes(x = mean_tmp, ymin = mean_spei - sd_spei, ymax = mean_spei + sd_spei, y = mean_spei), 
+                width = 0) +  # Vertical error bars
+  geom_errorbarh(data = mean_sd_df_country, aes(y = mean_spei, xmin = mean_tmp - sd_tmp, xmax = mean_tmp + sd_tmp, x = mean_tmp), 
+                 height = 0) +  # Horizontal error bars
+  theme_classic2() +
+  labs(title = "",
+       x = expression(Temperature ~ (degree*C)),
+       y = "SPEI") +
+  scale_fill_manual(values = c("red", "orange", "blue")) +  # Customize fill colors
+  scale_color_manual(values = c("red", "orange", "blue")) +  # Customize point colors
+  facet_wrap(~ country_pooled)  # Add facet_wrap to create separate panels for each country
+
+# Display and save the plot
+print(fig_spei_tmp_clusters_country)
+ggsave(filename = 'outFigs/fig_spei_tmp_clusters_country.png', plot = fig_spei_tmp_clusters_country, 
+       width = 7, height = 7, dpi = 300, 
+       bg = 'white')
+
+
+
+
+
+
+# # overall stats
+summary_stats_all <- df_fin %>%
+  ungroup(.) %>% 
+  # group_by(clim_cluster_test) %>%
+  summarise(
+    tmp_min = min(tmp, na.rm = TRUE),
+    tmp_max = max(tmp, na.rm = TRUE),
+    tmp_median = median(tmp, na.rm = TRUE),
+    tmp_mean = mean(tmp, na.rm = TRUE),
+    tmp_sd = sd(tmp, na.rm = TRUE),
+    tmp_iqr = IQR(tmp, na.rm = TRUE),
+    prcp_min = min(prcp, na.rm = TRUE),
+    prcp_max = max(prcp, na.rm = TRUE),
+    prcp_median = median(prcp, na.rm = TRUE),
+    prcp_mean = mean(prcp, na.rm = TRUE),
+    prcp_sd = sd(prcp, na.rm = TRUE),
+    prcp_iqr = IQR(prcp, na.rm = TRUE),
+    spei_min = min(spei, na.rm = TRUE),
+    spei_max = max(spei, na.rm = TRUE),
+    spei_median = median(spei, na.rm = TRUE),
+    spei_mean = mean(spei, na.rm = TRUE),
+    spei_sd = sd(spei, na.rm = TRUE),
+    spei_iqr = IQR(spei, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("variable", "stat"),
+    names_pattern = "(.*)_(.*)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  )
+
+summary_stats_all
 
 
 
