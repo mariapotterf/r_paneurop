@@ -908,6 +908,51 @@ fit <- lm(sum_stems_juvenile ~ tmp + prcp + tmp_z + prcp_z + drought_spei3 + av.
 vif(fit)
 
 
+# Model selection ---------------------------------------------------------------
+library(MuMIn)
+
+# Fit a global model with all possible predictors
+global_model <- gam(sum_stems_juvenile ~ s(drought_spei6, k = 10) +
+                      s(tmp_z, k = 10) +
+                      s(prcp_z, k = 10) +
+                      s(drought_spei12, k = 10) +
+                      s(drought_spei24, k = 10) +
+                      s(distance_edge, k = 10) +
+                      s(disturbance_severity, k = 10) +
+                      s(sand_extract, k = 10) +
+                      s(clay_extract, k = 10) +
+                      s(depth_extract, k = 10) +
+                      s(av.nitro, k = 10),
+                    family = tw(), 
+                    data = df_fin,
+                    na.action = na.fail)
+
+
+
+# Use dredge to rank all models based on AIC
+model_set <- dredge(global_model)
+
+# View the top models
+head(model_set)
+
+# Select the best model based on AIC
+best_model <- get.models(model_set, 1)[[1]]
+
+# Summary of the best model
+summary(best_model)
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Make 2d denisty plots: 
 
 # Merge structure & composition into single space 
