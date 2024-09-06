@@ -40,6 +40,13 @@ library(mgcv)
 library(gratia)
 library(ggeffects)
 
+
+# Cluster analysis
+library(cluster)
+
+
+
+
 ### read data --------------------------------------------------------------------
 
 climate           <- fread("outData/climate_18_23.csv")
@@ -123,7 +130,7 @@ spei_summary <- spei_date %>%
     sd_spei = sd(spei, na.rm = TRUE)
   )
 
-# Step 3: Plot - skip, long to run
+# <<Step 3: Plot - skip, long to run --------------------------
 # fig_spei_all <- ggplot(spei_summary, aes(x = date, y = mean_spei)) +
 #   # Blue fill for positive values
 #   geom_ribbon(data = subset(spei_summary, mean_spei > 0),
@@ -147,7 +154,7 @@ spei_summary <- spei_date %>%
 # ggsave(filename = 'outFigs/fig_spei_all.png', 
 #        plot = fig_spei_all, 
 #        width = 7, height = 7, dpi = 300, bg = 'white')
-
+# >>>>
 
 
 
@@ -513,14 +520,26 @@ m1 <- gam(stem_density ~ s(spei6, k = 15),  # Factors included without s() for c
 
 
 # Fit a GAM with Tweedie distribution (useful for zero-inflation)
-m.tw1 <- gam(stem_density ~ s(spei6, k = 10), 
+m.tw.juv <- gam(sum_stems_juvenile ~ s(drought_spei6, k = 10), 
                    family = tw,  # Adjust var.power based on data
                    data = df_fin)
+
+m.tw.mature <- gam(sum_stems_mature ~ s(drought_spei12, k = 10), 
+             family = tw,  # Adjust var.power based on data
+             data = df_fin)
+
+m.tw.sapl <- gam(sum_stems_sapling ~ s(drought_spei3, k = 10), 
+                   family = tw,  # Adjust var.power based on data
+                   data = df_fin)
+
+
+hist(df_fin$sum_stems_mature)
+
 AIC(m1, m.tw1)
 
-appraise(m.tw1)
-summary(m.tw1)
-draw(m.tw1)
+appraise(m.tw.mature)
+summary(m.tw.mature)
+draw(m.tw.mature)
 gam.check(m.tw1)
 k.check(m.tw1)
 
@@ -530,10 +549,15 @@ k.check(m.tw1)
 # and spei predictors to se teh best spei
 
 # List of dependent variables
-dependent_vars <- c("sum_stems_juvenile", "sum_stems_sapling", "sum_stems_mature", "stem_density")
+dependent_vars <- c("sum_stems_juvenile", 
+                    "sum_stems_sapling", 
+                    "sum_stems_mature"
+                    #"stem_density"
+                    )
 
 # List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
-predictor_vars <- c("spei1", "spei3", "spei6", "spei12", "spei24", 
+predictor_vars <- c("spei1", "spei3", "spei6", "spei12", "spei24",
+                    "tmp", "tmp_z", "prec", "prcp_z", 
                     "drought_spei1", "drought_spei3", "drought_spei6", 
                     "drought_spei12", "drought_spei24")
 
@@ -575,17 +599,18 @@ for (dep in dependent_vars) {
 View(model_metrics)
 
 # # Select the best predictor for each dependent variable based on the lowest AIC
-# best_predictors <- model_metrics %>% 
-#   mutate(category = case_when(
-#     grepl("tmp", Predictor  ) ~ "tmp",
-#     grepl("spei", Predictor  ) ~ "spei",
-#     TRUE ~ "other"
-#   )) %>% 
-#   group_by(Dependent, category) %>% 
-#   slice_min(AIC, n = 1)   # Select the best 3 based on AIC
-# # slice(which.max(DevianceExplained))
+best_predictors <- model_metrics %>%
+  mutate(category = case_when(
+    grepl("juven", Dependent  ) ~ "juvenile",
+    grepl("sapl", Dependent  ) ~ "sapling",
+    grepl("mature", Dependent  ) ~ "mature",
+    TRUE ~ "other"
+  )) %>%
+  group_by(Dependent, category) %>%
+  slice_min(AIC, n = 3)   # Select the best 3 based on AIC
+# slice(which.max(DevianceExplained))
 
-#best_predictors_counts
+best_predictors
 
 sjPlot::tab_df(model_metrics,
                #col.header = c(as.character(qntils), 'mean'),
