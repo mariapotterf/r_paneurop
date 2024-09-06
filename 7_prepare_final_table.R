@@ -19,30 +19,30 @@ library(stringr)
 
 library(ggpubr)
 
-library(dunn.test) # Duncan test, post hoc Kruskal-Wallis
+#library(dunn.test) # Duncan test, post hoc Kruskal-Wallis
 
 
-# stats 
-library(MASS) #glm.nb for negative binomial models
-library(glmmTMB) #Salamanders dataset and lots of families
-
-
-library(lme4) #pseudo-R2 and and mixed model functionality
-library(MuMIn) #dredge function for comparing models, AIC, marginal R^2 for mixed models
-library(sjmisc) #pseudo R^2 - but I think gets loaded as a dependency
-library(DHARMa) #model diagnostics
-library(effects) #what do my marginal effects look like?
-library(performance) #binomial model diagnostics
-library(emmeans) #post hoc for categorical predictors
-
-#library(AER)  # for hurdle model
-library(mgcv)
-library(gratia)
-library(ggeffects)
-
-
-# Cluster analysis
-library(cluster)
+# # stats 
+# library(MASS) #glm.nb for negative binomial models
+# library(glmmTMB) #Salamanders dataset and lots of families
+# 
+# 
+# library(lme4) #pseudo-R2 and and mixed model functionality
+# library(MuMIn) #dredge function for comparing models, AIC, marginal R^2 for mixed models
+# library(sjmisc) #pseudo R^2 - but I think gets loaded as a dependency
+# library(DHARMa) #model diagnostics
+# library(effects) #what do my marginal effects look like?
+# library(performance) #binomial model diagnostics
+# library(emmeans) #post hoc for categorical predictors
+# 
+# #library(AER)  # for hurdle model
+# library(mgcv)
+# library(gratia)
+# library(ggeffects)
+# 
+# 
+# # Cluster analysis
+# library(cluster)
 
 
 
