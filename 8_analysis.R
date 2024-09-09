@@ -56,13 +56,13 @@ df_fin <- df_fin %>%
   rename(site = cluster)
 
 
-# read coordinates: to add XY coordinates to final model
+# read coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
-xy <- st_read("rawData/outField_noItaly.gpkg")
+xy <- st_read("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg")
 
 # Step 1: Create 'site' column by removing last two characters from the 'ID'
-xy <- xy %>%
-  mutate(site = substr(ID, 4, nchar(ID) - 2))
+#xy <- xy %>%
+#  mutate(site = substr(ID, 4, nchar(ID) - 2))
 
 # Step 2: Extract x and y coordinates into separate columns
 xy <- xy %>%
@@ -72,18 +72,23 @@ xy <- xy %>%
 # Step 3: Group by 'site' and calculate average x and y
 xy_site <- xy %>% 
   as.data.frame() %>% 
+  rename(site = cluster) %>% 
   group_by(site) %>%
   summarise(x = mean(x), y = mean(y)) %>%
   mutate(site = as.factor(site))
  
 dim(xy_site)
 
+# check what is missing (i have already removed the erronerous sites having 3 subplots per plots)
 locations          <- unique(xy_site$site)
 veg_data_locations <- unique(df_fin$site)
 
 # ad xy coordinates in the final table
 df_fin <- df_fin %>% 
   left_join(xy_site, by = join_by(site))
+
+
+
 
 # Cluster analysis ----------------------------------------------------------------
 ### Climate-environment  -----------------------------------------------
@@ -316,7 +321,7 @@ df3$str_cluster <- kmeans_result3$cluster
 
 # add country indication 
 country_regions <- tribble(
-  ~country, ~regions, ~country_abbr,
+  ~country_full, ~region, ~country_abbr,
   "germany", "11, 12, 14, 18, 19, 20, 25", "DE",
   "poland", "17", "PL",
   "czech", "15, 26", "CZ",
@@ -327,8 +332,8 @@ country_regions <- tribble(
   "switzerland", "22", "CH",
   "france", "24, 27", "FR"
 ) %>%
-  separate_rows(regions, sep = ", ") %>%
-  mutate(region = as.integer(regions))
+  separate_rows(region, sep = ", ") %>%
+  mutate(region = as.integer(region))
 
 
 # Extract the region number from the site column in df_fin
@@ -339,8 +344,8 @@ df_fin <- df_fin %>%
 df_fin <- df_fin %>%
   left_join(country_regions, by = "region") %>%
   mutate(country_abbr = case_when(
-    site %in% c("24_136", "24_137") ~ "BE",  # Belgium
-    site %in% c("24_133", "24_134", "24_135") ~ "LU",  # Luxembourg
+    site %in% c("24_136", "24_137") ~ "BE",            # Belgium
+    site %in% c("24_133", "24_134", "24_135") ~ "LX",  # Luxembourg
     TRUE ~ country_abbr
   )) %>% 
   mutate(country_pooled = case_when( country_abbr == "BE" ~ "FR",  # create pooled data for the eco analysis
@@ -348,7 +353,9 @@ df_fin <- df_fin %>%
                                      TRUE~country_abbr))
 
 
-# Gets stats --------------------------------------------------------------
+
+
+# Gets descriptive  stats --------------------------------------------------------------
 # Make a scatter plot: how does the spei correlate with temperature -----------------------------------
 df_fin <- df_fin %>% 
   mutate(clim_cluster_spei12 = as.factor(clim_cluster_spei12))
@@ -361,7 +368,32 @@ df_fin <- df_fin %>%
   )) %>% 
   mutate(clim_class = as.factor(clim_class))
 
-    
+
+
+# formal  properly final table for analysis  --------------------------------------
+
+df_fin <- df_fin %>% 
+  as.data.frame() %>% 
+  #dplyr::select(-country.x, -country.y, regions) %>% 
+  mutate(
+    site                  = factor(site),
+    region                = factor(region),
+    dominant_species      = factor(dominant_species),
+    clim_cluster_spei3    = factor(clim_cluster_spei3  ),
+   # clim_cluster_spei6    = factor(clim_cluster_spei6),
+    country_abbr          = factor(country_abbr), 
+    country_pooled        = factor(country_pooled)) #
+
+#%>% 
+
+# Get unique regions for each country_pooled
+unique_regions_per_country <- df_fin %>%
+  group_by(country_pooled) %>%
+  summarise(unique_regions = list(unique(region))) %>% 
+  unnest(unique_regions)
+
+
+
 #### Make a scatter plot: how does the spei correlate with temperature -----------------------------------
 
 
@@ -748,19 +780,6 @@ vif(model)
 hist(df_fin$stem_density)
 
 
-df_fin <- df_fin %>% 
-  as.data.frame() %>% 
-  dplyr::select(-country.x, -country.y, regions) %>% 
-  mutate(
-    site                  = factor(site),
-    region                = factor(region),
-    dominant_species      = factor(dominant_species),
-    clim_cluster_spei3    = factor(clim_cluster_spei3  ),
-    clim_cluster_spei6    = factor(clim_cluster_spei6),
-    country_abbr          = factor(country_abbr), 
-    country_pooled        = factor(country_pooled))
-
-
 # Fit a GAM model with a Negative Binomial distribution
 m1 <- gam(stem_density ~ s(spei6, k = 15),  # Factors included without s() for categorical variables
           family = nb,  # Negative Binomial to handle overdispersion
@@ -985,25 +1004,7 @@ model_nb <- gam(sum_stems_juvenile ~  s(tmp_z, k = 7) +
 
 ####  try to adjust tw parameters -------------------------------------------
 
-# Use Tweedie family with p=1.5
-gam_model <- gam(sum_stems_juvenile ~ s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
-                   #s(drought_spei12, k = 10) + 
-                   s(distance_edge, k = 10) +
-                   disturbance_severity + sand_extract + s(clay_extract, k = 10) +
-                   s(depth_extract, k = 10) + s(av.nitro, k = 15) +
-                   ti(tmp_z, prcp_z) +
-                   s(country_abbr, bs = "re"), 
-                 family = Tweedie(p = 1.46),  # Set starting p value
-                 data = df_fin)
-
-
-summary(gam_model)
-plot(gam_model, page = 1, shade = T)
-draw(gam_model)
-appraise(gam_model)
-concurvity(gam_model)
-
-# optimize tweedie values
+# optimize tweedie values -------------------------------------------
 
 # Define a grid of p values that are more appropriate for data with zeros
 p_values <- seq(1.4, 1.6, by = 0.01)  # Focus on p-values between 1 and 2 to account for presence to 0
@@ -1020,7 +1021,8 @@ for (p_val in p_values) {
                  s(distance_edge, k = 10) +
                  disturbance_severity + sand_extract + s(clay_extract, k = 10) +
                  s(depth_extract, k = 10) + s(av.nitro, k = 15) +
-                 s(country_abbr, bs = "re"), 
+                 s(country_abbr, bs = "re") + 
+                 ti(x,y), 
                family = Tweedie(p = p_val),  # Use p between 1 and 2
                data = df_fin)
   
@@ -1031,6 +1033,34 @@ for (p_val in p_values) {
 # Find the best p value (lowest AIC)
 best_p <- as.numeric(names(which.min(unlist(results))))
 print(paste("Optimal p value:", best_p))
+
+# best is p = 1.5 orp =  1.46
+
+# ----------------------------------------------------------------------------------
+
+
+
+
+
+# Use Tweedie family with p=1.5
+gam_model <- gam(sum_stems_juvenile ~ s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                   #s(drought_spei12, k = 10) + 
+                   s(distance_edge, k = 10) +
+                   disturbance_severity + sand_extract + s(clay_extract, k = 10) +
+                   s(depth_extract, k = 10) + s(av.nitro, k = 15) +
+                   ti(tmp_z, prcp_z) +
+                   ti(x,y ) , #+ 
+                  # s(country_abbr, bs = "re"), 
+                 family = Tweedie(p = 1.46),  # Set starting p value
+                 data = df_fin)
+
+
+summary(gam_model)
+plot(gam_model, page = 1, shade = T)
+appraise(gam_model)
+concurvity(gam_model)
+gam.check(gam_model)
+k.check(gam_model)
 
 concurvity(gam_model)
 
