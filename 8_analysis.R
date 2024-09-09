@@ -56,7 +56,7 @@ df_fin <- df_fin %>%
   rename(site = cluster)
 
 
-# read coordinates: to add XY coordinates to final model ---------------------
+###### read coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
 xy <- st_read("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg")
 
@@ -90,8 +90,8 @@ df_fin <- df_fin %>%
 
 
 
-# Cluster analysis ----------------------------------------------------------------
-### Climate-environment  -----------------------------------------------
+### Cluster analysis ----------------------------------------------------------------
+###### Climate-environment  -----------------------------------------------
 # for spei3 - mean per 2018-2023 
 
 # Subset the relevant columns
@@ -181,7 +181,7 @@ ggpairs(data_scaled_clim_df)
 # silhouette_result <- silhouette(kmeans_result$cluster, dist(data_scaled))
 # plot(silhouette_result, main = "Silhouette Plot", col = as.numeric(silhouette_result[, 1]))
 
-# Cluster analysis for structural characteristics -------------------------------
+#### Cluster analysis for structural characteristics -------------------------------
 # first split data in 3 atasets, run the cluste analysis for each one of them
 # from Kilian: 4, 5, 2 clusters for 1.2.3 clim clusters;
 # need to used k-prototypes
@@ -317,7 +317,7 @@ df3$str_cluster <- kmeans_result3$cluster
 # structural cluster is not needed for now, potentially to update later
 
 
-# Get country indications ----------------------------------------------------------
+#### Get country indications ----------------------------------------------------------
 
 # add country indication 
 country_regions <- tribble(
@@ -356,7 +356,11 @@ df_fin <- df_fin %>%
 
 
 # Gets descriptive  stats --------------------------------------------------------------
-# Make a scatter plot: how does the spei correlate with temperature -----------------------------------
+#### Make a scatter plot: how does the spei correlate with temperature -----------------------------------
+
+
+
+# formal  properly final table for analysis  --------------------------------------
 df_fin <- df_fin %>% 
   mutate(clim_cluster_spei12 = as.factor(clim_cluster_spei12))
 
@@ -367,10 +371,6 @@ df_fin <- df_fin %>%
                                 TRUE ~ NA_character_
   )) %>% 
   mutate(clim_class = as.factor(clim_class))
-
-
-
-# formal  properly final table for analysis  --------------------------------------
 
 df_fin <- df_fin %>% 
   as.data.frame() %>% 
@@ -1048,11 +1048,21 @@ gam_model <- gam(sum_stems_juvenile ~ s(tmp_z, k = 7) + s(prcp_z, k = 7) +
                    s(distance_edge, k = 10) +
                    disturbance_severity + sand_extract + s(clay_extract, k = 10) +
                    s(depth_extract, k = 10) + s(av.nitro, k = 15) +
+                   s(management_intensity, by = country_pooled, k = 10) +  # Country-specific smooth
+                   #s(management_intensity , k = 10) +
                    ti(tmp_z, prcp_z) +
-                   ti(x,y ) , #+ 
-                  # s(country_abbr, bs = "re"), 
+                   ti(x,y ) +
+                   s(region, bs = 're')+ 
+                   s(country_abbr, bs = "re"), 
                  family = Tweedie(p = 1.46),  # Set starting p value
                  data = df_fin)
+
+cor(df_fin$tmp_z, df_fin$prcp_z)
+cor(df_fin$tmp, df_fin$prcp)
+
+plot(df_fin$tmp_z, df_fin$prcp_z)
+plot(df_fin$tmp, df_fin$prcp)
+
 
 
 summary(gam_model)
@@ -1063,6 +1073,80 @@ gam.check(gam_model)
 k.check(gam_model)
 
 concurvity(gam_model)
+
+# FRAMEWORKD: stepwise preicor selection -------------------------------------------------------------
+
+# Load necessary libraries
+library(mgcv)
+library(ggplot2)
+
+# Step 1: Define the base model with spatial smoothers (ti(x, y))
+base_model <- gam(sum_stems_juvenile ~ ti(x, y), 
+                  family = Tweedie(p = 1.46), 
+                  method = 'REML',
+                  data = df_fin)
+summary(base_model)
+
+# Step 2: Add temperature smoother
+temp_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7), 
+                  family = Tweedie(p = 1.46), 
+                  method = 'REML',
+                  data = df_fin)
+summary(temp_model)
+
+# Step 3: Add precipitation smoother
+precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(prcp_z, k = 7), 
+                    family = Tweedie(p = 1.46), 
+                    method = 'REML',
+                    data = df_fin)
+summary(precip_model)
+
+# Step 4: Combine temperature and precipitation smoothers
+temp_precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp_z, k = 7), 
+                         family = Tweedie(p = 1.46), 
+                         method = 'REML',
+                         data = df_fin)
+summary(temp_precip_model)
+
+# Step 5: Add interaction term between temperature and precipitation
+interaction_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10), 
+                         family = Tweedie(p = 1.46), 
+                         method = 'REML',
+                         data = df_fin)
+summary(interaction_model)
+
+# Step 6: Add random effects for country and region
+random_effects_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp_z, k = 7) +
+                              s(country_abbr, bs = "re") + s(region, bs = "re"),
+                            family = Tweedie(p = 1.46), 
+                            method = 'REML',
+                            data = df_fin)
+summary(random_effects_model)
+
+# Step 7: Add management intensity by country
+management_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp_z, k = 7) +
+                          s(country_abbr, bs = "re") + s(region, bs = "re") + 
+                          s(management_intensity, by = country_pooled, k = 10),
+                        family = Tweedie(p = 1.46), 
+                        method = 'REML',
+                        data = df_fin)
+summary(management_model)
+
+# Step 8: Compare models using AIC
+AIC(base_model, temp_model, precip_model, temp_precip_model, interaction_model, random_effects_model, management_model)
+
+# Step 9: Check residual plots and diagnostics for the final model
+best_model <- management_model  # Choose your best model after comparison
+appraise(best_model)
+plot(best_model)
+
+# Optional: You can check concurvity or k.check if needed
+concurvity(best_model)
+k.check(best_model)
+
+
+
+
 
 
 # END
