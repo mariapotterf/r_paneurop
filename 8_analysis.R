@@ -43,7 +43,7 @@ library(ggeffects)
 library(cluster)
 library(GGally) # for pairwise comparions of the variables 1:1, also calculates the correlation and sinificance
 
-
+source('my_functions.R')
 
 # Read data -----------------------------------------------------------------------
 
@@ -908,40 +908,218 @@ fit <- lm(sum_stems_juvenile ~ tmp + prcp + tmp_z + prcp_z + drought_spei3 + av.
 vif(fit)
 
 
+# how often does stem density occur?
+# 
+
+
+
 # Model selection ---------------------------------------------------------------
 library(MuMIn)
 
+### drivers juveniles -----------------------------------------------------------------------------
 # Fit a global model with all possible predictors
-global_model <- gam(sum_stems_juvenile ~ s(drought_spei6, k = 10) +
-                      s(tmp_z, k = 10) +
-                      s(prcp_z, k = 10) +
-                      s(drought_spei12, k = 10) +
-                      s(drought_spei24, k = 10) +
-                      s(distance_edge, k = 10) +
-                      s(disturbance_severity, k = 10) +
-                      s(sand_extract, k = 10) +
-                      s(clay_extract, k = 10) +
-                      s(depth_extract, k = 10) +
-                      s(av.nitro, k = 10),
+global_model_juv <- gam(sum_stems_juvenile ~ #s(drought_spei6, k = 8) +
+                       s(tmp_z, k = 7) +
+                       s(prcp_z, k = 7) +
+                       s(drought_spei12, k = 10) +
+                       #s(drought_spei24, k = 10) +
+                       s(distance_edge, k = 10) +  # did not improved the mode
+                       disturbance_severity +
+                       sand_extract  +
+                       s(clay_extract, k = 10) +
+                       s(depth_extract, k = 10) +
+                       s(av.nitro, k = 15) +
+                      s(country_abbr, bs = "re"),
                     family = tw(), 
                     data = df_fin,
+                    method = "REML",
                     na.action = na.fail)
 
+concurvity(global_model_juv)
 
+
+# the negative binomail performs way less then tw distribution.
+model_nb <- gam(sum_stems_juvenile ~  s(tmp_z, k = 7) +
+                  s(prcp_z, k = 7) +
+                  s(drought_spei12, k = 10) +
+                  #s(drought_spei24, k = 10) +
+                  s(distance_edge, k = 10) +  # did not improved the mode
+                  disturbance_severity +
+                  sand_extract  +
+                  s(clay_extract, k = 10) +
+                  s(depth_extract, k = 10) +
+                  s(av.nitro, k = 15) +
+                  s(country_abbr, bs = "re"),
+                family = nb(), data = df_fin)
+
+####  try to adjust tw parameters -------------------------------------------
+
+# Use Tweedie family with p=1.5
+gam_model <- gam(sum_stems_juvenile ~ #s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                   #s(drought_spei12, k = 10) + 
+                   s(distance_edge, k = 10) +
+                   disturbance_severity + sand_extract + s(clay_extract, k = 10) +
+                   s(depth_extract, k = 10) + s(av.nitro, k = 15) +
+                   ti(tmp_z, prcp_z) +
+                   s(country_abbr, bs = "re"), 
+                 family = Tweedie(p = 1.46),  # Set starting p value
+                 data = df_fin)
+
+
+summary(gam_model)
+appraise(gam_model)
+concurvity(gam_model)
+
+# optimize tweedie values
+
+# Define a grid of p values that are more appropriate for data with zeros
+p_values <- seq(1.4, 1.6, by = 0.01)  # Focus on p-values between 1 and 2 to account for presence to 0
+# in general p = 1 - closer to poisson (can be zero inflated) 
+#            p = 2 closer to gamma (can only have positive values)
+
+# Initialize a placeholder to store results
+results <- list()
+
+# Loop over different p values
+for (p_val in p_values) {
+  model <- gam(sum_stems_juvenile ~ s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                 #s(drought_spei12, k = 10) +
+                 s(distance_edge, k = 10) +
+                 disturbance_severity + sand_extract + s(clay_extract, k = 10) +
+                 s(depth_extract, k = 10) + s(av.nitro, k = 15) +
+                 s(country_abbr, bs = "re"), 
+               family = Tweedie(p = p_val),  # Use p between 1 and 2
+               data = df_fin)
+  
+  # Store model AIC and the value of p
+  results[[as.character(p_val)]] <- AIC(model)
+}
+
+# Find the best p value (lowest AIC)
+best_p <- as.numeric(names(which.min(unlist(results))))
+print(paste("Optimal p value:", best_p))
+
+concurvity(gam_model)
+
+
+# END
+
+appraise(model_nb)
+summary(model_nb)
+plot(model_nb, page = 1, shade = T)
 
 # Use dredge to rank all models based on AIC
-model_set <- dredge(global_model)
+model_set <- dredge(global_model_juv)
 
 # View the top models
 head(model_set)
 
 # Select the best model based on AIC
-best_model <- get.models(model_set, 1)[[1]]
+best_model <- get.models(model_set, 2)[[1]]
 
 # Summary of the best model
 summary(best_model)
 
 
+appraise(best_model)
+summary(best_model)
+plot(best_model, page = 1, shade = T)
+gam.check(best_model)
+k.check(best_model)
+
+
+
+# quick visualization -----------------------------------------------------------
+##### quick plotting -----------------------------------------------
+fin.m <- global_model_juv
+
+# check for tempoeal autocorrelation
+
+# Extract residuals from the model
+#residuals <- resid(m.agg.previous$lme, type = "normalized")
+
+# Plot ACF of the residuals
+#acf(residuals, main="ACF of Model Residuals")
+#pacf(residuals, main="ACF of Model Residuals")
+
+
+# plot in easy way how tdoes the k value affect interaction
+p1 <- ggpredict(fin.m, terms = "drought_spei12 [all]", allow.new.levels = TRUE)
+p2 <- ggpredict(fin.m, terms = "tmp_z [all]", allow.new.levels = TRUE)
+p3 <- ggpredict(fin.m, terms = "prcp_z [all]", allow.new.levels = TRUE)
+#p4 <- ggpredict(fin.m, terms = c("tmp_z_lag2", "spei_lag1 [-1, 0, 1]"), allow.new.levels = TRUE)
+
+#p_df <- as.data.frame(p3)
+# test simple plot:
+plot1<-ggplot(p1, aes(x = x, y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) +
+  geom_line(aes(color = group, linetype = group), linewidth = 1) +
+  theme_classic2()
+
+plot2<-ggplot(p2, aes(x = x, y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) +
+  geom_line(aes(color = group, linetype = group), linewidth = 1) +
+  theme_classic2()
+
+plot3<-ggplot(p3, aes(x = x, y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) +
+  geom_line(aes(color = group, linetype = group), linewidth = 1) +
+  theme_classic2()
+
+
+ggarrange(plot1,
+  plot2,plot3,
+  #plot4, 
+  ncol = 2, nrow = 2)
+
+
+
+
+
+
+
+### drivers saplings -----------------------------------------------------------------------------
+# Fit a global model with all possible predictors
+global_model_sapl <- gam(sum_stems_sapling ~ #s(drought_spei6, k = 8) +
+                          s(tmp_z, k = 7) +
+                          s(prcp_z, k = 7) +
+                          # s(drought_spei12, k = 10) +
+                          #s(drought_spei24, k = 10) +
+                          #  s(distance_edge, k = 10) +  # did not improved the mode
+                          disturbance_severity +
+                          sand_extract  +
+                          s(clay_extract, k = 10) +
+                          s(depth_extract, k = 10) +
+                          s(av.nitro, k = 15) +
+                          s(country_abbr, bs = "re"),
+                        family = tw(), 
+                        data = df_fin,
+                        method = "REML",
+                        na.action = na.fail)
+
+
+appraise(global_model_sapl)
+summary(global_model_sapl)
+plot(global_model_sapl, page = 1, shade = T)
+
+# Use dredge to rank all models based on AIC
+model_set <- dredge(global_model_sapl)
+
+# View the top models
+head(model_set)
+
+# Select the best model based on AIC
+best_model <- get.models(model_set, 2)[[1]]
+
+# Summary of the best model
+summary(best_model)
+
+
+appraise(best_model)
+summary(best_model)
+plot(best_model, page = 1, shade = T)
+gam.check(best_model)
+k.check(best_model)
 
 
 
