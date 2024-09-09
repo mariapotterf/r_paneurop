@@ -21,6 +21,8 @@ library(ggpubr)
 
 #library(dunn.test) # Duncan test, post hoc Kruskal-Wallis
 
+library(cluster)   # cluster analysis
+
 
 
 
@@ -47,7 +49,7 @@ load("outData/veg.Rdata")
 
 # create idividual table for each of the vertical regeneration class 
 df_stems_saplings <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType == 'Saplings') %>% 
+  filter(VegType == 'Saplings') %>%  # 20 cm - 2 m
   group_by(cluster) %>% 
   summarise(sum_stems_sapling = sum(total_stems))# %>% 
 
@@ -57,7 +59,7 @@ df_stems_mature <- stem_dens_ha_cluster_sum %>%
   summarise(sum_stems_mature = sum(total_stems))# %>% 
 
 df_stems_juveniles <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType == 'Juveniles') %>% 
+  filter(VegType == 'Juveniles') %>%  # > 2m heigh
   group_by(cluster) %>% 
   summarise(sum_stems_juvenile = sum(total_stems))# %>% 
 
@@ -68,9 +70,6 @@ df_stems_sapl_juveniles <- stem_dens_ha_cluster_sum %>%
   filter(VegType != 'Mature') %>% 
   group_by(cluster, management_intensity) %>% 
   summarise(sum_stem_sapl_juven = sum(total_stems))# %>% 
-
-
-table(stem_dens_species_long$VegType,stem_dens_species_long$Species)
 
 
 # aggregate by cluster: sum up teh species, by height category
@@ -160,40 +159,45 @@ spei_subplot <- spei_wide %>%
 
 spei_subplot_drought <- spei_wide %>% 
   ungroup(.) %>% 
-  dplyr::filter(year %in% 2018:2020 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter(year %in% 2018 ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
-  group_by(ID, year) %>%
+  group_by(ID) %>%
   summarise(drought_spei1 = mean(spei1, na.rm = T),
             drought_spei3 = mean(spei3, na.rm = T),
             drought_spei6 = mean(spei6, na.rm = T),
             drought_spei12 = mean(spei12, na.rm = T),
             drought_spei24 = mean(spei24, na.rm = T)) #%>% 
 
-
-
-
-spei_plot <- spei %>% 
+climate_subplot_drought <- climate %>% 
   ungroup(.) %>% 
-  dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter(year %in% 2018 ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
-  group_by(cluster, year) %>%
-  summarise(spei = mean(spei, na.rm = T)) #%>% 
+  group_by(ID) %>%
+  summarise(drought_tmp = mean(tmp, na.rm = T),
+            drought_prcp = mean(prec, na.rm = T)) 
 
 
-
-# merge all predictors together, ID (=subplot) level
+# merge all predictors together, ID (=subplot) level per year: having a mean per years 2018-2023
 df_predictors <- 
   climate %>% 
+  left_join(climate_subplot_drought, by = join_by(ID)) %>% 
   left_join(dplyr::select(distance_to_edge, c(-country, -dist_ID ))) %>% 
   left_join(dplyr::select(disturbance_chars, c(-region, -country ))) %>% 
   left_join(soil) %>%
   left_join(spei_subplot) %>%          # clim values are means from 2018-2023
   left_join(spei_subplot_drought) %>%  # clim values are means from 2018-2020
-  
   left_join(dplyr::select(terrain, c(-country, -region, -cluster.x, -cluster.y))) #%>% 
   #mutate(cluster = str_sub(ID, 4, -3)) 
+
+
+
+
+
+
+
+
 
 length(unique(df_predictors$cluster)) # 957
 anyNA(df_predictors)
@@ -207,6 +211,10 @@ df_predictors_plot <-
             prec = mean(prec, na.rm = T),
             tmp_z = mean(tmp_z, na.rm = T),
             prcp_z = mean(prcp_z, na.rm = T),
+            # Summary for drought years (2018-2020)
+            drought_tmp = mean(drought_tmp, na.rm = TRUE),
+            drought_prcp = mean(drought_prcp , na.rm = TRUE),
+            
             spei1   = mean(spei1, na.rm = T),
             spei3   = mean(spei3, na.rm = T),
             spei6   = mean(spei6, na.rm = T),
@@ -222,15 +230,14 @@ df_predictors_plot <-
             disturbance_severity= mean(disturbance_severity, na.rm = T),
             disturbance_agent= as.integer(mean(disturbance_agent, na.rm = T)),
             elevation = mean(elevation, na.rm = T),
-            #region = mean(tmp, na.rm = T),
-            #country = mean(tmp, na.rm = T),
             sand_extract= mean(sand_extract, na.rm = T),
             silt_extract = mean(silt_extract, na.rm = T),
             clay_extract = mean(clay_extract, na.rm = T),
             depth_extract = mean(depth_extract, na.rm = T),
             av.nitro    = mean(av.nitro, na.rm = T),
             slope   = mean(slope, na.rm = T),
-            aspect= mean(aspect, na.rm = T))
+            aspect= mean(aspect, na.rm = T)
+            )
 
 
  df_predictors_subplot <- 
@@ -239,6 +246,9 @@ df_predictors_plot <-
   group_by(ID) %>% 
   summarise(tmp = mean(tmp, na.rm = T),
             prec = mean(prec, na.rm = T),
+            # Calculate drought temperature and precipitation only for 2018-2020
+            drought_tmp = mean(drought_tmp, na.rm = TRUE),
+            drought_prcp = mean(drought_prcp , na.rm = TRUE),
             tmp_z = mean(tmp_z, na.rm = T),
             prcp_z = mean(prcp_z, na.rm = T),
             spei1   = mean(spei1, na.rm = T),
@@ -402,3 +412,182 @@ fwrite(df_fin, 'outData/indicators_for_cluster_analysis.csv')
 length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
 length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with less plots
 
+
+
+
+# Environmental cluster analysis --------------------------------------------------
+# inspect if drought in 2018 would not be a better indicator to get clim clusters
+
+df_fin <- df_fin %>% 
+  rename(prcp = prec) %>% 
+  rename(site = cluster)
+
+## Cluster: Climate-environment: SPEI 3 -----------------------------------------------
+# for spei3 - mean per 2018-2023 
+
+# Subset the relevant columns
+data_subset_clim <- df_fin[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei3", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
+#
+# Standardize the data
+data_scaled_clim <- scale(data_subset_clim)
+
+# Find which number of clusters is teh best
+# Perform K-means clustering for different values of k
+set.seed(3)
+max_clusters <- 10
+sil_width <- numeric(max_clusters)
+for (k in 2:max_clusters) {
+  kmeans_result_clim <- kmeans(data_scaled_clim, centers = k, nstart = 25)
+  sil <- silhouette(kmeans_result_clim$cluster, dist(data_scaled_clim))
+  sil_width[k] <- mean(sil[, 3])
+}
+
+# Plot Silhouette width for different values of k
+plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
+
+# Determine the optimal number of clusters
+optimal_k_clim <- 3  # from Kilian's study
+
+# Perform K-means clustering with the optimal number of clusters
+set.seed(3)
+kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
+
+# Add cluster assignments to the original data
+df_fin$clim_cluster_spei3 <- kmeans_result$cluster
+
+# Perform PCA for visualization - use Pc1 and Pc1
+pca_result_clim <- prcomp(data_scaled_clim)
+
+# plot PCA results with the most important variables: 
+biplot(pca_result_clim, main = "PCA Biplot")
+
+#pairs(data_scaled_clim)
+
+# Convert to data frame if it's not already
+data_scaled_clim_df <- as.data.frame(data_scaled_clim)
+
+# Create a ggpairs plot
+#ggpairs(data_scaled_clim_df)
+
+# drought 
+## Cluster: Climate-environment: SPEI 3 -----------------------------------------------
+# for spei3 - mean per 2018-2023 
+
+# Subset the relevant columns
+data_subset_clim <- df_fin[, c("drought_tmp", "drought_prcp", "tmp_z", "prcp_z", "drought_spei12", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
+#
+# Standardize the data
+data_scaled_clim <- scale(data_subset_clim)
+
+# Find which number of clusters is teh best
+# Perform K-means clustering for different values of k
+set.seed(3)
+max_clusters <- 10
+sil_width <- numeric(max_clusters)
+for (k in 2:max_clusters) {
+  kmeans_result_clim <- kmeans(data_scaled_clim, centers = k, nstart = 25)
+  sil <- silhouette(kmeans_result_clim$cluster, dist(data_scaled_clim))
+  sil_width[k] <- mean(sil[, 3])
+}
+
+# Plot Silhouette width for different values of k
+plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
+
+# Determine the optimal number of clusters
+optimal_k_clim <- 3  # from Kilian's study
+
+# Perform K-means clustering with the optimal number of clusters
+set.seed(3)
+kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
+
+# Add cluster assignments to the original data
+df_fin$clim_cluster_spei12 <- kmeans_result$cluster
+
+# Perform PCA for visualization - use Pc1 and Pc1
+pca_result_clim <- prcomp(data_scaled_clim)
+
+# plot PCA results with the most important variables: 
+biplot(pca_result_clim, main = "PCA Biplot")
+
+
+
+
+
+
+## Make a scatetr plot of cgroups:
+
+
+# Calculate the mean and standard deviation for each cluster
+median_iqr_df <- df_fin %>%
+  group_by(clim_cluster_spei3) %>%
+  summarise(
+    median_tmp = median(tmp, na.rm = TRUE),
+    iqr_tmp = IQR(tmp, na.rm = TRUE),
+    median_spei = median(spei3, na.rm = TRUE),
+    iqr_spei = IQR(spei3, na.rm = TRUE)
+  )
+
+
+
+# Create the scatter plot with ellipses, mean points, and error bars
+#fig_spei_tmp_clusters <- 
+ggplot(data = df_fin, aes(x = tmp, 
+                          y = spei3,
+                          color = clim_cluster_spei3, 
+                          fill = clim_cluster_spei3)) + 
+  geom_point(size = 0.5) +
+  stat_ellipse(aes(group = clim_cluster_spei3), type = "norm", alpha = 0.3, geom = "polygon") +
+  # Add halo effect for median points
+  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
+  # Median points
+  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
+  # Vertical error bars for SPEI using IQR
+  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
+                width = 0.2) +
+  # Horizontal error bars for temperature using IQR
+  geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
+                 height = 0.01) +
+  
+  theme_classic2() +
+  labs(title = "",
+       x = expression(Temperature ~ (degree*C)),
+       y = "SPEI") #+
+ # scale_fill_manual(values = c("blue","red" ,"orange" )) +  # Customize fill colors
+#  scale_color_manual(values = c("blue","red" ,"orange" ))   # Customize point colors
+
+# there is no clear gradient -> go for Kilian's values (spei3, tmp oevr 2018-223)
+
+# 1 - cold, wet
+# 2 - hot, dry, 
+# 3 - drier, mild
+
+
+# GEt summary table of another variables in 3 env clustersL
+
+# Summarize the data based on 'clim_cluster_spei3' for the specified variables
+summary_table <- df_fin %>%
+  group_by(clim_cluster_spei3) %>%
+  summarise(
+    #sand_mean = mean(sand_extract, na.rm = TRUE),
+    #sand_sd = sd(sand_extract, na.rm = TRUE),
+    sand_median = median(sand_extract, na.rm = TRUE),
+    sand_iqr = IQR(sand_extract, na.rm = TRUE),
+    
+    #clay_mean = mean(clay_extract, na.rm = TRUE),
+   # clay_sd = sd(clay_extract, na.rm = TRUE),
+    clay_median = median(clay_extract, na.rm = TRUE),
+    clay_iqr = IQR(clay_extract, na.rm = TRUE),
+    
+    #depth_mean = mean(depth_extract, na.rm = TRUE),
+   # depth_sd = sd(depth_extract, na.rm = TRUE),
+    depth_median = median(depth_extract, na.rm = TRUE),
+    depth_iqr = IQR(depth_extract, na.rm = TRUE),
+    
+    #av_nitro_mean = mean(av.nitro, na.rm = TRUE),
+   # av_nitro_sd = sd(av.nitro, na.rm = TRUE),
+    av_nitro_median = median(av.nitro, na.rm = TRUE),
+    av_nitro_iqr = IQR(av.nitro, na.rm = TRUE)
+  )
+
+# Print the summary table
+print(summary_table)
