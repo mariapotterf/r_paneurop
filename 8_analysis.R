@@ -43,6 +43,8 @@ library(ggeffects)
 library(cluster)
 library(GGally) # for pairwise comparions of the variables 1:1, also calculates the correlation and sinificance
 
+library(sf)     # read coordinates
+
 source('my_functions.R')
 
 # Read data -----------------------------------------------------------------------
@@ -53,6 +55,35 @@ df_fin <- df_fin %>%
   rename(prcp = prec) %>% 
   rename(site = cluster)
 
+
+# read coordinates: to add XY coordinates to final model
+# Replace "your_file.gpkg" with the path to your GPKG file
+xy <- st_read("rawData/outField_noItaly.gpkg")
+
+# Step 1: Create 'site' column by removing last two characters from the 'ID'
+xy <- xy %>%
+  mutate(site = substr(ID, 4, nchar(ID) - 2))
+
+# Step 2: Extract x and y coordinates into separate columns
+xy <- xy %>%
+  mutate(x = st_coordinates(geom)[, 1],   # Extract x coordinates
+         y = st_coordinates(geom)[, 2])   # Extract y coordinates
+
+# Step 3: Group by 'site' and calculate average x and y
+xy_site <- xy %>% 
+  as.data.frame() %>% 
+  group_by(site) %>%
+  summarise(x = mean(x), y = mean(y)) %>%
+  mutate(site = as.factor(site))
+ 
+dim(xy_site)
+
+locations          <- unique(xy_site$site)
+veg_data_locations <- unique(df_fin$site)
+
+# ad xy coordinates in the final table
+df_fin <- df_fin %>% 
+  left_join(xy_site, by = join_by(site))
 
 # Cluster analysis ----------------------------------------------------------------
 ### Climate-environment  -----------------------------------------------
@@ -955,7 +986,7 @@ model_nb <- gam(sum_stems_juvenile ~  s(tmp_z, k = 7) +
 ####  try to adjust tw parameters -------------------------------------------
 
 # Use Tweedie family with p=1.5
-gam_model <- gam(sum_stems_juvenile ~ #s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+gam_model <- gam(sum_stems_juvenile ~ s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
                    #s(drought_spei12, k = 10) + 
                    s(distance_edge, k = 10) +
                    disturbance_severity + sand_extract + s(clay_extract, k = 10) +
@@ -967,6 +998,8 @@ gam_model <- gam(sum_stems_juvenile ~ #s(tmp_z, k = 7) + s(prcp_z, k = 7) +
 
 
 summary(gam_model)
+plot(gam_model, page = 1, shade = T)
+draw(gam_model)
 appraise(gam_model)
 concurvity(gam_model)
 
