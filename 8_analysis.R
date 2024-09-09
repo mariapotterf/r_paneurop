@@ -356,7 +356,11 @@ df_fin <- df_fin %>%
 
 
 # Gets descriptive  stats --------------------------------------------------------------
-# Make a scatter plot: how does the spei correlate with temperature -----------------------------------
+#### Make a scatter plot: how does the spei correlate with temperature -----------------------------------
+
+
+
+# formal  properly final table for analysis  --------------------------------------
 df_fin <- df_fin %>% 
   mutate(clim_cluster_spei12 = as.factor(clim_cluster_spei12))
 
@@ -367,10 +371,6 @@ df_fin <- df_fin %>%
                                 TRUE ~ NA_character_
   )) %>% 
   mutate(clim_class = as.factor(clim_class))
-
-
-
-# formal  properly final table for analysis  --------------------------------------
 
 df_fin <- df_fin %>% 
   as.data.frame() %>% 
