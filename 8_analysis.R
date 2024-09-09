@@ -140,7 +140,7 @@ data_scaled_clim_df <- as.data.frame(data_scaled_clim)
 # Create a ggpairs plot
 ggpairs(data_scaled_clim_df)
 
-#### Plotting ENV_CLIM cluster analysis --------------------------------------------------
+###### Plotting ENV_CLIM cluster analysis --------------------------------------------------
 # Plot the PCA results with clusters
 # plot(pca_result$x[, 1:2], col = kmeans_result$cluster, pch = 20, main = "K-means Clustering Result (PCA)", xlab = "PC1", ylab = "PC2")
 # points(kmeans_result$centers %*% pca_result$rotation[, 1:2], col = 1:optimal_k, pch = 8, cex = 2)
@@ -1080,39 +1080,46 @@ concurvity(gam_model)
 library(mgcv)
 library(ggplot2)
 
+# filter the extreme values: 
+# Filter out extreme values or cap them
+df_fin_filtered <- df_fin[df_fin$sum_stems_juvenile < quantile(df_fin$sum_stems_juvenile, 0.99), ]
+
+
+
+
 # Step 1: Define the base model with spatial smoothers (ti(x, y))
 base_model <- gam(sum_stems_juvenile ~ ti(x, y), 
                   family = Tweedie(p = 1.46), 
                   method = 'REML',
-                  data = df_fin)
+                  data = df_fin_filtered)
 summary(base_model)
 
 # Step 2: Add temperature smoother
 temp_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7), 
                   family = Tweedie(p = 1.46), 
                   method = 'REML',
-                  data = df_fin)
+                  data = df_fin_filtered)
 summary(temp_model)
 
 # Step 3: Add precipitation smoother
 precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(prcp_z, k = 7), 
                     family = Tweedie(p = 1.46), 
                     method = 'REML',
-                    data = df_fin)
+                    data = df_fin_filtered)
 summary(precip_model)
 
 # Step 4: Combine temperature and precipitation smoothers
 temp_precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp_z, k = 7), 
                          family = Tweedie(p = 1.46), 
                          method = 'REML',
-                         data = df_fin)
+                         data = df_fin_filtered)
 summary(temp_precip_model)
 
 # Step 5: Add interaction term between temperature and precipitation
 interaction_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10), 
                          family = Tweedie(p = 1.46), 
                          method = 'REML',
-                         data = df_fin)
+                         data = df_fin_filtered)
 summary(interaction_model)
 
 # Step 6: Add random effects for country and region
@@ -1120,7 +1127,7 @@ random_effects_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(
                               s(country_abbr, bs = "re") + s(region, bs = "re"),
                             family = Tweedie(p = 1.46), 
                             method = 'REML',
-                            data = df_fin)
+                            data = df_fin_filtered)
 summary(random_effects_model)
 
 # Step 7: Add management intensity by country
@@ -1129,18 +1136,144 @@ management_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp
                           s(management_intensity, by = country_pooled, k = 10),
                         family = Tweedie(p = 1.46), 
                         method = 'REML',
-                        data = df_fin)
+                        data = df_fin_filtered)
 summary(management_model)
 
 # Step 8: Compare models using AIC
 AIC(base_model, temp_model, precip_model, temp_precip_model, interaction_model, random_effects_model, management_model)
 
 # Step 9: Check residual plots and diagnostics for the final model
-best_model <- management_model  # Choose your best model after comparison
+best_model <- interaction_model      # Choose your best model after comparison
 appraise(best_model)
-plot(best_model)
+plot(best_model, page=1)
 
 # Optional: You can check concurvity or k.check if needed
+concurvity(best_model)
+k.check(best_model)
+
+
+# continue with teh improved models: ------------------
+
+# Load necessary libraries
+library(mgcv)
+library(ggplot2)
+
+# Step 1: Base model with interaction between spatial variables (x, y) and temp/precip interaction
+base_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10), 
+                  family = Tweedie(p = 1.46), 
+                  data = df_fin_filtered)  # Use filtered data to remove extreme values
+summary(base_model)
+
+# Step 2: Add tmp_z as an individual smoother
+temp_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                    s(tmp_z, k = 7), 
+                  family = Tweedie(p = 1.46), 
+                  data = df_fin_filtered)
+summary(temp_model)
+
+# Step 3: Add prcp_z as an individual smoother
+precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                      s(prcp_z, k = 7), 
+                    family = Tweedie(p = 1.46), 
+                    data = df_fin_filtered)
+summary(precip_model)
+
+# Step 4: Add both tmp_z and prcp_z as individual smoothers
+temp_precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                           s(tmp_z, k = 7) + s(prcp_z, k = 7), 
+                         family = Tweedie(p = 1.46), 
+                         data = df_fin_filtered)
+summary(temp_precip_model)
+
+# Step 5: Add random effects for region and country
+random_effects_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                              s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                              s(region, bs = 're') + s(country_abbr, bs = 're'), 
+                            family = Tweedie(p = 1.46), 
+                            data = df_fin_filtered)
+summary(random_effects_model)
+
+# Step 6: Add management intensity as a predictor (considering interaction with country)
+management_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                          s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                          s(region, bs = 're') + s(country_abbr, bs = 're') + 
+                          s(management_intensity, by = country_pooled, k = 10), 
+                        family = Tweedie(p = 1.46), 
+                        data = df_fin_filtered)
+summary(management_model)
+
+# Step 7: Add additional predictors step by step
+# Adding distance_edge
+distance_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                        s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                        s(region, bs = 're') + s(country_abbr, bs = 're') + 
+                        s(management_intensity, by = country_pooled, k = 10) + 
+                        s(distance_edge, k = 10), 
+                      family = Tweedie(p = 1.46), 
+                      data = df_fin_filtered)
+summary(distance_model)
+
+# Adding disturbance_severity
+disturbance_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                           s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                           s(region, bs = 're') + s(country_abbr, bs = 're') + 
+                           s(management_intensity, by = country_pooled, k = 10) + 
+                           s(distance_edge, k = 10) + 
+                           s(disturbance_severity, k = 10), 
+                         family = Tweedie(p = 1.46), 
+                         data = df_fin_filtered)
+summary(disturbance_model)
+
+# Adding sand_extract
+sand_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                    s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                    s(region, bs = 're') + s(country_abbr, bs = 're') + 
+                    s(management_intensity, by = country_pooled, k = 10) + 
+                    s(distance_edge, k = 10) + 
+                    s(disturbance_severity, k = 10) + 
+                    s(sand_extract, k = 10), 
+                  family = Tweedie(p = 1.46), 
+                  data = df_fin_filtered)
+summary(sand_model)
+
+# Adding clay_extract
+clay_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                    s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                    s(region, bs = 're') + s(country_abbr, bs = 're') + 
+                    s(management_intensity, by = country_pooled, k = 10) + 
+                    s(distance_edge, k = 10) + 
+                    s(disturbance_severity, k = 10) + 
+                    s(sand_extract, k = 10) + 
+                    s(clay_extract, k = 10), 
+                  family = Tweedie(p = 1.46), 
+                  data = df_fin_filtered)
+summary(clay_model)
+
+# Adding av.nitro
+nitro_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10) + 
+                     s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
+                     s(region, bs = 're') + s(country_abbr, bs = 're') + 
+                     s(management_intensity, by = country_pooled, k = 10) + 
+                     s(distance_edge, k = 10) + 
+                     s(disturbance_severity, k = 10) + 
+                     s(sand_extract, k = 10) + 
+                     s(clay_extract, k = 10) + 
+                     s(av.nitro, k = 10), 
+                   family = Tweedie(p = 1.46), 
+                   data = df_fin_filtered)
+summary(nitro_model)
+
+# Step 8: Compare AIC values after adding each predictor
+AIC(base_model, temp_model, precip_model, temp_precip_model, interaction_model, 
+    random_effects_model, management_model, distance_model, disturbance_model, 
+    sand_model, clay_model, nitro_model)
+
+# Step 9: Perform diagnostics on the best model based on AIC
+best_model <- nitro_model  # Replace with the best model after AIC comparison
+appraise(best_model)  # Model diagnostics
+plot(best_model)      # Plot smoothers
+
+# Optional: Check concurvity and k-check for potential collinearity and overfitting
 concurvity(best_model)
 k.check(best_model)
 
@@ -1178,7 +1311,7 @@ k.check(best_model)
 
 # quick visualization -----------------------------------------------------------
 ##### quick plotting -----------------------------------------------
-fin.m <- global_model_juv
+fin.m <- best_model
 
 # check for tempoeal autocorrelation
 
@@ -1194,7 +1327,9 @@ fin.m <- global_model_juv
 p1 <- ggpredict(fin.m, terms = "drought_spei12 [all]", allow.new.levels = TRUE)
 p2 <- ggpredict(fin.m, terms = "tmp_z [all]", allow.new.levels = TRUE)
 p3 <- ggpredict(fin.m, terms = "prcp_z [all]", allow.new.levels = TRUE)
-#p4 <- ggpredict(fin.m, terms = c("tmp_z_lag2", "spei_lag1 [-1, 0, 1]"), allow.new.levels = TRUE)
+#p4 <- ggpredict(fin.m, terms = c("tmp_z", "prcp_z [-1, 0, 1]"), allow.new.levels = TRUE)
+p4 <- ggpredict(fin.m, terms = c("tmp_z", "prcp_z"), allow.new.levels = TRUE)
+
 
 #p_df <- as.data.frame(p3)
 # test simple plot:
@@ -1213,14 +1348,20 @@ plot3<-ggplot(p3, aes(x = x, y = predicted)) +
   geom_line(aes(color = group, linetype = group), linewidth = 1) +
   theme_classic2()
 
+plot4<-ggplot(p4, aes(x = x, y = predicted)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) +
+  geom_line(aes(color = group, linetype = group), linewidth = 1) +
+  theme_classic2()
 
+(plot4)
 ggarrange(plot1,
   plot2,plot3,
   #plot4, 
   ncol = 2, nrow = 2)
 
 
-
+# 3D interaction plot for temperature and precipitation
+vis.gam(best_model, view = c("tmp_z", "prcp_z"), plot.type = "persp", theta = 30, phi = 30)
 
 
 
@@ -1797,7 +1938,7 @@ ggplot(top_species_per_group, aes(x = VegType, y = share, fill = Species)) +
 
 
 
-# Descriptive tables  -----------------------------------------------------------
+# Descriptive plots  -----------------------------------------------------------
 
 # Richness desc 
 
