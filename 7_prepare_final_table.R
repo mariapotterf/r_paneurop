@@ -494,6 +494,138 @@ df_fin <- df_fin %>%
           clim_class = as.factor(clim_class))
 
 
+## add country naming---------------
+
+# add country indication 
+country_regions <- tribble(
+  ~country_full, ~region, ~country_abbr,
+  "germany", "11, 12, 14, 18, 19, 20, 25", "DE",
+  "poland", "17", "PL",
+  "czech", "15, 26", "CZ",
+  "austria", "13", "AT",
+  "slovakia", "16", "SK",
+  "slovenia", "23", "SI",
+  "italy", "21", "IT",
+  "switzerland", "22", "CH",
+  "france", "24, 27", "FR"
+) %>%
+  separate_rows(region, sep = ", ") %>%
+  mutate(region = as.integer(region))
+
+
+df_fin <- df_fin %>%
+  mutate(region = as.integer(substr(site, 1, 2)))
+
+# Merge the country information with df_fin
+df_fin <- df_fin %>%
+  left_join(country_regions, by = "region") %>%
+  mutate(country_abbr = case_when(
+    site %in% c("24_136", "24_137") ~ "BE",            # Belgium
+    site %in% c("24_133", "24_134", "24_135") ~ "LX",  # Luxembourg
+    TRUE ~ country_abbr
+  )) %>% 
+  mutate(country_pooled = case_when( country_abbr == "BE" ~ "FR",  # create pooled data for the eco analysis
+                                     country_abbr == "LX" ~ "FR",
+                                     TRUE~country_abbr))
+
+
+df_fin <- df_fin %>% 
+  as.data.frame() %>% 
+  #dplyr::select(-country.x, -country.y, regions) %>% 
+  mutate(
+    site                  = factor(site),
+    region                = factor(region),
+    dominant_species      = factor(dominant_species),
+    clim_cluster_spei3    = factor(clim_cluster_spei3  ),
+    country_abbr          = factor(country_abbr), 
+    country_pooled        = factor(country_pooled)) #
+
+
+
+
+
+#### Structural cluster analysis - not needed now!--------------------------------------------------
+# Subset the data
+# "dominant_species", 
+data_subset_str  <- df_fin[, c("dominant_species", "rIVI", "richness", "management_intensity", 
+                               "stem_density", "n_vertical", "distance_edge", "disturbance_severity",
+                               "clim_cluster")]
+
+# Convert dominant_species to factor
+data_subset_str$dominant_species <- as.factor(data_subset_str$dominant_species)
+
+# Normalize the quantitative variables for clustering
+data_normalized <- data_subset_str %>%
+  mutate(across(c(rIVI, richness, management_intensity, stem_density, n_vertical, distance_edge, disturbance_severity), scale)) %>% 
+  as.data.frame()
+
+# Dummy code the categorical variable
+data_dummied <- model.matrix(~dominant_species - 1, data = data_normalized)
+data_dummied <- as.data.frame(data_dummied)
+# Combine the dummy coded categorical variable with the normalized quantitative variables
+data_for_clustering <- cbind(data_dummied, data_normalized[, -1])
+
+# avoid dummy variables, hard to read
+# split table in 3 clusters to run separately structurral cluster analysis:
+df1 <- data_normalized[, -1] %>%  dplyr::filter(clim_cluster == 1)
+df2 <- data_normalized[, -1] %>%  dplyr::filter(clim_cluster == 2)
+df3 <- data_normalized[, -1] %>%  dplyr::filter(clim_cluster == 3)
+
+# remove last columns so they are not part of teh PCA aalysis
+df1 <- df1 %>% dplyr::select(-clim_cluster)
+df2 <- df2 %>% dplyr::select(-clim_cluster)
+df3 <- df3 %>% dplyr::select(-clim_cluster)
+
+
+
+
+# Perform clustering using k-means (you can choose other methods like PAM if desired)
+set.seed(123) # Setting seed for reproducibility
+kmeans_result1 <- kmeans(df1, centers = 4, nstart = 25) # Adjust centers as needed
+kmeans_result2 <- kmeans(df2, centers = 5, nstart = 25) # Adjust centers as needed
+kmeans_result3 <- kmeans(df3, centers = 3, nstart = 25) # Adjust centers as needed
+
+# Add cluster assignments to the original data
+df_fin$clim_cluster <- kmeans_result$cluster
+
+
+# Perform PCA for visualization - use Pc1 and Pc1
+pca_result_str1 <- prcomp(df1)#prcomp(data_for_clustering)
+pca_result_str2 <- prcomp(df2)#prcomp(data_for_clustering)
+pca_result_str3 <- prcomp(df3)#prcomp(data_for_clustering)
+
+# plot PCA results with the most important variables: 
+#biplot(pca_result_str1, main = "PCA Biplot")
+
+
+
+p1 <- ggbiplot(pca_result_str1,varname.color = "red", circle = TRUE) + ggtitle('1 = cold')
+p2 <- ggbiplot(pca_result_str2,varname.color = "red", circle = TRUE) + ggtitle('2 = hot')
+p3 <- ggbiplot(pca_result_str3,varname.color = "red", circle = TRUE) + ggtitle('3 = med')
+#ggscreeplot(pca_result_str3)
+
+ggarrange(p1, p2, p3, nrow = 3, ncol = 1)
+p1
+p2
+p3
+
+
+
+# Add cluster assignments to the original data
+df1$str_cluster <- kmeans_result1$cluster
+df2$str_cluster <- kmeans_result2$cluster
+df3$str_cluster <- kmeans_result3$cluster
+
+#df <- rbind(df1, df2, df3)
+
+# add structural cluster indicators to df_fin
+#df_fin2 <- df_fin %>% 
+#  left_join(df, by = join_by(rIVI, richness, management_intensity, stem_density, n_vertical, distance_edge,
+#                             disturbance_severity))
+# structural cluster is not needed for now, potentially to update later
+
+
+
 
 
 # Make a scatetr plot of groups: ------------------------
@@ -560,10 +692,10 @@ ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters,
        bg = 'white')
 
 
-# GEt summary table of another variables in 3 env clustersL
+# Get summary table 3 env clustersL -------------------------
 
 # Summarize the data based on 'clim_cluster_spei3' for the specified variables
-# Summarize the data based on 'clim_cluster_spei3' for the specified variables
+
 summary_table <- df_fin %>%
   group_by(clim_class) %>%
   summarise(
@@ -585,3 +717,163 @@ sjPlot::tab_df(summary_table,
                show.rownames = F,
                file="outTable/clim_cluster_summary_env_conditions.doc",
                digits = 1) 
+
+
+# 
+summary_table_country <- df_fin %>%
+group_by(clim_class, country_abbr) %>%
+  summarise(
+    temperature = paste0(round(median(tmp, na.rm = TRUE), 2), " (IQR: ", round(IQR(tmp, na.rm = TRUE), 2), ")"),
+    precipitation = paste0(round(median(prcp, na.rm = TRUE), 2), " (IQR: ", round(IQR(prcp, na.rm = TRUE), 2), ")"),
+    spei = paste0(round(median(spei3, na.rm = TRUE), 2), " (IQR: ", round(IQR(spei3, na.rm = TRUE), 2), ")"),
+    sand = paste0(round(median(sand_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(sand_extract, na.rm = TRUE), 2), ")"),
+    clay = paste0(round(median(clay_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(clay_extract, na.rm = TRUE), 2), ")"),
+    depth = paste0(round(median(depth_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(depth_extract, na.rm = TRUE), 2), ")"),
+    av_nitrogen = paste0(round(median(av.nitro, na.rm = TRUE), 2), " (IQR: ", round(IQR(av.nitro, na.rm = TRUE), 2), ")")
+  ) %>% 
+  arrange(country_abbr)
+
+# Print the summary table
+print(summary_table_country)
+
+sjPlot::tab_df(summary_table_country,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = F,
+               file="outTable/clim_cluster_summary_env_conditions_country.doc",
+               digits = 1) 
+
+
+
+## Veg indicators : summary per quantiles -------------------------------------------------
+
+# Represent results using quantiles, as they are skewed?
+qntils = c(0, 0.01, 0.25, 0.5, 0.75, 0.90, 1)
+
+qs_dat_fin <- 
+  df_fin %>% 
+  ungroup(.) %>% 
+  #filter(year %in% 2015:2021) %>% 
+  dplyr::reframe(stem_density    = quantile(stem_density , qntils, na.rm = T ),
+                 n_vertical      = quantile(n_vertical, qntils, na.rm = T ),
+                 rIVI            = quantile(rIVI, qntils, na.rm = T ),
+                 richness        = quantile(richness, qntils, na.rm = T )#,
+  ) %>% 
+  t() %>%
+  round(1) %>% 
+  as.data.frame()
+
+(qs_dat_fin)  
+
+
+means_dat_fin <- 
+  df_fin %>% 
+  ungroup(.) %>% 
+  dplyr::reframe(stem_density    = mean(stem_density , na.rm = T ),
+                 n_vertical      = mean(n_vertical, na.rm = T ),
+                 rIVI            = mean(rIVI,na.rm = T ),
+                 richness        = mean(richness, na.rm = T )
+  ) %>% 
+  t() %>%
+  round(1) %>% 
+  as.data.frame() 
+
+
+str(means_dat_fin)
+
+# merge qs and mean tables
+summary_out <- cbind(qs_dat_fin, means_dat_fin)# %>%
+View(summary_out)
+
+# Export as a nice table in word:
+sjPlot::tab_df(summary_out,
+               col.header = c(as.character(qntils), 'mean'),
+               show.rownames = TRUE,
+               file="outTable/summary_out_no_clim_cluster.doc",
+               digits = 1) 
+
+
+
+
+## Clim: cluster: Veg indicators  -----------------------------------------------
+
+# Table for Mean ± SD
+mean_sd_table <- df_fin %>%
+  group_by(clim_class) %>%
+  summarise(
+    stem_density    = paste0(round(mean(stem_density, na.rm = TRUE), 0), " ± ", round(sd(stem_density, na.rm = TRUE), 0)),
+    n_vertical      = paste0(round(mean(n_vertical, na.rm = TRUE), 1), " ± ", round(sd(n_vertical, na.rm = TRUE), 1)),
+    rIVI            = paste0(round(mean(rIVI, na.rm = TRUE), 1), " ± ", round(sd(rIVI, na.rm = TRUE), 1)),
+    richness        = paste0(round(mean(richness, na.rm = TRUE), 0), " ± ", round(sd(richness, na.rm = TRUE), 0))
+  )
+
+# Print Mean ± SD table
+print(mean_sd_table)
+
+
+# Table for Median & IQR
+median_iqr_table <- df_fin %>%
+  group_by(clim_class) %>%
+  summarise(
+    stem_density    = paste0(round(median(stem_density, na.rm = TRUE), 0), " (IQR: ", round(IQR(stem_density, na.rm = TRUE), 0), ")"),
+    n_vertical      = paste0(round(median(n_vertical, na.rm = TRUE), 1), " (IQR: ", round(IQR(n_vertical, na.rm = TRUE), 1), ")"),
+    rIVI            = paste0(round(median(rIVI, na.rm = TRUE), 1), " (IQR: ", round(IQR(rIVI, na.rm = TRUE), 1), ")"),
+    richness        = paste0(round(median(richness, na.rm = TRUE), 0), " (IQR: ", round(IQR(richness, na.rm = TRUE), 0), ")")
+  )
+
+# Print Median & IQR table
+print(median_iqr_table)
+
+# for countries
+
+# Table for Mean ± SD
+mean_sd_table_country <- df_fin %>%
+  group_by(clim_cluster_spei3, country_abbr) %>%
+  summarise(
+    stem_density    = paste0(round(mean(stem_density, na.rm = TRUE), 0), " ± ", round(sd(stem_density, na.rm = TRUE), 0)),
+    n_vertical      = paste0(round(mean(n_vertical, na.rm = TRUE), 1), " ± ", round(sd(n_vertical, na.rm = TRUE), 1)),
+    rIVI            = paste0(round(mean(rIVI, na.rm = TRUE), 1), " ± ", round(sd(rIVI, na.rm = TRUE), 1)),
+    richness        = paste0(round(mean(richness, na.rm = TRUE), 0), " ± ", round(sd(richness, na.rm = TRUE), 0))
+  ) %>% 
+  arrange(country_abbr)
+
+# Print Mean ± SD table
+print(mean_sd_table_country)
+
+
+# Table for Median & IQR
+median_iqr_table_country <- df_fin %>%
+  group_by(clim_class, country_abbr) %>%
+  summarise(
+    stem_density    = paste0(round(median(stem_density, na.rm = TRUE), 0), " (IQR: ", round(IQR(stem_density, na.rm = TRUE), 0), ")"),
+    n_vertical      = paste0(round(median(n_vertical, na.rm = TRUE), 1), " (IQR: ", round(IQR(n_vertical, na.rm = TRUE), 1), ")"),
+    rIVI            = paste0(round(median(rIVI, na.rm = TRUE), 1), " (IQR: ", round(IQR(rIVI, na.rm = TRUE), 1), ")"),
+    richness        = paste0(round(median(richness, na.rm = TRUE), 0), " (IQR: ", round(IQR(richness, na.rm = TRUE), 0), ")")
+  ) %>% 
+  arrange(country_abbr)
+
+
+# Print Median & IQR table
+print(median_iqr_table_country)
+
+#### export summary tables -------
+sjPlot::tab_df(mean_sd_table,
+              show.rownames = F,
+               file="outTable/clim_cluster_mean_sd_table.doc",
+               digits = 2) 
+
+sjPlot::tab_df(mean_sd_table_country,
+              show.rownames = F,
+               file="outTable/clim_cluster_mean_sd_table_country.doc",
+               digits = 2) 
+
+sjPlot::tab_df(median_iqr_table,
+               show.rownames = F,
+               file="outTable/clim_cluster_median_iqr_table.doc",
+               digits = 2) 
+
+sjPlot::tab_df(median_iqr_table_country,
+               show.rownames = F,
+               file="outTable/clim_cluster_median_iqr_table_country.doc",
+               digits = 2) 
+
+
