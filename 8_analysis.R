@@ -88,164 +88,6 @@ df_fin <- df_fin %>%
   left_join(xy_site, by = join_by(site))
 
 
-# add naming 
-
-# add country indication 
-country_regions <- tribble(
-  ~country_full, ~region, ~country_abbr,
-  "germany", "11, 12, 14, 18, 19, 20, 25", "DE",
-  "poland", "17", "PL",
-  "czech", "15, 26", "CZ",
-  "austria", "13", "AT",
-  "slovakia", "16", "SK",
-  "slovenia", "23", "SI",
-  "italy", "21", "IT",
-  "switzerland", "22", "CH",
-  "france", "24, 27", "FR"
-) %>%
-  separate_rows(region, sep = ", ") %>%
-  mutate(region = as.integer(region))
-
-
-# Extract the region number from the site column in df_fin
-df_fin <- df_fin %>%
-  mutate(region = as.integer(substr(site, 1, 2)))
-
-# Merge the country information with df_fin
-df_fin <- df_fin %>%
-  left_join(country_regions, by = "region") %>%
-  mutate(country_abbr = case_when(
-    site %in% c("24_136", "24_137") ~ "BE",            # Belgium
-    site %in% c("24_133", "24_134", "24_135") ~ "LX",  # Luxembourg
-    TRUE ~ country_abbr
-  )) %>% 
-  mutate(country_pooled = case_when( country_abbr == "BE" ~ "FR",  # create pooled data for the eco analysis
-                                     country_abbr == "LX" ~ "FR",
-                                     TRUE~country_abbr))
-
-
-df_fin <- df_fin %>% 
-  as.data.frame() %>% 
-  #dplyr::select(-country.x, -country.y, regions) %>% 
-  mutate(
-    site                  = factor(site),
-    region                = factor(region),
-    dominant_species      = factor(dominant_species),
-    clim_cluster_spei3    = factor(clim_cluster_spei3  ),
-    # clim_cluster_spei6    = factor(clim_cluster_spei6),
-    country_abbr          = factor(country_abbr), 
-    country_pooled        = factor(country_pooled)) #
-
-
-
-# Cluster: analysis ----------------------------------------------------------------
-## Cluster: Climate-environment: SPEI 3 -----------------------------------------------
-# for spei3 - mean per 2018-2023 
-
-# Subset the relevant columns
-data_subset_clim <- df_fin[, c("tmp", "prcp", "tmp_z", "prcp_z", "spei3", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
-#
-# Standardize the data
-data_scaled_clim <- scale(data_subset_clim)
-
-# Find which number of clusters is teh best
-# Perform K-means clustering for different values of k
-set.seed(3)
-max_clusters <- 10
-sil_width <- numeric(max_clusters)
-for (k in 2:max_clusters) {
-  kmeans_result_clim <- kmeans(data_scaled_clim, centers = k, nstart = 25)
-  sil <- silhouette(kmeans_result_clim$cluster, dist(data_scaled_clim))
-  sil_width[k] <- mean(sil[, 3])
-}
-
-# Plot Silhouette width for different values of k
-plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
-
-# Determine the optimal number of clusters
-optimal_k_clim <- 3  # from Kilian's study
-
-# Perform K-means clustering with the optimal number of clusters
-set.seed(3)
-kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
-
-# Add cluster assignments to the original data
-df_fin$clim_cluster_spei3 <- kmeans_result$cluster
-
-# Perform PCA for visualization - use Pc1 and Pc1
-pca_result_clim <- prcomp(data_scaled_clim)
-
-# plot PCA results with the most important variables: 
-biplot(pca_result_clim, main = "PCA Biplot")
-
-pairs(data_scaled_clim)
-
-# Convert to data frame if it's not already
-data_scaled_clim_df <- as.data.frame(data_scaled_clim)
-
-# Create a ggpairs plot
-#ggpairs(data_scaled_clim_df)
-
-
-## Cluster analysis for structural characteristics: spei3 -------------------------------
-# first split data in 3 atasets, run the cluste analysis for each one of them
-# from Kilian: 4, 5, 2 clusters for 1.2.3 clim clusters;
-# need to used k-prototypes
-# Add cluster assignments to the original data
-
-
-
-### clim cluster for drought years: drought SPEI6 --------------------------------------------------------------------------------
-# Subset the relevant columns
-data_subset_clim <- df_fin[, c("tmp", "prcp", "tmp_z", "prcp_z", "drought_spei6", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
-
-# Standardize the data
-data_scaled_clim <- scale(data_subset_clim)
-
-# Find which number of clusters is teh best
-# Perform K-means clustering for different values of k
-set.seed(3)
-max_clusters <- 10
-sil_width <- numeric(max_clusters)
-for (k in 2:max_clusters) {
-  kmeans_result_clim <- kmeans(data_scaled_clim, centers = k, nstart = 25)
-  sil <- silhouette(kmeans_result_clim$cluster, dist(data_scaled_clim))
-  sil_width[k] <- mean(sil[, 3])
-}
-
-# Plot Silhouette width for different values of k
-plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
-
-# Determine the optimal number of clusters
-optimal_k_clim <- 3  # from my silhouette plot and from using drought_SPEI6 (mean spei6 per drought year 2018-2020) 
-
-# Perform K-means clustering with the optimal number of clusters
-set.seed(3)
-kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
-
-# Add cluster assignments to the original data
-df_fin$clim_cluster_spei6 <- kmeans_result$cluster
-
-# Perform PCA for visualization - use Pc1 and Pc1
-pca_result_clim <- prcomp(data_scaled_clim)
-
-# plot PCA results with the most important variables: 
-#biplot(pca_result_clim, main = "PCA Biplot")
-
-#pairs(data_scaled_clim)
-
-# Convert to data frame if it's not already
-data_scaled_clim_df <- as.data.frame(data_scaled_clim)
-
-
-
-
-
-#### Get country indications ----------------------------------------------------------
-
-
-
-
 # Get unique regions for each country_pooled
 unique_regions_per_country <- df_fin %>%
   group_by(country_pooled) %>%
@@ -299,7 +141,7 @@ unique_regions_per_country <- df_fin %>%
 
 
 
-#### Find teh best SPEI for stem density:  ------------------------------------------------------
+## predictor selection: SPEI for stem density:  ------------------------------------------------------
 
 # Select relevant columns for the plot
 df_pairs <- df_fin %>%
@@ -351,7 +193,7 @@ print(spearman_correlations)
 # 1               0.1712411
 # the best preictors seems to be SPEI6, but still has a low correlation: 0.11
 
-# check for multicollinearity -----------------------------------------------------
+### check for multicollinearity -----------------------------------------------------
 
 library(car)
 model <- lm(stem_density ~ richness + management_intensity + rIVI + n_vertical + spei6 + drought_spei6, data = df_fin)
@@ -359,7 +201,7 @@ vif(model)
 
 
 
-# test with univariate models & AIC ----------------------------------------------
+### test with univariate models & AIC ----------------------------------------------
 hist(df_fin$stem_density)
 
 
@@ -472,7 +314,7 @@ sjPlot::tab_df(model_metrics,
 # we found that for every vegetation vertical cla has different sentiticity to SPEI scale:
 
 
-#### identify the most important predictors -----------------------------------------
+### identify the most important predictors -----------------------------------------
 
 # Vector of possible predictors
 predictors_all <- c("management_intensity", 
@@ -619,7 +461,7 @@ print(paste("Optimal p value:", best_p))
 
 # best is p = 1.5 orp =  1.46
 
-# ----------------------------------------------------------------------------------
+#TEST models ----------------------------------------------------------------------------------
 
 
 
