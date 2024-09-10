@@ -405,9 +405,6 @@ df_fin <- as.data.frame(df_plot_full) %>%
 
 plot_n <- length(unique(df_plot_full$cluster))
 
-
-fwrite(df_fin, 'outData/indicators_for_cluster_analysis.csv')
-
 #length(unique(df_plot$cluster))
 length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
 length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with less plots
@@ -470,7 +467,7 @@ data_scaled_clim_df <- as.data.frame(data_scaled_clim)
 #ggpairs(data_scaled_clim_df)
 
 # drought 
-## Cluster: Climate-environment: SPEI 3 -----------------------------------------------
+## Cluster: Climate-environment: drought SPEI 12 -----------------------------------------------
 # for spei3 - mean per 2018-2023 
 
 # Subset the relevant columns
@@ -514,8 +511,8 @@ biplot(pca_result_clim, main = "PCA Biplot")
 
 
 
-## Make a scatetr plot of cgroups:
-
+# Make a scatetr plot of groups: ------------------------
+# scatter plot: tmp vs spei
 
 # Calculate the mean and standard deviation for each cluster
 median_iqr_df <- df_fin %>%
@@ -557,10 +554,110 @@ ggplot(data = df_fin, aes(x = tmp,
 
 # there is no clear gradient -> go for Kilian's values (spei3, tmp oevr 2018-223)
 
-# 1 - cold, wet
-# 2 - hot, dry, 
-# 3 - drier, mild
 
+# scatter plot: tmp vs precipitation - worse, skip ---------------------------------
+
+# Calculate the mean and standard deviation for each cluster
+median_iqr_df <- df_fin %>%
+  group_by(clim_cluster_spei3) %>%
+  summarise(
+    median_tmp = median(tmp, na.rm = TRUE),
+    iqr_tmp = IQR(tmp, na.rm = TRUE),
+    median_spei = median(prcp, na.rm = TRUE),
+    iqr_spei = IQR(prcp, na.rm = TRUE)
+  )
+
+
+
+# Create the scatter plot with ellipses, mean points, and error bars
+#fig_spei_tmp_clusters <- 
+ggplot(data = df_fin, aes(x = tmp, 
+                          y = prcp,
+                          color = clim_cluster_spei3, 
+                          fill = clim_cluster_spei3)) + 
+  geom_point(size = 0.5) +
+  stat_ellipse(aes(group = clim_cluster_spei3), type = "norm", alpha = 0.3, geom = "polygon") +
+  # Add halo effect for median points
+  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
+  # Median points
+  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
+  # Vertical error bars for SPEI using IQR
+  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
+                width = 0.2) +
+  # Horizontal error bars for temperature using IQR
+  geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
+                 height = 0.01) +
+  
+  theme_classic2() +
+  labs(title = "",
+       x = expression(Temperature ~ (degree*C)),
+       y = "SPEI") #+
+# scale_fill_manual(values = c("blue","red" ,"orange" )) +  # Customize fill colors
+#  scale_color_manual(values = c("blue","red" ,"orange" ))   # Customize point colors
+
+
+
+# scatter plot for drought 12 - seems better describing the ata ----------------
+# scatter plot: tmp vs spei
+
+# Calculate the mean and standard deviation for each cluster
+median_iqr_df <- df_fin %>%
+  group_by(clim_cluster_spei12) %>%
+  summarise(
+    median_tmp = median(drought_tmp, na.rm = TRUE),
+    iqr_tmp = IQR(drought_tmp, na.rm = TRUE),
+    median_spei = median(drought_spei12, na.rm = TRUE),
+    iqr_spei = IQR(drought_spei12, na.rm = TRUE)
+  )
+
+
+
+# Create the scatter plot with ellipses, mean points, and error bars
+#fig_spei_tmp_clusters <- 
+ggplot(data = df_fin, aes(x = drought_tmp, 
+                          y = drought_spei12,
+                          color = clim_cluster_spei12, 
+                          fill = clim_cluster_spei12)) + 
+  geom_point(size = 0.5) +
+  stat_ellipse(aes(group = clim_cluster_spei12), type = "norm", alpha = 0.3, geom = "polygon") +
+  # Add halo effect for median points
+  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
+  # Median points
+  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
+  # Vertical error bars for SPEI using IQR
+  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
+                width = 0.2) +
+  # Horizontal error bars for temperature using IQR
+  geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
+                 height = 0.01) +
+  
+  theme_classic2() +
+  labs(title = "",
+       x = expression(Temperature ~ (degree*C)),
+       y = "SPEI") #+
+# scale_fill_manual(values = c("blue","red" ,"orange" )) +  # Customize fill colors
+#  scale_color_manual(values = c("blue","red" ,"orange" ))   # Customize point colors
+
+# there is no clear gradient -> go for Kilian's values (spei3, tmp oevr 2018-223)
+
+
+
+
+
+
+
+
+
+# 1 - cold, wet - similar soil coonditions to cluster 3
+# 2 - hot, dry, sandy - more sand, less clay then 3, more av.nitro
+# 3 - drier, mild, clay - more clay tehn n3
+
+df_fin <- df_fin %>% 
+  mutate(clim_class = case_when(
+    clim_cluster_spei3 == 1 ~ "wet-cold-clay",  # Cluster 1: wet, cold, clay
+    clim_cluster_spei3 == 2 ~ "hot-dry-sandy",  # Cluster 2: hot, dry, sandy (more sand, less clay, more av.nitro than cluster 3)
+    clim_cluster_spei3 == 3 ~ "hot-dry-clay"    # Cluster 3: hot, dry, more clay
+  ))
 
 # GEt summary table of another variables in 3 env clustersL
 
@@ -568,6 +665,10 @@ ggplot(data = df_fin, aes(x = tmp,
 summary_table <- df_fin %>%
   group_by(clim_cluster_spei3) %>%
   summarise(
+    tmp_median = median(tmp, na.rm = TRUE),
+    tmp_iqr = IQR(tmp, na.rm = TRUE),
+    prcp_median = median(prcp, na.rm = TRUE),
+    prcp_iqr = IQR(prcp, na.rm = TRUE),
     #sand_mean = mean(sand_extract, na.rm = TRUE),
     #sand_sd = sd(sand_extract, na.rm = TRUE),
     sand_median = median(sand_extract, na.rm = TRUE),
@@ -591,3 +692,12 @@ summary_table <- df_fin %>%
 
 # Print the summary table
 print(summary_table)
+
+
+
+
+sjPlot::tab_df(summary_table,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = F,
+               file="outTable/clim_cluster_summary_env_conditions.doc",
+               digits = 1) 
