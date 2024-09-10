@@ -104,22 +104,22 @@ spei_date <- spei %>%
 spei_summary <- spei_date %>%
   group_by(scale, date) %>%
   summarise(
-    mean_spei = mean(spei, na.rm = TRUE),
+    median_spei = median(spei, na.rm = TRUE),
     sd_spei = sd(spei, na.rm = TRUE)
   )
 
 # <<Step 3: Plot - skip, long to run --------------------------
-# fig_spei_all <- ggplot(spei_summary, aes(x = date, y = mean_spei)) +
+# fig_spei_all <- ggplot(spei_summary, aes(x = date, y = median_spei)) +
 #   # Blue fill for positive values
-#   geom_ribbon(data = subset(spei_summary, mean_spei > 0),
-#               aes(ymin = 0, ymax = mean_spei),
+#   geom_ribbon(data = subset(spei_summary, median_spei > 0),
+#               aes(ymin = 0, ymax = median_spei),
 #               fill = "blue", alpha = 1) +
 #   # Red fill for negative values
-#   geom_ribbon(data = subset(spei_summary, mean_spei <= 0),
-#               aes(ymin = mean_spei, ymax = 0),
+#   geom_ribbon(data = subset(spei_summary, median_spei <= 0),
+#               aes(ymin = median_spei, ymax = 0),
 #               fill = "red", alpha = 1) +
 #   theme_bw() +
-#   labs(title = "SPEI Mean values by Scale",
+#   labs(title = "SPEI median values by Scale",
 #        x = "Year",
 #        y = "SPEI Value",
 #        color = "Scale",
@@ -150,11 +150,11 @@ spei_subplot <- spei_wide %>%
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID, year) %>%
-  summarise(spei1 = mean(spei1, na.rm = T),
-            spei3 = mean(spei3, na.rm = T),
-            spei6 = mean(spei6, na.rm = T),
-            spei12 = mean(spei12, na.rm = T),
-            spei24 = mean(spei24, na.rm = T)) #%>% 
+  summarise(spei1 = median(spei1, na.rm = T),
+            spei3 = median(spei3, na.rm = T),
+            spei6 = median(spei6, na.rm = T),
+            spei12 = median(spei12, na.rm = T),
+            spei24 = median(spei24, na.rm = T)) #%>% 
 
 
 spei_subplot_drought <- spei_wide %>% 
@@ -163,11 +163,11 @@ spei_subplot_drought <- spei_wide %>%
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID) %>%
-  summarise(drought_spei1 = mean(spei1, na.rm = T),
-            drought_spei3 = mean(spei3, na.rm = T),
-            drought_spei6 = mean(spei6, na.rm = T),
-            drought_spei12 = mean(spei12, na.rm = T),
-            drought_spei24 = mean(spei24, na.rm = T)) #%>% 
+  summarise(drought_spei1 = median(spei1, na.rm = T),
+            drought_spei3 = median(spei3, na.rm = T),
+            drought_spei6 = median(spei6, na.rm = T),
+            drought_spei12 = median(spei12, na.rm = T),
+            drought_spei24 = median(spei24, na.rm = T)) #%>% 
 
 climate_subplot_drought <- climate %>% 
   ungroup(.) %>% 
@@ -175,19 +175,19 @@ climate_subplot_drought <- climate %>%
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID) %>%
-  summarise(drought_tmp = mean(tmp, na.rm = T),
-            drought_prcp = mean(prec, na.rm = T)) 
+  summarise(drought_tmp = median(tmp, na.rm = T),
+            drought_prcp = median(prec, na.rm = T)) 
 
 
-# merge all predictors together, ID (=subplot) level per year: having a mean per years 2018-2023
+# merge all predictors together, ID (=subplot) level per year: having a median per years 2018-2023
 df_predictors <- 
   climate %>% 
   left_join(climate_subplot_drought, by = join_by(ID)) %>% 
   left_join(dplyr::select(distance_to_edge, c(-country, -dist_ID ))) %>% 
   left_join(dplyr::select(disturbance_chars, c(-region, -country ))) %>% 
   left_join(soil) %>%
-  left_join(spei_subplot) %>%          # clim values are means from 2018-2023
-  left_join(spei_subplot_drought) %>%  # clim values are means from 2018-2020
+  left_join(spei_subplot) %>%          # clim values are medians from 2018-2023
+  left_join(spei_subplot_drought) %>%  # clim values are medians from 2018-2020
   left_join(dplyr::select(terrain, c(-country, -region, -cluster.x, -cluster.y))) #%>% 
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
@@ -201,42 +201,42 @@ df_predictors <-
 
 length(unique(df_predictors$cluster)) # 957
 anyNA(df_predictors)
-# merge predcitors on cluster level: calculate means
+# merge predcitors on cluster level: calculate medians
 # keep only temp and prcp: 2021-2023 average
 df_predictors_plot <- 
   df_predictors %>% 
   #dplyr::filter(year %in% 2018:2023) %>% 
   group_by(cluster) %>% 
-  summarise(tmp = mean(tmp, na.rm = T),
-            prec = mean(prec, na.rm = T),
-            tmp_z = mean(tmp_z, na.rm = T),
-            prcp_z = mean(prcp_z, na.rm = T),
+  summarise(tmp          = median(tmp, na.rm = T),
+            prec         = median(prec, na.rm = T),
+            tmp_z        = median(tmp_z, na.rm = T),
+            prcp_z       = median(prcp_z, na.rm = T),
             # Summary for drought years (2018-2020)
-            drought_tmp = mean(drought_tmp, na.rm = TRUE),
-            drought_prcp = mean(drought_prcp , na.rm = TRUE),
+            drought_tmp  = median(drought_tmp, na.rm = TRUE),
+            drought_prcp = median(drought_prcp , na.rm = TRUE),
             
-            spei1   = mean(spei1, na.rm = T),
-            spei3   = mean(spei3, na.rm = T),
-            spei6   = mean(spei6, na.rm = T),
-            spei12   = mean(spei12, na.rm = T),
-            spei24   = mean(spei24, na.rm = T),
-            drought_spei1   = mean(drought_spei1, na.rm = T),
-            drought_spei3   = mean(drought_spei3, na.rm = T),
-            drought_spei6   = mean(drought_spei6, na.rm = T),
-            drought_spei12   = mean(drought_spei12, na.rm = T),
-            drought_spei24   = mean(drought_spei24, na.rm = T),
-            distance = mean(distance, na.rm = T),
-            disturbance_year= as.integer(mean(disturbance_year, na.rm = T)),
-            disturbance_severity= mean(disturbance_severity, na.rm = T),
-            disturbance_agent= as.integer(mean(disturbance_agent, na.rm = T)),
-            elevation = mean(elevation, na.rm = T),
-            sand_extract= mean(sand_extract, na.rm = T),
-            silt_extract = mean(silt_extract, na.rm = T),
-            clay_extract = mean(clay_extract, na.rm = T),
-            depth_extract = mean(depth_extract, na.rm = T),
-            av.nitro    = mean(av.nitro, na.rm = T),
-            slope   = mean(slope, na.rm = T),
-            aspect= mean(aspect, na.rm = T)
+            spei1        = median(spei1, na.rm = T),
+            spei3        = median(spei3, na.rm = T),
+            spei6        = median(spei6, na.rm = T),
+            spei12       = median(spei12, na.rm = T),
+            spei24       = median(spei24, na.rm = T),
+            drought_spei1   = median(drought_spei1, na.rm = T),
+            drought_spei3   = median(drought_spei3, na.rm = T),
+            drought_spei6   = median(drought_spei6, na.rm = T),
+            drought_spei12   = median(drought_spei12, na.rm = T),
+            drought_spei24   = median(drought_spei24, na.rm = T),
+            distance         = median(distance, na.rm = T),
+            disturbance_year = as.integer(median(disturbance_year, na.rm = T)),
+            disturbance_severity= median(disturbance_severity, na.rm = T),
+            disturbance_agent= as.integer(median(disturbance_agent, na.rm = T)),
+            elevation        = median(elevation, na.rm = T),
+            sand_extract     = median(sand_extract, na.rm = T),
+            silt_extract     = median(silt_extract, na.rm = T),
+            clay_extract     = median(clay_extract, na.rm = T),
+            depth_extract    = median(depth_extract, na.rm = T),
+            av.nitro         = median(av.nitro, na.rm = T),
+            slope            = median(slope, na.rm = T),
+            aspect           = median(aspect, na.rm = T)
             )
 
 
@@ -244,32 +244,32 @@ df_predictors_plot <-
   df_predictors %>% 
  # dplyr::filter(year %in% 2018:2023) %>% 
   group_by(ID) %>% 
-  summarise(tmp = mean(tmp, na.rm = T),
-            prec = mean(prec, na.rm = T),
+  summarise(tmp = median(tmp, na.rm = T),
+            prec = median(prec, na.rm = T),
             # Calculate drought temperature and precipitation only for 2018-2020
-            drought_tmp = mean(drought_tmp, na.rm = TRUE),
-            drought_prcp = mean(drought_prcp , na.rm = TRUE),
-            tmp_z = mean(tmp_z, na.rm = T),
-            prcp_z = mean(prcp_z, na.rm = T),
-            spei1   = mean(spei1, na.rm = T),
-            spei3   = mean(spei3, na.rm = T),
-            spei6   = mean(spei6, na.rm = T),
-            spei12   = mean(spei12, na.rm = T),
-            spei24   = mean(spei24, na.rm = T),
-            distance = mean(distance, na.rm = T),
-            disturbance_year= as.integer(mean(disturbance_year, na.rm = T)),
-            disturbance_severity= mean(disturbance_severity, na.rm = T),
-            disturbance_agent= as.integer(mean(disturbance_agent, na.rm = T)),
-            elevation = mean(elevation, na.rm = T),
-            #region = mean(tmp, na.rm = T),
-            #country = mean(tmp, na.rm = T),
-            sand_extract= mean(sand_extract, na.rm = T),
-            silt_extract = mean(silt_extract, na.rm = T),
-            clay_extract = mean(clay_extract, na.rm = T),
-            depth_extract = mean(depth_extract, na.rm = T),
-            av.nitro    = mean(av.nitro, na.rm = T),
-            slope   = mean(slope, na.rm = T),
-            aspect= mean(aspect, na.rm = T))
+            drought_tmp = median(drought_tmp, na.rm = TRUE),
+            drought_prcp = median(drought_prcp , na.rm = TRUE),
+            tmp_z = median(tmp_z, na.rm = T),
+            prcp_z = median(prcp_z, na.rm = T),
+            spei1   = median(spei1, na.rm = T),
+            spei3   = median(spei3, na.rm = T),
+            spei6   = median(spei6, na.rm = T),
+            spei12   = median(spei12, na.rm = T),
+            spei24   = median(spei24, na.rm = T),
+            distance = median(distance, na.rm = T),
+            disturbance_year= as.integer(median(disturbance_year, na.rm = T)),
+            disturbance_severity= median(disturbance_severity, na.rm = T),
+            disturbance_agent= as.integer(median(disturbance_agent, na.rm = T)),
+            elevation = median(elevation, na.rm = T),
+            #region = median(tmp, na.rm = T),
+            #country = median(tmp, na.rm = T),
+            sand_extract= median(sand_extract, na.rm = T),
+            silt_extract = median(silt_extract, na.rm = T),
+            clay_extract = median(clay_extract, na.rm = T),
+            depth_extract = median(depth_extract, na.rm = T),
+            av.nitro    = median(av.nitro, na.rm = T),
+            slope   = median(slope, na.rm = T),
+            aspect= median(aspect, na.rm = T))
 
 
 #fwrite(df_predictors_subplot, 'outData/all_predictors_subplot.csv')
@@ -277,6 +277,16 @@ df_predictors_plot <-
 fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
 # Get climate plots for map: TEMP, PREC, SPEI  -------------
+
+# Custom function to return median and IQR for stat_summary
+median_iqr <- function(y) {
+  median_val <- median(y, na.rm = TRUE)
+  iqr_val <- IQR(y, na.rm = TRUE)
+  ymin <- median_val - (iqr_val / 2)
+  ymax <- median_val + (iqr_val / 2)
+  return(c(y = median_val, ymin = ymin, ymax = ymax))
+}
+
 
 # climate full
 reference_period <- 1980:2010
@@ -288,25 +298,9 @@ spei_overview <- spei %>%
   dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
   filter(!if_any(everything(), is.infinite)) %>% 
   group_by(cluster, year) %>% 
-  dplyr::summarise(spei = mean(spei, na.rm =T)) %>% 
+  dplyr::summarise(spei = median(spei, na.rm =T)) %>% 
   mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
                            TRUE ~ 'ref')) #%>% 
-
-ref_spei <- mean(spei_overview$spei[spei_overview$year %in% reference_period], na.rm =T)
-
-p.map.spei <- spei_overview %>% 
-  ggplot(aes(x = year,
-             y = spei,
-             color = class)) +
-  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
-  # This will add a point for the mean of Local Variance
-  stat_summary(fun = mean, geom = "point", size = 0.7) +
-  geom_hline(yintercept = ref_spei, lty = 'dashed', col = 'grey70') +
-  scale_color_manual(values = c('red', 'black')) +
-  labs(x = "", y =  expression(paste("SPEI [dim.]", sep=""))) +
-  theme_classic() +
-  theme(legend.position = "NULL") 
-
 
 # get simplified df
 clim_overview <- climate_full %>% 
@@ -314,22 +308,36 @@ clim_overview <- climate_full %>%
   mutate(cluster = str_sub(ID, 1, -3)) %>% 
   ungroup(.) %>% 
   group_by(cluster, year) %>% 
-  dplyr::summarize(tmp = mean(tmp),
-                   prec = mean(prec)) %>%
+  dplyr::summarize(tmp = median(tmp),
+                   prec = median(prec)) %>%
   mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
                            TRUE ~ 'ref')) #%>% 
 
-# make plots for map:
-ref_tmp <- mean(clim_overview$tmp[clim_overview$year %in% reference_period])
-ref_prec <- mean(clim_overview$prec[clim_overview$year %in% reference_period])
+# get reference values
+ref_spei <- median(spei_overview$spei[spei_overview$year %in% reference_period], na.rm =T)
+ref_tmp  <- median(clim_overview$tmp[clim_overview$year %in% reference_period])
+ref_prec <- median(clim_overview$prec[clim_overview$year %in% reference_period])
 
+
+p.map.spei <- spei_overview %>% 
+  ggplot(aes(x = year, y = spei, color = class)) +
+  stat_summary(fun.data = median_iqr, geom = "pointrange") +
+  stat_summary(fun = median, geom = "point", size = 0.4) +
+  geom_hline(yintercept = ref_spei, lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y = expression(paste("SPEI [dim.]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL")
+
+
+
+# Plot for temperature
 p.map.temp <- clim_overview %>% 
   ggplot(aes(x = year,
              y = tmp,
              color = class)) +
-  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
-  # This will add a point for the mean of Local Variance
-  stat_summary(fun = mean, geom = "point", size = 0.7) +
+  stat_summary(fun.data = median_iqr, geom = "pointrange") +  # Use median and IQR for pointrange
+  stat_summary(fun = median, geom = "point", size = 0.4) +     # Add point for median
   geom_hline(yintercept = ref_tmp, lty = 'dashed', col = 'grey70') +
   scale_color_manual(values = c('red', 'black')) +
   labs(x = "", y =  expression(paste("Temperature [", degree, "C]", sep=""))) +
@@ -337,18 +345,18 @@ p.map.temp <- clim_overview %>%
   theme(legend.position = "NULL") 
 
 
+# Plot for precipitation
 p.map.prec <- clim_overview %>% 
   ggplot(aes(x = year,
              y = prec,
              color = class)) +
-  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = "pointrange") +
-  # This will add a point for the mean of Local Variance
-  stat_summary(fun = mean, geom = "point", size = 0.7) +
-  geom_hline(yintercept = ref_prec , lty = 'dashed', col = 'grey70') +
+  stat_summary(fun.data = median_iqr, geom = "pointrange") +  # Use median and IQR for pointrange
+  stat_summary(fun = median, geom = "point", size = 0.4) +     # Add point for median
+  geom_hline(yintercept = ref_prec, lty = 'dashed', col = 'grey70') +
   scale_color_manual(values = c('red', 'black')) +
   labs(x = "", y =  expression(paste("Precipitation [mm]", sep=""))) +
   theme_classic() +
-  theme(legend.position = "NULL") 
+  theme(legend.position = "NULL")
 
 windows(7,2)
 p.clim.map <- ggarrange(p.map.temp, p.map.prec,p.map.spei, ncol = 3)
@@ -467,46 +475,22 @@ data_scaled_clim_df <- as.data.frame(data_scaled_clim)
 #ggpairs(data_scaled_clim_df)
 
 # drought 
-## Cluster: Climate-environment: drought SPEI 12 -----------------------------------------------
-# for spei3 - mean per 2018-2023 
-
-# Subset the relevant columns
-data_subset_clim <- df_fin[, c("drought_tmp", "drought_prcp", "tmp_z", "prcp_z", "drought_spei12", "sand_extract", "clay_extract", "depth_extract", "av.nitro")]
-#
-# Standardize the data
-data_scaled_clim <- scale(data_subset_clim)
-
-# Find which number of clusters is teh best
-# Perform K-means clustering for different values of k
-set.seed(3)
-max_clusters <- 10
-sil_width <- numeric(max_clusters)
-for (k in 2:max_clusters) {
-  kmeans_result_clim <- kmeans(data_scaled_clim, centers = k, nstart = 25)
-  sil <- silhouette(kmeans_result_clim$cluster, dist(data_scaled_clim))
-  sil_width[k] <- mean(sil[, 3])
-}
-
-# Plot Silhouette width for different values of k
-plot(1:max_clusters, sil_width, type = "b", xlab = "Number of clusters", ylab = "Average Silhouette width", main = "Silhouette Analysis for K-means Clustering")
-
-# Determine the optimal number of clusters
-optimal_k_clim <- 3  # from Kilian's study
-
-# Perform K-means clustering with the optimal number of clusters
-set.seed(3)
-kmeans_result <- kmeans(data_scaled_clim, centers = optimal_k_clim, nstart = 25)
-
-# Add cluster assignments to the original data
-df_fin$clim_cluster_spei12 <- kmeans_result$cluster
-
-# Perform PCA for visualization - use Pc1 and Pc1
-pca_result_clim <- prcomp(data_scaled_clim)
-
-# plot PCA results with the most important variables: 
-biplot(pca_result_clim, main = "PCA Biplot")
 
 
+# classify based on scatter plots and groups: 
+
+# 1 - cold, wet - similar soil coonditions to cluster 3
+# 2 - hot, dry, sandy - more sand, less clay then 3, more av.nitro
+# 3 - drier, mild, clay - more clay tehn n3
+
+df_fin <- df_fin %>% 
+  mutate(clim_class = case_when(
+    clim_cluster_spei3 == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+    clim_cluster_spei3 == 2 ~ "hot-dry-sand",  # Cluster 2: hot, dry, sandy (more sand, less clay, more av.nitro than cluster 3)
+    clim_cluster_spei3 == 3 ~ "hot-dry-clay"    # Cluster 3: hot, dry, more clay
+  )) %>% 
+  mutate( clim_cluster_spei3 = as.factor(clim_cluster_spei3),
+          clim_class = as.factor(clim_class))
 
 
 
@@ -516,7 +500,7 @@ biplot(pca_result_clim, main = "PCA Biplot")
 
 # Calculate the mean and standard deviation for each cluster
 median_iqr_df <- df_fin %>%
-  group_by(clim_cluster_spei3) %>%
+  group_by(clim_class) %>%
   summarise(
     median_tmp = median(tmp, na.rm = TRUE),
     iqr_tmp = IQR(tmp, na.rm = TRUE),
@@ -527,167 +511,48 @@ median_iqr_df <- df_fin %>%
 
 
 # Create the scatter plot with ellipses, mean points, and error bars
-#fig_spei_tmp_clusters <- 
-ggplot(data = df_fin, aes(x = tmp, 
+fig_spei_tmp_clusters <- 
+  ggplot(data = df_fin, aes(x = tmp, 
                           y = spei3,
-                          color = clim_cluster_spei3, 
-                          fill = clim_cluster_spei3)) + 
+                          color = clim_class, 
+                          fill = clim_class)) + 
   geom_point(size = 0.5) +
-  stat_ellipse(aes(group = clim_cluster_spei3), type = "norm", alpha = 0.3, geom = "polygon") +
-  # Add halo effect for median points
+  stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
   geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
-  # Median points
   geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
-  # Vertical error bars for SPEI using IQR
-  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
+   geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
                 width = 0.2) +
-  # Horizontal error bars for temperature using IQR
   geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
                  height = 0.01) +
-  
   theme_classic2() +
   labs(title = "",
-       x = expression(Temperature ~ (degree*C)),
-       y = "SPEI") #+
- # scale_fill_manual(values = c("blue","red" ,"orange" )) +  # Customize fill colors
-#  scale_color_manual(values = c("blue","red" ,"orange" ))   # Customize point colors
+       x = expression(Temperature ~ "[" * degree * C * "]"),
+       y = "SPEI3 [dim.]") +
+  scale_fill_manual(values = c("orange" ,"red" , "blue")) +  # Customize fill colors
+  scale_color_manual(values = c("orange" ,"red" , "blue"))   # Customize point colors
 
 # there is no clear gradient -> go for Kilian's values (spei3, tmp oevr 2018-223)
 
+(fig_spei_tmp_clusters )
+ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters, 
+       width = 4, height = 3, dpi = 300, 
+       bg = 'white')
 
-# scatter plot: tmp vs precipitation - worse, skip ---------------------------------
-
-# Calculate the mean and standard deviation for each cluster
-median_iqr_df <- df_fin %>%
-  group_by(clim_cluster_spei3) %>%
-  summarise(
-    median_tmp = median(tmp, na.rm = TRUE),
-    iqr_tmp = IQR(tmp, na.rm = TRUE),
-    median_spei = median(prcp, na.rm = TRUE),
-    iqr_spei = IQR(prcp, na.rm = TRUE)
-  )
-
-
-
-# Create the scatter plot with ellipses, mean points, and error bars
-#fig_spei_tmp_clusters <- 
-ggplot(data = df_fin, aes(x = tmp, 
-                          y = prcp,
-                          color = clim_cluster_spei3, 
-                          fill = clim_cluster_spei3)) + 
-  geom_point(size = 0.5) +
-  stat_ellipse(aes(group = clim_cluster_spei3), type = "norm", alpha = 0.3, geom = "polygon") +
-  # Add halo effect for median points
-  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
-  # Median points
-  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
-  # Vertical error bars for SPEI using IQR
-  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
-                width = 0.2) +
-  # Horizontal error bars for temperature using IQR
-  geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
-                 height = 0.01) +
-  
-  theme_classic2() +
-  labs(title = "",
-       x = expression(Temperature ~ (degree*C)),
-       y = "SPEI") #+
-# scale_fill_manual(values = c("blue","red" ,"orange" )) +  # Customize fill colors
-#  scale_color_manual(values = c("blue","red" ,"orange" ))   # Customize point colors
-
-
-
-# scatter plot for drought 12 - seems better describing the ata ----------------
-# scatter plot: tmp vs spei
-
-# Calculate the mean and standard deviation for each cluster
-median_iqr_df <- df_fin %>%
-  group_by(clim_cluster_spei12) %>%
-  summarise(
-    median_tmp = median(drought_tmp, na.rm = TRUE),
-    iqr_tmp = IQR(drought_tmp, na.rm = TRUE),
-    median_spei = median(drought_spei12, na.rm = TRUE),
-    iqr_spei = IQR(drought_spei12, na.rm = TRUE)
-  )
-
-
-
-# Create the scatter plot with ellipses, mean points, and error bars
-#fig_spei_tmp_clusters <- 
-ggplot(data = df_fin, aes(x = drought_tmp, 
-                          y = drought_spei12,
-                          color = clim_cluster_spei12, 
-                          fill = clim_cluster_spei12)) + 
-  geom_point(size = 0.5) +
-  stat_ellipse(aes(group = clim_cluster_spei12), type = "norm", alpha = 0.3, geom = "polygon") +
-  # Add halo effect for median points
-  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
-  # Median points
-  geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
-  # Vertical error bars for SPEI using IQR
-  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
-                width = 0.2) +
-  # Horizontal error bars for temperature using IQR
-  geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
-                 height = 0.01) +
-  
-  theme_classic2() +
-  labs(title = "",
-       x = expression(Temperature ~ (degree*C)),
-       y = "SPEI") #+
-# scale_fill_manual(values = c("blue","red" ,"orange" )) +  # Customize fill colors
-#  scale_color_manual(values = c("blue","red" ,"orange" ))   # Customize point colors
-
-# there is no clear gradient -> go for Kilian's values (spei3, tmp oevr 2018-223)
-
-
-
-
-
-
-
-
-
-# 1 - cold, wet - similar soil coonditions to cluster 3
-# 2 - hot, dry, sandy - more sand, less clay then 3, more av.nitro
-# 3 - drier, mild, clay - more clay tehn n3
-
-df_fin <- df_fin %>% 
-  mutate(clim_class = case_when(
-    clim_cluster_spei3 == 1 ~ "wet-cold-clay",  # Cluster 1: wet, cold, clay
-    clim_cluster_spei3 == 2 ~ "hot-dry-sandy",  # Cluster 2: hot, dry, sandy (more sand, less clay, more av.nitro than cluster 3)
-    clim_cluster_spei3 == 3 ~ "hot-dry-clay"    # Cluster 3: hot, dry, more clay
-  ))
 
 # GEt summary table of another variables in 3 env clustersL
 
 # Summarize the data based on 'clim_cluster_spei3' for the specified variables
+# Summarize the data based on 'clim_cluster_spei3' for the specified variables
 summary_table <- df_fin %>%
-  group_by(clim_cluster_spei3) %>%
+  group_by(clim_class) %>%
   summarise(
-    tmp_median = median(tmp, na.rm = TRUE),
-    tmp_iqr = IQR(tmp, na.rm = TRUE),
-    prcp_median = median(prcp, na.rm = TRUE),
-    prcp_iqr = IQR(prcp, na.rm = TRUE),
-    #sand_mean = mean(sand_extract, na.rm = TRUE),
-    #sand_sd = sd(sand_extract, na.rm = TRUE),
-    sand_median = median(sand_extract, na.rm = TRUE),
-    sand_iqr = IQR(sand_extract, na.rm = TRUE),
-    
-    #clay_mean = mean(clay_extract, na.rm = TRUE),
-   # clay_sd = sd(clay_extract, na.rm = TRUE),
-    clay_median = median(clay_extract, na.rm = TRUE),
-    clay_iqr = IQR(clay_extract, na.rm = TRUE),
-    
-    #depth_mean = mean(depth_extract, na.rm = TRUE),
-   # depth_sd = sd(depth_extract, na.rm = TRUE),
-    depth_median = median(depth_extract, na.rm = TRUE),
-    depth_iqr = IQR(depth_extract, na.rm = TRUE),
-    
-    #av_nitro_mean = mean(av.nitro, na.rm = TRUE),
-   # av_nitro_sd = sd(av.nitro, na.rm = TRUE),
-    av_nitro_median = median(av.nitro, na.rm = TRUE),
-    av_nitro_iqr = IQR(av.nitro, na.rm = TRUE)
+    temperature = paste0(round(median(tmp, na.rm = TRUE), 2), " (IQR: ", round(IQR(tmp, na.rm = TRUE), 2), ")"),
+    precipitation = paste0(round(median(prcp, na.rm = TRUE), 2), " (IQR: ", round(IQR(prcp, na.rm = TRUE), 2), ")"),
+    spei = paste0(round(median(spei3, na.rm = TRUE), 2), " (IQR: ", round(IQR(spei3, na.rm = TRUE), 2), ")"),
+    sand = paste0(round(median(sand_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(sand_extract, na.rm = TRUE), 2), ")"),
+    clay = paste0(round(median(clay_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(clay_extract, na.rm = TRUE), 2), ")"),
+    depth = paste0(round(median(depth_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(depth_extract, na.rm = TRUE), 2), ")"),
+    av_nitrogen = paste0(round(median(av.nitro, na.rm = TRUE), 2), " (IQR: ", round(IQR(av.nitro, na.rm = TRUE), 2), ")")
   )
 
 # Print the summary table
