@@ -321,8 +321,8 @@ ref_prec <- median(clim_overview$prec[clim_overview$year %in% reference_period])
 
 p.map.spei <- spei_overview %>% 
   ggplot(aes(x = year, y = spei, color = class)) +
-  stat_summary(fun.data = median_iqr, geom = "pointrange") +
-  stat_summary(fun = median, geom = "point", size = 0.4) +
+  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +
+  stat_summary(fun = median, geom = "point", size = 0.2) +
   geom_hline(yintercept = ref_spei, lty = 'dashed', col = 'grey70') +
   scale_color_manual(values = c('red', 'black')) +
   labs(x = "", y = expression(paste("SPEI [dim.]", sep=""))) +
@@ -336,8 +336,8 @@ p.map.temp <- clim_overview %>%
   ggplot(aes(x = year,
              y = tmp,
              color = class)) +
-  stat_summary(fun.data = median_iqr, geom = "pointrange") +  # Use median and IQR for pointrange
-  stat_summary(fun = median, geom = "point", size = 0.4) +     # Add point for median
+  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +  # Use median and IQR for pointrange
+  stat_summary(fun = median, geom = "point", size = 0.2) +     # Add point for median
   geom_hline(yintercept = ref_tmp, lty = 'dashed', col = 'grey70') +
   scale_color_manual(values = c('red', 'black')) +
   labs(x = "", y =  expression(paste("Temperature [", degree, "C]", sep=""))) +
@@ -350,8 +350,8 @@ p.map.prec <- clim_overview %>%
   ggplot(aes(x = year,
              y = prec,
              color = class)) +
-  stat_summary(fun.data = median_iqr, geom = "pointrange") +  # Use median and IQR for pointrange
-  stat_summary(fun = median, geom = "point", size = 0.4) +     # Add point for median
+  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +  # Use median and IQR for pointrange
+  stat_summary(fun = median, geom = "point", size = 0.2) +     # Add point for median
   geom_hline(yintercept = ref_prec, lty = 'dashed', col = 'grey70') +
   scale_color_manual(values = c('red', 'black')) +
   labs(x = "", y =  expression(paste("Precipitation [mm]", sep=""))) +
@@ -361,7 +361,8 @@ p.map.prec <- clim_overview %>%
 windows(7,2)
 p.clim.map <- ggarrange(p.map.temp, p.map.prec,p.map.spei, ncol = 3)
 p.clim.map
-ggsave(filename = 'outFigs/Fig1.png', plot = p.clim.map, width = 7, height = 2, dpi = 300, bg = 'white')
+ggsave(filename = 'outFigs/Fig1.png', plot = p.clim.map, width = 7, 
+       height = 2, dpi = 300, bg = 'white')
 
 
 
@@ -511,31 +512,51 @@ median_iqr_df <- df_fin %>%
 
 
 # Create the scatter plot with ellipses, mean points, and error bars
-fig_spei_tmp_clusters <- 
-  ggplot(data = df_fin, aes(x = tmp, 
+fig_spei_tmp_clusters <- ggplot(data = df_fin, aes(x = tmp, 
                           y = spei3,
+                          group = clim_class,
                           color = clim_class, 
-                          fill = clim_class)) + 
-  geom_point(size = 0.5) +
+                          fill = clim_class#,
+                          # size = prcp
+)) +  # Map point size to prcp
+  geom_point(aes(size = prcp), shape = 16, alpha = 0.5) +  # No fixed size here
+  scale_size_continuous(
+    range = c(0.01, 1.7),  # Adjust the size range of points
+    name = "Precipitation [mm]",
+    breaks =  c(550, 1700) #,
+      #c(round(min(df_fin$prcp, na.rm = TRUE),0), 
+      #         round(max(df_fin$prcp, na.rm = TRUE),0))
+    ) + # Add a size legend for precipitation
   stat_ellipse(aes(group = clim_class), type = "norm", alpha = 0.3, geom = "polygon") +
   geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 2.8, shape = 16, color = 'white') +
   geom_point(data = median_iqr_df, aes(x = median_tmp, y = median_spei), size = 1.5, shape = 16) +
-   geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, ymax = median_spei + iqr_spei/2, y = median_spei), 
+  geom_errorbar(data = median_iqr_df, aes(x = median_tmp, ymin = median_spei - iqr_spei/2, 
+                                          ymax = median_spei + iqr_spei/2, y = median_spei), 
                 width = 0.2) +
   geom_errorbarh(data = median_iqr_df, aes(y = median_spei, xmin = median_tmp - iqr_tmp/2, xmax = median_tmp + iqr_tmp/2, x = median_tmp), 
                  height = 0.01) +
   theme_classic2() +
   labs(title = "",
        x = expression(Temperature ~ "[" * degree * C * "]"),
-       y = "SPEI3 [dim.]") +
-  scale_fill_manual(values = c("orange" ,"red" , "blue")) +  # Customize fill colors
-  scale_color_manual(values = c("orange" ,"red" , "blue"))   # Customize point colors
+       y = "SPEI3 [dim.]",
+       fill = 'Clim-ENV cluster',
+       color = 'Clim-ENV cluster') +
+  scale_fill_manual(values = c("orange", "red", "blue")) +  # Customize fill colors
+  scale_color_manual(values = c("orange", "red", "blue")) +  # Customize point colors
+  # Set all text sizes to 8 using theme()
+  theme(
+    text = element_text(size = 8),             # Set the base text size to 8
+    axis.text = element_text(size = 8),        # Set axis text size to 8
+    axis.title = element_text(size = 8),       # Set axis title text size to 8
+    legend.text = element_text(size = 8),      # Set legend text size to 8
+    legend.title = element_text(size = 8),     # Set legend title text size to 8
+    plot.title = element_text(size = 8)        # Set plot title text size to 8
+  )
 
-# there is no clear gradient -> go for Kilian's values (spei3, tmp oevr 2018-223)
 
 (fig_spei_tmp_clusters )
 ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters, 
-       width = 4, height = 3, dpi = 300, 
+       width = 4.5, height = 3, dpi = 300, 
        bg = 'white')
 
 
@@ -557,8 +578,6 @@ summary_table <- df_fin %>%
 
 # Print the summary table
 print(summary_table)
-
-
 
 
 sjPlot::tab_df(summary_table,
