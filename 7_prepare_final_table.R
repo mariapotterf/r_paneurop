@@ -108,7 +108,7 @@ spei_summary <- spei_date %>%
     sd_spei = sd(spei, na.rm = TRUE)
   )
 
-# <<Step 3: Plot - skip, long to run --------------------------
+# <<Step 3: Plot - skip, long to run 
 # fig_spei_all <- ggplot(spei_summary, aes(x = date, y = median_spei)) +
 #   # Blue fill for positive values
 #   geom_ribbon(data = subset(spei_summary, median_spei > 0),
@@ -420,13 +420,50 @@ length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with
 
 
 
+## add country naming---------------
 
-# Environmental cluster analysis --------------------------------------------------
-# inspect if drought in 2018 would not be a better indicator to get clim clusters
+# add country indication 
+country_regions <- tribble(
+  ~country_full, ~region, ~country_abbr,
+  "germany", "11, 12, 14, 18, 19, 20, 25", "DE",
+  "poland", "17", "PL",
+  "czech", "15, 26", "CZ",
+  "austria", "13", "AT",
+  "slovakia", "16", "SK",
+  "slovenia", "23", "SI",
+  "italy", "21", "IT",
+  "switzerland", "22", "CH",
+  "france", "24, 27", "FR"
+) %>%
+  separate_rows(region, sep = ", ") %>%
+  mutate(region = as.integer(region))
+
+
+df_fin <- df_fin %>%
+  mutate(region = as.integer(substr(site, 1, 2)))
+
+# Merge the country information with df_fin
+df_fin <- df_fin %>%
+  left_join(country_regions, by = "region") %>%
+  mutate(country_abbr = case_when(
+    site %in% c("24_136", "24_137") ~ "BE",            # Belgium
+    site %in% c("24_133", "24_134", "24_135") ~ "LX",  # Luxembourg
+    TRUE ~ country_abbr
+  )) %>% 
+  mutate(country_pooled = case_when( country_abbr == "BE" ~ "FR",  # create pooled data for the eco analysis
+                                     country_abbr == "LX" ~ "FR",
+                                     TRUE~country_abbr))
 
 df_fin <- df_fin %>% 
   rename(prcp = prec) %>% 
   rename(site = cluster)
+
+
+
+
+# cluster analysis --------------------------------------------------
+# inspect if drought in 2018 would not be a better indicator to get clim clusters
+
 
 ## Cluster: Climate-environment: SPEI 3 -----------------------------------------------
 # for spei3 - mean per 2018-2023 
@@ -475,8 +512,6 @@ data_scaled_clim_df <- as.data.frame(data_scaled_clim)
 # Create a ggpairs plot
 #ggpairs(data_scaled_clim_df)
 
-# drought 
-
 
 # classify based on scatter plots and groups: 
 
@@ -494,51 +529,11 @@ df_fin <- df_fin %>%
           clim_class = as.factor(clim_class))
 
 
-## add country naming---------------
-
-# add country indication 
-country_regions <- tribble(
-  ~country_full, ~region, ~country_abbr,
-  "germany", "11, 12, 14, 18, 19, 20, 25", "DE",
-  "poland", "17", "PL",
-  "czech", "15, 26", "CZ",
-  "austria", "13", "AT",
-  "slovakia", "16", "SK",
-  "slovenia", "23", "SI",
-  "italy", "21", "IT",
-  "switzerland", "22", "CH",
-  "france", "24, 27", "FR"
-) %>%
-  separate_rows(region, sep = ", ") %>%
-  mutate(region = as.integer(region))
-
-
-df_fin <- df_fin %>%
-  mutate(region = as.integer(substr(site, 1, 2)))
-
-# Merge the country information with df_fin
-df_fin <- df_fin %>%
-  left_join(country_regions, by = "region") %>%
-  mutate(country_abbr = case_when(
-    site %in% c("24_136", "24_137") ~ "BE",            # Belgium
-    site %in% c("24_133", "24_134", "24_135") ~ "LX",  # Luxembourg
-    TRUE ~ country_abbr
-  )) %>% 
-  mutate(country_pooled = case_when( country_abbr == "BE" ~ "FR",  # create pooled data for the eco analysis
-                                     country_abbr == "LX" ~ "FR",
-                                     TRUE~country_abbr))
-
-
 df_fin <- df_fin %>% 
   as.data.frame() %>% 
-  #dplyr::select(-country.x, -country.y, regions) %>% 
   mutate(
-    site                  = factor(site),
-    region                = factor(region),
-    dominant_species      = factor(dominant_species),
-    clim_cluster_spei3    = factor(clim_cluster_spei3  ),
-    country_abbr          = factor(country_abbr), 
-    country_pooled        = factor(country_pooled)) #
+    clim_cluster_spei3    = factor(clim_cluster_spei3  )
+    ) #
 
 
 
@@ -628,7 +623,7 @@ df3$str_cluster <- kmeans_result3$cluster
 
 
 
-# Make a scatetr plot of groups: ------------------------
+# PLOTS: clim cluster : ------------------------
 # scatter plot: tmp vs spei
 
 # Calculate the mean and standard deviation for each cluster
@@ -694,6 +689,7 @@ ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters,
 
 # Get summary table 3 env clustersL -------------------------
 
+## ENV CLIM conditions ------------------------------
 # Summarize the data based on 'clim_cluster_spei3' for the specified variables
 
 summary_table <- df_fin %>%
@@ -744,8 +740,8 @@ sjPlot::tab_df(summary_table_country,
 
 
 
-## Veg indicators : summary per quantiles -------------------------------------------------
-
+### Veg indicators Quantiles - no clim cluster -------------------------------------------------
+# : summary per quantiles
 # Represent results using quantiles, as they are skewed?
 qntils = c(0, 0.01, 0.25, 0.5, 0.75, 0.90, 1)
 
@@ -855,7 +851,7 @@ median_iqr_table_country <- df_fin %>%
 # Print Median & IQR table
 print(median_iqr_table_country)
 
-#### export summary tables -------
+### export summary tables -------
 sjPlot::tab_df(mean_sd_table,
               show.rownames = F,
                file="outTable/clim_cluster_mean_sd_table.doc",
