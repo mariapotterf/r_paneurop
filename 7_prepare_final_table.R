@@ -698,6 +698,7 @@ summary_table <- df_fin %>%
     temperature = paste0(round(median(tmp, na.rm = TRUE), 2), " (IQR: ", round(IQR(tmp, na.rm = TRUE), 2), ")"),
     precipitation = paste0(round(median(prcp, na.rm = TRUE), 2), " (IQR: ", round(IQR(prcp, na.rm = TRUE), 2), ")"),
     spei = paste0(round(median(spei3, na.rm = TRUE), 2), " (IQR: ", round(IQR(spei3, na.rm = TRUE), 2), ")"),
+    #drought_spei = paste0(round(median(drought_spei3, na.rm = TRUE), 2), " (IQR: ", round(IQR(drought_spei3, na.rm = TRUE), 2), ")"),
     sand = paste0(round(median(sand_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(sand_extract, na.rm = TRUE), 2), ")"),
     clay = paste0(round(median(clay_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(clay_extract, na.rm = TRUE), 2), ")"),
     depth = paste0(round(median(depth_extract, na.rm = TRUE), 2), " (IQR: ", round(IQR(depth_extract, na.rm = TRUE), 2), ")"),
@@ -713,6 +714,40 @@ sjPlot::tab_df(summary_table,
                show.rownames = F,
                file="outTable/clim_cluster_summary_env_conditions.doc",
                digits = 1) 
+
+
+# summary table per drought year (2018):
+#summary_table_drought <- 
+  df_fin %>%
+ # group_by(clim_class) %>%
+  summarise(
+    drought_temperature = median(drought_tmp, na.rm = TRUE),
+    drought_precipitation = median(drought_prcp, na.rm = TRUE),
+    drought_spei = median(drought_spei3, na.rm = TRUE)
+    ) %>% 
+  # ad new columns as reference values 1980-2010
+  mutate( ref_tmp = ref_tmp, 
+          ref_prcp = ref_prec,
+          ref_spei = ref_spei) %>% 
+    mutate(
+     temp_diff = drought_temperature - ref_tmp,
+      prcp_diff = drought_precipitation - ref_prcp,
+      spei_diff = drought_spei - ref_spei
+    )
+
+# Print the summary table
+print(summary_table_drought)
+
+
+sjPlot::tab_df(summary_table,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = F,
+               file="outTable/clim_cluster_summary_env_conditions.doc",
+               digits = 1) 
+
+
+
+
 
 
 # 
@@ -873,3 +908,83 @@ sjPlot::tab_df(median_iqr_table_country,
                digits = 2) 
 
 
+
+# PLOT ------------------------------------------------------------------------
+
+# Create violin plot
+df_fin %>% 
+  ggplot(aes(x = clim_class, y = stem_density/1000)) +
+    geom_violin(aes(fill = clim_class), 
+                trim = TRUE, alpha = 0.6) +  # Create the violin plot
+  geom_boxplot(width = 0.15)+
+  scale_fill_manual(values = c("orange", "red", "blue"))+
+  labs(x = '',
+       fill = 'Clim_ENV cluster',
+       y = 'Stem density [#*1000/ha]') +
+  theme_classic2() +
+  theme(legend.position = "none")
+
+
+
+# Define the function to create a customizable violin plot
+create_violin_plot <- function(df, y_var, y_label) {
+  df %>%
+    ggplot(aes(x = clim_class, y = !!sym(y_var))) +  # Use dynamic y variable
+    geom_violin(aes(fill = clim_class), 
+                trim = TRUE, alpha = 0.6) +  # Create the violin plot
+    geom_boxplot(width = 0.15) +
+    scale_fill_manual(values = c("orange", "red", "blue")) +
+    labs(x = '',
+         fill = 'Clim_ENV cluster',
+         y = y_label) +  # Use dynamic y label
+    theme_classic2() +
+    theme(legend.position = "none")
+}
+
+# Example usage for rIVI, n_vertical, and richness
+
+# For rIVI
+p_viol_stem_density <- create_violin_plot(df_fin, "stem_density", "Stem density")
+
+# For rIVI
+p_viol_rIVI <- create_violin_plot(df_fin, "rIVI", "rIVI")
+
+# For n_vertical
+p_viol_vert <- create_violin_plot(df_fin, "n_vertical", "Vertical richness")
+
+# For richness
+p_viol_richness <- create_violin_plot(df_fin, "richness", "Richness")
+
+ggarrange(p_viol_stem_density,p_viol_vert, p_viol_rIVI, p_viol_richness)
+
+
+
+
+# visualize the oresence/absence of vertical classes: 
+
+# TEST -----------------------------------
+
+library(UpSetR)
+
+dd <- data.frame(site = c(1,2,2,3,3,4,5,5,6,7,7,7),
+                 vert = c('s', 
+                          's', 'j',
+                          'j','s',
+                          's',
+                          'j','s',
+                          's',
+                          'm','j','s'))
+# Step 1: Create a binary presence/absence matrix for each site
+dd_wide <- dd %>%
+  pivot_wider(names_from = vert, values_from = vert, 
+              values_fn = length, values_fill = 0) %>%
+  mutate(m = ifelse(m > 0, 1, 0),
+         j = ifelse(j > 0, 1, 0),
+         s = ifelse(s > 0, 1, 0))
+
+# Step 2: Select only the columns with presence/absence data
+upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
+  as.data.frame()
+
+# Step 3: Create the UpSet plot
+upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
