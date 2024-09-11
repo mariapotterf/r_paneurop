@@ -960,16 +960,16 @@ ggarrange(p_viol_stem_density,p_viol_vert, p_viol_rIVI, p_viol_richness)
 
 
 
-# visualize the oresence/absence of vertical classes: 
+# visualize the presence/absence of vertical classes: 
 
 # TEST -----------------------------------
 
 library(UpSetR)
 
-dd <- data.frame(site = c(1,2,2,3,3,4,5,5,6,7,7,7),
-                 vert = c('s', 
+dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
+                 vert = c('m', 
                           's', 'j',
-                          'j','s',
+                          'j','s','m',
                           's',
                           'j','s',
                           's',
@@ -988,3 +988,4 @@ upset_data <- dd_wide %>% dplyr::select(m, j, s) %>%
 
 # Step 3: Create the UpSet plot
 upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
+
