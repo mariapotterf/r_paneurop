@@ -51,10 +51,6 @@ source('my_functions.R')
 
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
 
-df_fin <- df_fin %>% 
-  rename(prcp = prec) %>% 
-  rename(site = cluster)
-
 
 ## read coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
@@ -94,7 +90,25 @@ unique_regions_per_country <- df_fin %>%
   summarise(unique_regions = list(unique(region))) %>% 
   unnest(unique_regions)
 
+# categorize the clim clusters
+df_fin <- df_fin %>% 
+  mutate(clim_class = case_when(
+    clim_cluster_spei3 == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+    clim_cluster_spei3 == 2 ~ "hot-dry-sand",  # Cluster 2: hot, dry, sandy (more sand, less clay, more av.nitro than cluster 3)
+    clim_cluster_spei3 == 3 ~ "hot-dry-clay"    # Cluster 3: hot, dry, more clay
+  )) %>% 
+  mutate( clim_cluster_spei3 = as.factor(clim_cluster_spei3),
+          clim_class = as.factor(clim_class))
 
+
+# export as xy coordinates climate cluster categorized 
+df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))  # Replace '4326' with the appropriate CRS if known
+
+# Step 2: Check the structure of the sf object to ensure everything is correct
+print(df_fin_clim_clust_xy)
+
+# Step 3: Export the data as a GeoPackage (GPKG)
+st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG")
 
 
 
