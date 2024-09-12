@@ -278,7 +278,7 @@ fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
 # Get climate plots for map: TEMP, PREC, SPEI  -------------
 
-# Custom function to return median and IQR for stat_summary
+### Custom function to return median and IQR for stat_summary
 median_iqr <- function(y) {
   median_val <- median(y, na.rm = TRUE)
   iqr_val <- IQR(y, na.rm = TRUE)
@@ -422,6 +422,10 @@ length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with
 
 ## add country naming---------------
 
+df_fin <- df_fin %>% 
+  rename(prcp = prec) %>% 
+  rename(site = cluster)
+
 # add country indication 
 country_regions <- tribble(
   ~country_full, ~region, ~country_abbr,
@@ -454,9 +458,7 @@ df_fin <- df_fin %>%
                                      country_abbr == "LX" ~ "FR",
                                      TRUE~country_abbr))
 
-df_fin <- df_fin %>% 
-  rename(prcp = prec) %>% 
-  rename(site = cluster)
+
 
 
 
@@ -529,14 +531,20 @@ df_fin <- df_fin %>%
           clim_class = as.factor(clim_class))
 
 
-df_fin <- df_fin %>% 
-  as.data.frame() %>% 
-  mutate(
-    clim_cluster_spei3    = factor(clim_cluster_spei3  )
-    ) #
 
 
+# quick check clusyer naming:
+ggplot(data = df_fin, aes(x = tmp, 
+                          y = spei3,
+                          group = clim_class,
+                          color = clim_class, 
+                          fill = clim_class#,
+                          # size = prcp
+)) +  # Map point size to prcp
+  geom_point(aes(size = prcp), shape = 16, alpha = 0.5)
+# correct!
 
+fwrite( df_fin, 'outData/indicators_for_cluster_analysis.csv')
 
 
 #### Structural cluster analysis - not needed now!--------------------------------------------------
@@ -909,83 +917,7 @@ sjPlot::tab_df(median_iqr_table_country,
 
 
 
-# PLOT ------------------------------------------------------------------------
-
-# Create violin plot
-df_fin %>% 
-  ggplot(aes(x = clim_class, y = stem_density/1000)) +
-    geom_violin(aes(fill = clim_class), 
-                trim = TRUE, alpha = 0.6) +  # Create the violin plot
-  geom_boxplot(width = 0.15)+
-  scale_fill_manual(values = c("orange", "red", "blue"))+
-  labs(x = '',
-       fill = 'Clim_ENV cluster',
-       y = 'Stem density [#*1000/ha]') +
-  theme_classic2() +
-  theme(legend.position = "none")
-
-
-
-# Define the function to create a customizable violin plot
-create_violin_plot <- function(df, y_var, y_label) {
-  df %>%
-    ggplot(aes(x = clim_class, y = !!sym(y_var))) +  # Use dynamic y variable
-    geom_violin(aes(fill = clim_class), 
-                trim = TRUE, alpha = 0.6) +  # Create the violin plot
-    geom_boxplot(width = 0.15) +
-    scale_fill_manual(values = c("orange", "red", "blue")) +
-    labs(x = '',
-         fill = 'Clim_ENV cluster',
-         y = y_label) +  # Use dynamic y label
-    theme_classic2() +
-    theme(legend.position = "none")
-}
-
-# Example usage for rIVI, n_vertical, and richness
-
-# For rIVI
-p_viol_stem_density <- create_violin_plot(df_fin, "stem_density", "Stem density")
-
-# For rIVI
-p_viol_rIVI <- create_violin_plot(df_fin, "rIVI", "rIVI")
-
-# For n_vertical
-p_viol_vert <- create_violin_plot(df_fin, "n_vertical", "Vertical richness")
-
-# For richness
-p_viol_richness <- create_violin_plot(df_fin, "richness", "Richness")
-
-ggarrange(p_viol_stem_density,p_viol_vert, p_viol_rIVI, p_viol_richness)
-
-
-
 
 # visualize the presence/absence of vertical classes: 
 
-# TEST -----------------------------------
-
-library(UpSetR)
-
-dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
-                 vert = c('m', 
-                          's', 'j',
-                          'j','s','m',
-                          's',
-                          'j','s',
-                          's',
-                          'm','j','s'))
-# Step 1: Create a binary presence/absence matrix for each site
-dd_wide <- dd %>%
-  pivot_wider(names_from = vert, values_from = vert, 
-              values_fn = length, values_fill = 0) %>%
-  mutate(m = ifelse(m > 0, 1, 0),
-         j = ifelse(j > 0, 1, 0),
-         s = ifelse(s > 0, 1, 0))
-
-# Step 2: Select only the columns with presence/absence data
-upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
-  as.data.frame()
-
-# Step 3: Create the UpSet plot
-upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
 

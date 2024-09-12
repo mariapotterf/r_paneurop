@@ -44,6 +44,7 @@ library(ggeffects)
 library(GGally) # for pairwise comparions of the variables 1:1, also calculates the correlation and sinificance
 
 library(sf)     # read coordinates
+library(scales)  # add % for the plots
 
 source('my_functions.R')
 
@@ -84,7 +85,10 @@ veg_data_locations <- unique(df_fin$site)
 
 # ad xy coordinates in the final table
 df_fin <- df_fin %>% 
-  left_join(xy_site, by = join_by(site))
+  left_join(xy_site, by = join_by(site)) %>% 
+  mutate(country_pooled = case_when( country_abbr == "BE" ~ "FR",  # create pooled data for the eco analysis
+                                   country_abbr == "LX" ~ "FR",
+                                   TRUE~country_abbr))
 
 
 # Get unique regions for each country_pooled
@@ -105,15 +109,17 @@ df_fin <- df_fin %>%
 
 
 # export as xy coordinates climate cluster categorized 
-df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))  # Replace '4326' with the appropriate CRS if known
+df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))  
 
 # Step 2: Check the structure of the sf object to ensure everything is correct
 print(df_fin_clim_clust_xy)
 
 # Step 3: Export the data as a GeoPackage (GPKG)
-st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG")
+st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
 
-
+# get only a ataframe of teh climate clusters and sites for easy merging to detiailed veg data
+clim_cluster_indicator <- df_fin %>% 
+  dplyr::select(site, clim_class)
 
 
 # Analysis ------------------------------------------------------------
@@ -601,7 +607,7 @@ ggplot(top_species_per_group, aes(x = VegType, y = share, fill = Species)) +
 
 
 
-# Descriptive plots  -----------------------------------------------------------
+## Descriptive plots  -----------------------------------------------------------
 
 # Richness desc 
 
@@ -715,7 +721,7 @@ create_plot <- function(data,
 
 
 
-# for climate ------------------------------------------------------------------
+## for climate ------------------------------------------------------------------
 # Using the function to create plots
 p1 <- create_plot(df_regen_delay, x_var = "reg_delay_class", 
                   y_var = "tmp",  x_annotate = 1.5, lab_annotate = "0.06")
@@ -749,7 +755,7 @@ df_regen_delay %>%
     .groups = 'drop')
 
 
-# test differences between medians of teh classes -----------------------------
+## test differences between medians of teh classes -----------------------------
 
 ##### Loop over wilcx test
 
@@ -780,7 +786,7 @@ print(test_result_prcp)
 
 
 
-# For disturbance size and intensity -------------------------------------------
+## For disturbance size and intensity -------------------------------------------
 
 # Using the function to create plots
 p1 <- create_plot(df_regen_delay, x_var = "reg_delay_class", 
@@ -810,7 +816,7 @@ df_regen_delay %>%
     .groups = 'drop')
 
 
-# test differences between medians of teh classes -----------------------------
+## test differences between medians of teh classes -----------------------------
 
 ##### Loop over wilcx test
 
@@ -925,11 +931,194 @@ df_stock_density_simpl %>%
 # Compare categories occurences by chi square
 
 
-# How many vertical layers I have where? --------------------------------------
+
+
+
+
+# Vertical layers  --------------------------------------
+
+
+## Get presence absence data for indiviual layers --------------------------
+
+# Group by cluster and VegType, check if stem_density > 0
+vert_class_presence_absence <- stem_dens_species_long %>%
+  group_by(cluster, VegType) %>%
+  summarise(has_stem_density = sum(stem_density > 0, na.rm = TRUE) > 0) %>%
+  ungroup() %>%
+  # Filter only where there is stem density present
+  dplyr::filter(has_stem_density) %>%
+  dplyr::select(cluster, VegType)
+
+# Now find clusters where no VegType has stem_density > 0
+# Find clusters where no vegType has stem_density
+all_clusters <- stem_dens_species_long %>%
+  ungroup() %>% 
+  dplyr::select(cluster, VegType) %>% 
+  distinct(cluster)
+
+clusters_with_stem_density <- presence_absence %>%
+  ungroup() %>% 
+  dplyr::select(cluster, VegType) %>% 
+  distinct(cluster)
+
+clusters_without_stem_density <- all_clusters %>%
+  anti_join(clusters_with_stem_density, by = "cluster") %>%
+  mutate(VegType = "0")
+
+# Combine clusters with and without stem density
+final_result <- bind_rows(vert_class_presence_absence, clusters_without_stem_density) %>%
+  arrange(cluster, VegType)
+
+# Display final result
+final_result
+
+# reclassify naming convention
+
+final_result <- final_result %>%
+  mutate(VegType = case_when(
+    VegType == "Mature" ~ "m",
+    VegType == "Saplings" ~ "s",
+    VegType == "Juveniles" ~ "j",
+    TRUE ~ VegType # In case there are other values
+  )) %>% 
+  left_join(clim_cluster_indicator, by = c('cluster' = 'site'))  
+
+# Group by cluster, concatenate VegType into a single string for each cluster
+vegtype_classes <- final_result %>%
+  group_by(cluster, clim_class) %>%
+  summarise(veg_class = paste(sort(unique(VegType)), collapse = "")) %>%
+  ungroup()
+
+# Count the occurrences of each veg_class within each clim_class
+vegtype_class_count <- vegtype_classes %>%
+  group_by(clim_class, veg_class) %>%
+  summarise(count = n()) %>%
+  ungroup() %>%
+  arrange(clim_class, veg_class)
+
+# Calculate the total counts per clim_class
+vegtype_class_percent <- vegtype_class_count %>%
+  group_by(clim_class) %>%
+  mutate(total_count = sum(count)) %>% 
+  ungroup() %>%
+  # Calculate the percentage for each veg_class within each clim_class
+  mutate(percent = round((count / total_count) * 100, 1))
+
+
+# order the classes:
+
+# Set up the correct factor levels for veg_class based on your preferred order
+vegtype_class_percent$veg_class <- factor(vegtype_class_percent$veg_class, 
+                                        levels = c("0", "s", "js", "j", "jm",  "jms", "ms", "m"))
+
+# Define a green color palette using colorRampPalette for 's' to 'jms' classes
+green_palette <- colorRampPalette(c("lightgreen", "darkgreen"))(7)  # 7 shades of green
+
+# Combine the red color for '0' with the generated green palette
+color_palette <- c("0" = "red", setNames(green_palette, c("s", "js", "j", "jm",  "jms", "ms", "m")))
+
+
+
+# Create a stacked bar plot
+p_vertical_classes <- ggplot(vegtype_class_percent, aes(x = clim_class, y = percent, fill = veg_class)) +
+  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
+ geom_text(aes(label = #paste0(count, " (", percent, "%)")
+                ifelse(percent>=2, percent, '')
+               ),
+            position = position_stack(vjust = 0.5),  # Labels inside the bars
+          size = 3, color = "black") +  # Adjust text size and color
+ # scale_y_continuous(labels = percent_format()) +  # Format y-axis as percentage
+  labs(x = "", y = "Percentage", 
+       fill = "Vertical\nclass",
+       title = "") +
+  scale_fill_manual(values = color_palette) +  # Apply the color palette with green gradient and red
+  theme_classic2() +  # Use a clean theme
+  theme(
+   # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
+    plot.title = element_text(hjust = 0.5)  # Center the title
+  )
+
+
+
+ggsave(filename = 'outFigs/fig_vert_classes_share_clim_clust.png', 
+              plot = p_vertical_classes, 
+               width = 5, height = 4, dpi = 300, bg = 'white')
+
+
+
+
+# PLOT: summary inicators -----------------------------------------------------
+# Define the function to create a customizable violin plot
+create_violin_plot <- function(df, y_var, y_label) {
+  df %>%
+    ggplot(aes(x = clim_class, y = !!sym(y_var))) +  # Use dynamic y variable
+    geom_violin(aes(fill = clim_class), 
+                trim = TRUE, alpha = 0.6) +  # Create the violin plot
+    geom_boxplot(width = 0.15) +
+    scale_fill_manual(values = c("orange", "red", "blue")) +
+    labs(x = '',
+         fill = 'Clim_ENV cluster',
+         y = y_label) +  # Use dynamic y label
+    theme_classic2() +
+    theme(legend.position = "none")
+}
+
+# Example usage for rIVI, n_vertical, and richness
+
+# For rIVI
+p_viol_stem_density <- create_violin_plot(df_fin, "stem_density", "Stem density")
+
+# For rIVI
+p_viol_rIVI <- create_violin_plot(df_fin, "rIVI", "rIVI")
+
+# For n_vertical
+p_viol_vert <- create_violin_plot(df_fin, "n_vertical", "Vertical richness")
+
+# For richness
+p_viol_richness <- create_violin_plot(df_fin, "richness", "Richness")
+
+ggarrange(p_viol_stem_density,p_vertical_classes, p_viol_rIVI, p_viol_richness)
+
+# visualize vertical classes by UpSEt plot
+
+# TEST -----------------------------------
+
+library(UpSetR)
+
+dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
+                 vert = c('m', 
+                          's', 'j',
+                          'j','s','m',
+                          's',
+                          'j','s',
+                          's',
+                          'm','j','s'))
+# Step 1: Create a binary presence/absence matrix for each site
+dd_wide <- dd %>%
+  pivot_wider(names_from = vert, values_from = vert, 
+              values_fn = length, values_fill = 0) %>%
+  mutate(m = ifelse(m > 0, 1, 0),
+         j = ifelse(j > 0, 1, 0),
+         s = ifelse(s > 0, 1, 0))
+
+# Step 2: Select only the columns with presence/absence data
+upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
+  as.data.frame()
+
+# Step 3: Create the UpSet plot
+upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
+
+
+
+
+
+
+
 
 # Get again individual layers:
 df_vert_full <- 
   stem_dens_species_long %>% 
+  left_join(clim_cluster_indicator, by = c('cluster' = 'site')) %>% 
   dplyr::filter(stem_density>0) %>% 
   ungroup(.) %>% 
   dplyr::select(cluster, VegType) %>%
