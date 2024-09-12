@@ -49,8 +49,11 @@ source('my_functions.R')
 
 # Read data -----------------------------------------------------------------------
 
-df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
+# get vegetation data
+load("outData/veg.Rdata")
 
+# final tables on site level
+df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
 
 ## read coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
@@ -151,31 +154,7 @@ st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin",
 
 
 
-
-
-# Make 2d denisty plots: 
-
-# Merge structure & composition into single space 
-
-
-#View(df_fin)
-# get summary for the scatter plot, one point is one country & management
-df_summary <- df_fin %>%
-  # group_by(manag) %>% # country, 
-  summarize(
-    rich_med = median(rIVI, na.rm = TRUE),
-    rich_sd = sd(rIVI, na.rm = TRUE),
-    rich_25 = quantile(rIVI, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
-    rich_75 = quantile(rIVI, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
-    dens_med = median(stem_density   , na.rm = TRUE),
-    dens_sd   = sd(stem_density  , na.rm = TRUE),
-    dens_25 = quantile(stem_density  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
-    dens_75 = quantile(stem_density  , 0.75, na.rm = TRUE), # dens_mean + dens_sd, #
-    .groups = 'drop'
-  )
-
-(df_summary)
-
+## Exploratory analysis ---------------------
 
 ### explore general trends of vegetation along management gradient: -------------------------------
 
@@ -208,7 +187,7 @@ print(p4)
 
 
 # List of variables to plot against 'stem_density'
-variables <- c("tmp", "prec", "tmp_z", "prcp_z", "spei1", "spei3", "spei6", "spei12", "spei24")
+variables <- c("tmp", "prcp", "tmp_z", "prcp_z", "spei1", "spei3", "spei6", "spei12", "spei24")
 
 # Generate plots and store them in a list
 plots <- lapply(variables, function(var) {
@@ -234,25 +213,29 @@ combined_plot <- ggarrange(plotlist = plots, ncol = 3, nrow = 3)  # Adjust ncol 
 ggsave("outFigs/combined_stem_density_plots.png", combined_plot, width = 10, height = 8, dpi = 300)
 
 
+### Climate space:  2D density plot with raster -------------------------------
 
-# try simple glm: values between 0-1 - use beta distribution:
-# # make sure that no dat are equal 0 or 1
-# df_fin
-# # Ensure that the transformed variable is strictly between 0 and 1, not 0 or 1
-# dat_fin$tr_agg_doy  <- pmin(pmax(dat_fin$tr_agg_doy, 1e-4),  1 - 1e-4)
-# dat_fin$tr_peak_doy <- pmin(pmax(dat_fin$tr_peak_doy, 1e-4), 1 - 1e-4)
-# 
-# 
-# model_lag0 <- glmmTMB(model_lag0_formula, family = beta_family(link = "logit"), data = data, 
-#                       na.action = na.exclude)
-# 
-# # Assuming your model is an 'lme4' or 'glmmTMB' object
-# (vif_values <- performance::check_collinearity(m1))
+# Merge structure & composition into single space 
 
 
+#View(df_fin)
+# get summary for the scatter plot, one point is one country & management
+df_summary <- df_fin %>%
+  # group_by(manag) %>% # country, 
+  summarize(
+    rich_med = median(rIVI, na.rm = TRUE),
+    rich_sd = sd(rIVI, na.rm = TRUE),
+    rich_25 = quantile(rIVI, 0.25, na.rm = TRUE), # rich_mean -rich_sd, #
+    rich_75 = quantile(rIVI, 0.75, na.rm = TRUE), # rich_mean +rich_sd,
+    dens_med = median(stem_density   , na.rm = TRUE),
+    dens_sd   = sd(stem_density  , na.rm = TRUE),
+    dens_25 = quantile(stem_density  , 0.25, na.rm = TRUE), # dens_mean - dens_sd, #
+    dens_75 = quantile(stem_density  , 0.75, na.rm = TRUE), # dens_mean + dens_sd, #
+    .groups = 'drop'
+  )
 
+(df_summary)
 
-###### Climate space:  density plot with raster -------------------------------
 
 library(MASS)
 library(RColorBrewer)
