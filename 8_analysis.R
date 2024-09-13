@@ -618,10 +618,74 @@ species_clim_class_level <- species_site_level %>%
 top_species_per_clim_class_site_level <- species_clim_class_level %>%
   group_by(clim_class) %>%
   arrange(desc(avg_share_clim_class)) %>%
-  slice_head(n = 5)  # Select the top 5 species per climate class
+  dplyr::filter(avg_share_clim_class > 2) %>%  # select species with share > 5%
+  left_join(df_seral_species, by = join_by(Species))  #%>% 
+
+  #slice_head(n = 5)  # Select the top 5 species per climate class
 
 # Display the result
 top_species_per_clim_class_site_level
+
+
+# plot test START
+
+
+# Ensure species are arranged by seral type and within each climate class
+top_species_per_clim_class_site_level <- top_species_per_clim_class_site_level %>%
+  arrange(clim_class, seral_type, Species)  # First arrange by seral type and then by Species alphabetically
+
+# Reorder the Species factor based on the seral type
+top_species_per_clim_class_site_level$Species <- factor(top_species_per_clim_class_site_level$Species, 
+                                             levels = unique(top_species_per_clim_class_site_level$Species[order(top_species_per_clim_class_site_level$seral_type)]))
+
+
+# Load the RColorBrewer package for color palettes
+#library(RColorBrewer)
+table(top_species_per_clim_class_site_level$seral_type, top_species_per_clim_class_site_level$Species)
+
+# Define color palettes for each seral type
+pioneer_colors       <- brewer.pal(4, "Blues")    # Red shades for pioneer species
+early_seral_colors   <- brewer.pal(3, "Oranges")  # Orange shades for early seral species
+late_seral_colors    <- brewer.pal(7, "Greens")  # Green shades for late seral species
+
+# Create a color mapping for Species based on the seral_type
+top_species_per_clim_class_site_level$color <- NA
+top_species_per_clim_class_site_level$color[top_species_per_clim_class_site_level$seral_type == "Pioneer"] <- pioneer_colors
+top_species_per_clim_class_site_level$color[top_species_per_clim_class_site_level$seral_type == "Early seral"] <- early_seral_colors
+top_species_per_clim_class_site_level$color[top_species_per_clim_class_site_level$seral_type == "Late seral"] <- late_seral_colors
+
+# Create a named vector for the colors, so each Species has a color
+species_colors <- setNames(top_species_per_clim_class_site_level$color, top_species_per_clim_class_site_level$Species)
+
+# Create the stacked bar plot
+p_species_distribution_level <- ggplot(top_species_per_clim_class_site_level, 
+                                 aes(x = clim_class, 
+                                     y = avg_share_clim_class , fill = Species)) +
+  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
+  geom_text(aes(label = ifelse(avg_share_clim_class >= 2, paste0(round(avg_share_clim_class , 1), "%"), "")),
+            position = position_stack(vjust = 0.5),  # Labels inside the bars
+            size = 3, color = "black") +  # Adjust text size and color
+  labs(x = "", y = "Percentage", 
+       fill = "Species",
+       title = "") +
+  scale_fill_manual(values = species_colors) +  # Apply the color palette based on seral type
+  theme_classic() +  # Use a clean theme
+  theme(
+    # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
+    plot.title = element_text(hjust = 0.5)  # Center the title
+  )
+
+p_species_distribution_level
+
+
+ggsave(filename = 'outFigs/fig_p_species_distribution_site_level.png', 
+       plot = p_species_distribution_level, 
+       width = 7, height = 5.5, dpi = 300, bg = 'white')
+
+
+
+# END plot test 
+
 
 
 
