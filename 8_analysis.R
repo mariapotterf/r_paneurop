@@ -476,20 +476,20 @@ ggarrange(p_IVI_manag, p_richness_manag,
 
 
 
-# 2. species composition per stems: saplings vs juveniles?? --------------
+# 2. species composition per stems: --------------
 
 # identify seral stages
 df_seral_species <- data.frame(
   Species = c("abal", "lade", "piab", "pist", "pisy", "psme", "taba", "acca", "acpl", "acps", "aehi", "aial", "algl",
           "alin", "alvi", "besp", "cabe", "casa", "fasy", "frex", "fror", "ilaq", "juni", "jure", "osca", "otsp",
           "posp", "potr", "prav", "quro", "qusp", "rops", "saca", "sasp", "soar", "soau", "soto", "tisp", "ulsp"),
-  # latinn = c("Abies alba", "Larix decidua", "Picea abies", "Pinus strobus", "Pinus sylvestris", "Pseudotsuga menziesii",
-  #            "Taxus baccata", "Acer campestre", "Acer platanoides", "Acer pseudoplatanus", "Aesculus hippocastanum",
-  #            "Ailanthus altissima", "Alnus glutinosa", "Alnus incarna", "Alnus viridis", "Betula spp.", "Carpinus betulus",
-  #            "Castanea sativa", "Fagus sylvatica", "Fraxinus excelsior", "Fraxinus ornus", "Ilex aquifolium", "Juglans nigra",
-  #            "Juglans regia", "Ostrya carpinifolia", "Other species", "Populus spp.", "Populus tremula", "Prunus avium",
-  #            "Quercus robur/petraea", "Quercus spp.", "Robinia pseudoacacia", "Salix caprea", "Salix spp.", "Sorbus aria",
-  #            "Sorbus aucuparia", "Sorbus torminalis", "Tilia spp.", "Ulmus spp."),
+  latinn = c("Abies alba", "Larix decidua", "Picea abies", "Pinus strobus", "Pinus sylvestris", "Pseudotsuga menziesii",
+             "Taxus baccata", "Acer campestre", "Acer platanoides", "Acer pseudoplatanus", "Aesculus hippocastanum",
+             "Ailanthus altissima", "Alnus glutinosa", "Alnus incarna", "Alnus viridis", "Betula spp.", "Carpinus betulus",
+             "Castanea sativa", "Fagus sylvatica", "Fraxinus excelsior", "Fraxinus ornus", "Ilex aquifolium", "Juglans nigra",
+             "Juglans regia", "Ostrya carpinifolia", "Other species", "Populus spp.", "Populus tremula", "Prunus avium",
+             "Quercus robur/petraea", "Quercus spp.", "Robinia pseudoacacia", "Salix caprea", "Salix spp.", "Sorbus aria",
+             "Sorbus aucuparia", "Sorbus torminalis", "Tilia spp.", "Ulmus spp."),
   seral_type = c("Late seral", "Early seral", "Late seral", "Late seral", "Early seral", "Late seral", 
               "Late seral", "Late seral", "Late seral", "Late seral", "Late seral", "Pioneer", "Pioneer",
               "Pioneer", "Pioneer", "Pioneer", "Late seral", "Late seral", "Late seral", "Pioneer", "Early seral",
@@ -517,7 +517,20 @@ stem_dens_species_long %>%
   arrange(desc(share)) #%>% 
 #View()
 
-#### Global species pomposition ----------------------
+#### Global species composition ----------------------
+
+#sum of species per fiel wrork: from 37 tree species
+# Calculate species richness per clim_class
+species_richness <- top_species_per_clim_class %>%
+  group_by(clim_class) %>%
+  summarise(species_richness = n_distinct(Species))
+
+stem_dens_species_long %>% 
+  ungroup() %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  summarise(species_richness = n_distinct(Species))
+ 
+
 # Summarize the total stem density per species for each climate class
 species_composition <- stem_dens_species_long %>%
   group_by(clim_class, Species) %>%
@@ -538,11 +551,8 @@ species_composition <- species_composition %>%
 top_species_per_clim_class <- species_composition %>%
   group_by(clim_class) %>%
   arrange(desc(share)) %>%  # Sort species by their share within each climate class
-  #slice_head(n = 5)  # Select the top 5 species per climate class
   dplyr::filter(share > 2) %>%  # select species with share > 5%
   left_join(df_seral_species, by = join_by(Species))  #%>% 
-  #arrange(seral_type) %>% 
-  #mutate(seral_type=factor(seral_type) )
 
 # Ensure species are arranged by seral type and within each climate class
 top_species_per_clim_class <- top_species_per_clim_class %>%
@@ -551,6 +561,7 @@ top_species_per_clim_class <- top_species_per_clim_class %>%
 # Reorder the Species factor based on the seral type
 top_species_per_clim_class$Species <- factor(top_species_per_clim_class$Species, 
                                              levels = unique(top_species_per_clim_class$Species[order(top_species_per_clim_class$seral_type)]))
+
 
 
 # Load the RColorBrewer package for color palettes
@@ -597,97 +608,65 @@ ggsave(filename = 'outFigs/fig_p_species_distribution_global.png',
        width = 7, height = 5.5, dpi = 300, bg = 'white')
 
 
-#### Site level species composition: -----------------------------------------
-# Step 1: Calculate species share within each cluster (site)
-species_site_level <- stem_dens_species_long %>%
-  group_by(cluster, clim_class, Species) %>%
-  summarize(sum_stems_site = sum(stem_density, na.rm = TRUE)) %>%  # Total stem density per species in each site
-  ungroup() %>%
-  group_by(cluster) %>%
-  mutate(total_stems_site = sum(sum_stems_site),  # Total stem density per site (cluster)
-         site_share = (sum_stems_site / total_stems_site) * 100) %>%  # Share per species at the site level
+# Species compositiosn: country -----------------------------------
+
+# Summarize the total stem density per species for each climate class
+species_composition <- stem_dens_species_long %>%
+  group_by(Species, country) %>%
+  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
+  ungroup() 
+
+# Calculate the total stem density per climate class and the share of each species
+species_composition <- species_composition %>%
+  group_by(country) %>%
+  mutate(total_stems_clim_class = sum(sum_stems),  # Total stem density in each climate class
+         share = (sum_stems / total_stems_clim_class) * 100) %>%  # Calculate percentage share
   ungroup()
 
-# Step 2: Aggregate the site-level species shares within each climate class
-species_clim_class_level <- species_site_level %>%
-  group_by(clim_class, Species) %>%
-  summarize(avg_share_clim_class = mean(site_share, na.rm = TRUE)) %>%  # Average share per species in each climate class
-  ungroup()
 
-# Step 3: Find the top 5 species per climate class based on the average site-level share
-top_species_per_clim_class_site_level <- species_clim_class_level %>%
-  group_by(clim_class) %>%
-  arrange(desc(avg_share_clim_class)) %>%
-  dplyr::filter(avg_share_clim_class > 2) %>%  # select species with share > 5%
-  left_join(df_seral_species, by = join_by(Species))  #%>% 
-
-  #slice_head(n = 5)  # Select the top 5 species per climate class
-
-# Display the result
-top_species_per_clim_class_site_level
-
-
-# plot test START
-
+# Find the top 5 species per climate class based on share
+top_species_per_clim_class <- species_composition %>%
+  group_by( country) %>%
+  arrange(desc(share)) %>%  # Sort species by their share within each climate class
+  #slice_head(n = 6) #%>%  # Select the top 5 species per country
+  dplyr::filter(share > 5)# %>%  # select species with share > 5%
+  #left_join(df_seral_species, by = join_by(Species))  #%>% 
+#arrange(seral_type) %>% 
+#mutate(seral_type=factor(seral_type) )
 
 # Ensure species are arranged by seral type and within each climate class
-top_species_per_clim_class_site_level <- top_species_per_clim_class_site_level %>%
-  arrange(clim_class, seral_type, Species)  # First arrange by seral type and then by Species alphabetically
+top_species_per_clim_class <- top_species_per_clim_class %>%
+  arrange(country, Species)  # First arrange by seral type and then by Species alphabetically
 
-# Reorder the Species factor based on the seral type
-top_species_per_clim_class_site_level$Species <- factor(top_species_per_clim_class_site_level$Species, 
-                                             levels = unique(top_species_per_clim_class_site_level$Species[order(top_species_per_clim_class_site_level$seral_type)]))
+n_colors <- length(unique(top_species_per_clim_class$Species))
 
-
-# Load the RColorBrewer package for color palettes
-#library(RColorBrewer)
-table(top_species_per_clim_class_site_level$seral_type, top_species_per_clim_class_site_level$Species)
-
-# Define color palettes for each seral type
-pioneer_colors       <- brewer.pal(4, "Blues")    # Red shades for pioneer species
-early_seral_colors   <- brewer.pal(3, "Oranges")  # Orange shades for early seral species
-late_seral_colors    <- brewer.pal(7, "Greens")  # Green shades for late seral species
-
-# Create a color mapping for Species based on the seral_type
-top_species_per_clim_class_site_level$color <- NA
-top_species_per_clim_class_site_level$color[top_species_per_clim_class_site_level$seral_type == "Pioneer"] <- pioneer_colors
-top_species_per_clim_class_site_level$color[top_species_per_clim_class_site_level$seral_type == "Early seral"] <- early_seral_colors
-top_species_per_clim_class_site_level$color[top_species_per_clim_class_site_level$seral_type == "Late seral"] <- late_seral_colors
-
-# Create a named vector for the colors, so each Species has a color
-species_colors <- setNames(top_species_per_clim_class_site_level$color, top_species_per_clim_class_site_level$Species)
+my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Extend to 12 colors 
 
 # Create the stacked bar plot
-p_species_distribution_level <- ggplot(top_species_per_clim_class_site_level, 
-                                 aes(x = clim_class, 
-                                     y = avg_share_clim_class , fill = Species)) +
+p_species_distribution_country <- ggplot(top_species_per_clim_class, 
+                                 aes(x = country, 
+                                     y = share, 
+                                     fill = Species)) +
   geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
-  geom_text(aes(label = ifelse(avg_share_clim_class >= 2, paste0(round(avg_share_clim_class , 1), "%"), "")),
+  geom_text(aes(label = ifelse(share >= 2, paste0(round(share, 1), "%"), "")),
             position = position_stack(vjust = 0.5),  # Labels inside the bars
             size = 3, color = "black") +  # Adjust text size and color
   labs(x = "", y = "Percentage", 
        fill = "Species",
        title = "") +
-  scale_fill_manual(values = species_colors) +  # Apply the color palette based on seral type
+  scale_fill_manual(values = my_colors) +  # Apply the color palette based on seral type
   theme_classic() +  # Use a clean theme
   theme(
     # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
     plot.title = element_text(hjust = 0.5)  # Center the title
-  )
+  ) 
 
-p_species_distribution_level
-
-
-ggsave(filename = 'outFigs/fig_p_species_distribution_site_level.png', 
-       plot = p_species_distribution_level, 
-       width = 7, height = 5.5, dpi = 300, bg = 'white')
+p_species_distribution_country
 
 
-
-# END plot test 
-
-
-
+ggsave(filename = 'outFigs/fig_p_species_distribution_global_country.png', 
+       plot = p_species_distribution_country, 
+       width = 7, height = 5, dpi = 300, bg = 'white')
 
 
 
