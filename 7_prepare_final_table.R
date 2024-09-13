@@ -916,8 +916,3 @@ sjPlot::tab_df(median_iqr_table_country,
                digits = 2) 
 
 
-
-
-# visualize the presence/absence of vertical classes: 
-
-

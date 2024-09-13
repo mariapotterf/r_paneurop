@@ -477,18 +477,156 @@ ggarrange(p_IVI_manag, p_richness_manag,
 
 
 # 2. species composition per stems: saplings vs juveniles?? --------------
-# how many plots with Mature trees?
-# 
+
+# identify seral stages
+df_seral_species <- data.frame(
+  Species = c("abal", "lade", "piab", "pist", "pisy", "psme", "taba", "acca", "acpl", "acps", "aehi", "aial", "algl",
+          "alin", "alvi", "besp", "cabe", "casa", "fasy", "frex", "fror", "ilaq", "juni", "jure", "osca", "otsp",
+          "posp", "potr", "prav", "quro", "qusp", "rops", "saca", "sasp", "soar", "soau", "soto", "tisp", "ulsp"),
+  # latinn = c("Abies alba", "Larix decidua", "Picea abies", "Pinus strobus", "Pinus sylvestris", "Pseudotsuga menziesii",
+  #            "Taxus baccata", "Acer campestre", "Acer platanoides", "Acer pseudoplatanus", "Aesculus hippocastanum",
+  #            "Ailanthus altissima", "Alnus glutinosa", "Alnus incarna", "Alnus viridis", "Betula spp.", "Carpinus betulus",
+  #            "Castanea sativa", "Fagus sylvatica", "Fraxinus excelsior", "Fraxinus ornus", "Ilex aquifolium", "Juglans nigra",
+  #            "Juglans regia", "Ostrya carpinifolia", "Other species", "Populus spp.", "Populus tremula", "Prunus avium",
+  #            "Quercus robur/petraea", "Quercus spp.", "Robinia pseudoacacia", "Salix caprea", "Salix spp.", "Sorbus aria",
+  #            "Sorbus aucuparia", "Sorbus torminalis", "Tilia spp.", "Ulmus spp."),
+  seral_type = c("Late seral", "Early seral", "Late seral", "Late seral", "Early seral", "Late seral", 
+              "Late seral", "Late seral", "Late seral", "Late seral", "Late seral", "Pioneer", "Pioneer",
+              "Pioneer", "Pioneer", "Pioneer", "Late seral", "Late seral", "Late seral", "Pioneer", "Early seral",
+              "Late seral", "Early seral", "Early seral", "Late seral", "Other", "Pioneer", "Pioneer", 
+              "Early seral", "Late seral", "Late seral", "Pioneer", "Pioneer", "Pioneer", "Early seral", 
+              "Early seral", "Early seral", "Late seral", "Late seral")
+)
+
+
+
+# ad indicators for clim cluster
+stem_dens_species_long <- stem_dens_species_long %>% 
+  left_join(clim_cluster_indicator, by = c('cluster' = 'site')) #%>% 
+  
 
 # get overall number for the species compositions:
 stem_dens_species_long %>% 
-  group_by(Species) %>% 
+  group_by(Species, clim_class  ) %>% 
   summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
   ungroup(.) %>% 
   mutate(sum_vegType = sum(sum_stems),
          share       = sum_stems/sum_vegType*100) %>% 
+  group_by(clim_class) %>% 
+  
   arrange(desc(share)) #%>% 
 #View()
+
+#### Global species pomposition ----------------------
+# Summarize the total stem density per species for each climate class
+species_composition <- stem_dens_species_long %>%
+  group_by(clim_class, Species) %>%
+  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
+  ungroup() 
+
+# Calculate the total stem density per climate class and the share of each species
+species_composition <- species_composition %>%
+  group_by(clim_class) %>%
+  mutate(total_stems_clim_class = sum(sum_stems),  # Total stem density in each climate class
+         share = (sum_stems / total_stems_clim_class) * 100) %>%  # Calculate percentage share
+  ungroup()
+
+
+# Use different gradient depepnding fof teh seral stage: 
+
+# Find the top 5 species per climate class based on share
+top_species_per_clim_class <- species_composition %>%
+  group_by(clim_class) %>%
+  arrange(desc(share)) %>%  # Sort species by their share within each climate class
+  #slice_head(n = 5)  # Select the top 5 species per climate class
+  dplyr::filter(share > 2) %>%  # select species with share > 5%
+  left_join(df_seral_species, by = join_by(Species))  #%>% 
+  #arrange(seral_type) %>% 
+  #mutate(seral_type=factor(seral_type) )
+
+# Ensure species are arranged by seral type and within each climate class
+top_species_per_clim_class <- top_species_per_clim_class %>%
+  arrange(clim_class, seral_type, Species)  # First arrange by seral type and then by Species alphabetically
+
+# Reorder the Species factor based on the seral type
+top_species_per_clim_class$Species <- factor(top_species_per_clim_class$Species, 
+                                             levels = unique(top_species_per_clim_class$Species[order(top_species_per_clim_class$seral_type)]))
+
+
+# Load the RColorBrewer package for color palettes
+library(RColorBrewer)
+table(top_species_per_clim_class$seral_type, top_species_per_clim_class$Species)
+
+# Define color palettes for each seral type
+pioneer_colors       <- brewer.pal(4, "Blues")    # Red shades for pioneer species
+early_seral_colors   <- brewer.pal(3, "Oranges")  # Orange shades for early seral species
+late_seral_colors    <- brewer.pal(6, "Greens")  # Green shades for late seral species
+
+# Create a color mapping for Species based on the seral_type
+top_species_per_clim_class$color <- NA
+top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Pioneer"] <- pioneer_colors
+top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Early seral"] <- early_seral_colors
+top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Late seral"] <- late_seral_colors
+
+# Create a named vector for the colors, so each Species has a color
+species_colors <- setNames(top_species_per_clim_class$color, top_species_per_clim_class$Species)
+
+# Create the stacked bar plot
+p_species_distribution <- ggplot(top_species_per_clim_class, 
+                                 aes(x = clim_class, 
+                                     y = share, fill = Species)) +
+  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
+  geom_text(aes(label = ifelse(share >= 2, paste0(round(share, 1), "%"), "")),
+            position = position_stack(vjust = 0.5),  # Labels inside the bars
+            size = 3, color = "black") +  # Adjust text size and color
+  labs(x = "", y = "Percentage", 
+       fill = "Species",
+       title = "") +
+  scale_fill_manual(values = species_colors) +  # Apply the color palette based on seral type
+  theme_classic() +  # Use a clean theme
+  theme(
+    # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
+    plot.title = element_text(hjust = 0.5)  # Center the title
+  )
+
+p_species_distribution
+
+
+ggsave(filename = 'outFigs/fig_p_species_distribution_global.png', 
+       plot = p_species_distribution, 
+       width = 7, height = 5.5, dpi = 300, bg = 'white')
+
+
+#### Site level species composition: -----------------------------------------
+# Step 1: Calculate species share within each cluster (site)
+species_site_level <- stem_dens_species_long %>%
+  group_by(cluster, clim_class, Species) %>%
+  summarize(sum_stems_site = sum(stem_density, na.rm = TRUE)) %>%  # Total stem density per species in each site
+  ungroup() %>%
+  group_by(cluster) %>%
+  mutate(total_stems_site = sum(sum_stems_site),  # Total stem density per site (cluster)
+         site_share = (sum_stems_site / total_stems_site) * 100) %>%  # Share per species at the site level
+  ungroup()
+
+# Step 2: Aggregate the site-level species shares within each climate class
+species_clim_class_level <- species_site_level %>%
+  group_by(clim_class, Species) %>%
+  summarize(avg_share_clim_class = mean(site_share, na.rm = TRUE)) %>%  # Average share per species in each climate class
+  ungroup()
+
+# Step 3: Find the top 5 species per climate class based on the average site-level share
+top_species_per_clim_class_site_level <- species_clim_class_level %>%
+  group_by(clim_class) %>%
+  arrange(desc(avg_share_clim_class)) %>%
+  slice_head(n = 5)  # Select the top 5 species per climate class
+
+# Display the result
+top_species_per_clim_class_site_level
+
+
+
+
+
 
 library(treemapify)
 
@@ -600,10 +738,325 @@ ggplot(top_species_per_group, aes(x = VegType, y = share, fill = Species)) +
 
 
 
+## Structure ---------------------------------------------------------
+
+### Vertical structure  --------------------------------------
+
+
+## Get presence absence data for indiviual layers --------------------------
+
+# Group by cluster and VegType, check if stem_density > 0
+vert_class_presence_absence <- stem_dens_species_long %>%
+  group_by(cluster, VegType) %>%
+  summarise(has_stem_density = sum(stem_density > 0, na.rm = TRUE) > 0) %>%
+  ungroup() %>%
+  # Filter only where there is stem density present
+  dplyr::filter(has_stem_density) %>%
+  dplyr::select(cluster, VegType)
+
+# Now find clusters where no VegType has stem_density > 0
+# Find clusters where no vegType has stem_density
+all_clusters <- stem_dens_species_long %>%
+  ungroup() %>% 
+  dplyr::select(cluster, VegType) %>% 
+  distinct(cluster)
+
+clusters_with_stem_density <- presence_absence %>%
+  ungroup() %>% 
+  dplyr::select(cluster, VegType) %>% 
+  distinct(cluster)
+
+clusters_without_stem_density <- all_clusters %>%
+  anti_join(clusters_with_stem_density, by = "cluster") %>%
+  mutate(VegType = "0")
+
+# Combine clusters with and without stem density
+final_result <- bind_rows(vert_class_presence_absence, clusters_without_stem_density) %>%
+  arrange(cluster, VegType)
+
+# Display final result
+final_result
+
+# reclassify naming convention
+
+final_result <- final_result %>%
+  mutate(VegType = case_when(
+    VegType == "Mature" ~ "m",
+    VegType == "Saplings" ~ "s",
+    VegType == "Juveniles" ~ "j",
+    TRUE ~ VegType # In case there are other values
+  )) %>% 
+  left_join(clim_cluster_indicator, by = c('cluster' = 'site'))  
+
+# Group by cluster, concatenate VegType into a single string for each cluster
+vert_vegtype_classes <- final_result %>%
+  group_by(cluster, clim_class) %>%
+  summarise(veg_class = paste(sort(unique(VegType)), collapse = "")) %>%
+  ungroup()
+
+# Count the occurrences of each veg_class within each clim_class
+vert_vegtype_class_count <- vert_vegtype_classes %>%
+  group_by(clim_class, veg_class) %>%
+  summarise(count = n()) %>%
+  ungroup() %>%
+  arrange(clim_class, veg_class)
+
+# Calculate the total counts per clim_class
+vert_vegtype_class_percent <- vert_vegtype_class_count %>%
+  group_by(clim_class) %>%
+  mutate(total_count = sum(count)) %>% 
+  ungroup() %>%
+  # Calculate the percentage for each veg_class within each clim_class
+  mutate(percent = round((count / total_count) * 100, 1))
+
+
+# order the classes:
+
+# Set up the correct factor levels for veg_class based on your preferred order
+vert_vegtype_class_percent$veg_class <- factor(vert_vegtype_class_percent$veg_class, 
+                                               levels = c("0", "s", "js", "j", "jm",  "jms", "ms", "m"))
+
+# Define a green color palette using colorRampPalette for 's' to 'jms' classes
+green_palette <- colorRampPalette(c("lightgreen", "darkgreen"))(7)  # 7 shades of green
+
+# Combine the red color for '0' with the generated green palette
+color_palette <- c("0" = "red", setNames(green_palette, c("s", "js", "j", "jm",  "jms", "ms", "m")))
+
+
+
+# Create a stacked bar plot
+p_vertical_classes <- ggplot(vert_vegtype_class_percent, aes(x = clim_class, y = percent, fill = veg_class)) +
+  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
+  geom_text(aes(label = #paste0(count, " (", percent, "%)")
+                  ifelse(percent>=2, percent, '')
+  ),
+  position = position_stack(vjust = 0.5),  # Labels inside the bars
+  size = 3, color = "black") +  # Adjust text size and color
+  labs(x = "", y = "Percentage", 
+       fill = "Vertical\nclass",
+       title = "") +
+  scale_fill_manual(values = color_palette) +  # Apply the color palette with green gradient and red
+  theme_classic2() +  # Use a clean theme
+  theme(
+    # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
+    plot.title = element_text(hjust = 0.5)  # Center the title
+  )
+
+
+
+ggsave(filename = 'outFigs/fig_vert_classes_share_clim_clust.png', 
+       plot = p_vertical_classes, 
+       width = 5, height = 4, dpi = 300, bg = 'white')
+
+
+
+# 
+
+
+#### test vertical layers - OLD -----------------------------------------------------
+
+# Get again individual layers:
+df_vert_full <- 
+  stem_dens_species_long %>% 
+  left_join(clim_cluster_indicator, by = c('cluster' = 'site')) %>% 
+  dplyr::filter(stem_density>0) %>% 
+  ungroup(.) %>% 
+  dplyr::select(cluster, VegType) %>%
+  group_by(cluster) %>%
+  distinct(.) %>% 
+  mutate(n_layers = n()) #%>% 
+
+
+
+# Calculate frequencies of individual layers and combinations
+layer_frequencies <- 
+  df_vert_full %>%
+  group_by(cluster) %>% 
+  right_join(df_stems) %>% # to account for teh empty ones
+  mutate(VegType = case_when(
+    is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
+    TRUE ~ VegType           # Keep existing values for non-NA cases
+  )) %>% 
+  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
+  ungroup() %>%
+  count(layers)
+
+layer_frequencies$prop <- layer_frequencies$n/n_clusters*100
+(layer_frequencies)
+
+# plot how often each category occurs
+windows()
+layer_frequencies %>% 
+  ggplot(aes(x = reorder(layers, -n), y = n)) +
+  geom_bar(stat = "identity") #, position = "fill") #+
+#geom_text(aes(label = paste0(round(scales::percent, 1), "%"), 
+#              y = cumsum(n) - n/2), 
+#          position = position_fill(), 
+#          color = "white", 
+#          size = 3) +
+ylab("Percentage (%)") +
+  theme_classic() +
+  labs(fill = "Layers")
+
+
+layer_frequencies %>% 
+  ggplot(aes(fill = layers     , 
+             area = prop      ,
+             label = paste(layers, "\n", round(prop,2), "%"))) +
+  geom_treemap() +
+  geom_treemap_text(colour ="white", place = "centre")# +
 
 
 
 
+layer_reg_frequencies <- 
+  df_vert_full %>%
+  dplyr::filter(VegType != 'Mature') %>% 
+  group_by(cluster) %>% 
+  right_join(df_stems) %>% # to account for teh empty ones
+  mutate(VegType = case_when(
+    is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
+    TRUE ~ VegType           # Keep existing values for non-NA cases
+  )) %>% 
+  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
+  ungroup() %>%
+  count(layers)
+
+
+# View the result
+print(layer_reg_frequencies)
+
+
+###### chi sqare goodnes of fit: -------------------
+# expecting that categories are equally distributed: divide total observations by number of groups
+# Total observations
+total_observations <- sum(layer_reg_frequencies$n)
+
+# Expected frequencies if all layers were equally likely
+expected_frequencies <- rep(total_observations / nrow(layer_reg_frequencies), 
+                            nrow(layer_reg_frequencies))
+
+# Perform the chi-square test for goodness of fit
+chi_square_test_result <- chisq.test(x = layer_reg_frequencies$n, 
+                                     p = expected_frequencies / total_observations)
+
+# Print the result
+print(chi_square_test_result)
+
+
+# compare residuals to understand the differences between groups:
+# Assuming chi_square_test_result is the result of your chi-square test
+# and layer_reg_frequencies contains the observed frequencies for your categories
+
+# Calculate expected frequencies
+expected_frequencies <- chi_square_test_result$expected
+
+# Calculate standardized residuals
+standardized_residuals <- (layer_reg_frequencies$n - expected_frequencies) / sqrt(expected_frequencies)
+
+# Associate residuals with group names
+residuals_table <- data.frame(Group = layer_reg_frequencies$layers, 
+                              StandardizedResiduals = standardized_residuals)
+
+# Print the residuals table, sorted by the absolute value of residuals
+residuals_table <- residuals_table[order(abs(residuals_table$StandardizedResiduals), decreasing = TRUE),]
+print(residuals_table)
+
+
+
+
+
+
+
+
+
+
+
+# PLOT: summary inicators -----------------------------------------------------
+# Define the function to create a customizable violin plot
+create_violin_plot <- function(df, y_var, y_label) {
+  df %>%
+    ggplot(aes(x = clim_class, y = !!sym(y_var))) +  # Use dynamic y variable
+    geom_violin(aes(fill = clim_class), 
+                trim = TRUE, alpha = 0.6) +  # Create the violin plot
+    geom_boxplot(width = 0.15) +
+    scale_fill_manual(values = c("orange", "red", "blue")) +
+    labs(x = '',
+         fill = 'Clim_ENV cluster',
+         y = y_label) +  # Use dynamic y label
+    theme_classic2() +
+    theme(legend.position = "none")
+}
+
+df_fin$plot_stem_density <- df_fin$stem_density/1000
+df_fin$plot_rIVI <- df_fin$rIVI*100
+# Example usage for rIVI, n_vertical, and richness
+
+# For rIVI
+p_viol_stem_density <- create_violin_plot(df_fin, "plot_stem_density", "Stem density [#*1000]")
+
+# For rIVI
+p_viol_rIVI <- create_violin_plot(df_fin, "plot_rIVI", "rIVI [%]")
+
+# For n_vertical
+p_viol_vert <- df_fin %>%
+  ggplot(aes(x = clim_class, y = n_vertical)) +  # Use dynamic y variable
+  geom_violin(aes(fill = clim_class), 
+              trim = TRUE, alpha = 0.6) +  # Create the violin plot
+  # geom_boxplot(width = 0.15) +
+  scale_fill_manual(values = c("orange", "red", "blue")) +
+  labs(x = '',
+       fill = 'Clim_ENV cluster',
+       y = 'Vertical layers [#]') + 
+  theme_classic2() +
+  theme(legend.position = "none") #create_violin_plot(df_fin, "n_vertical", "Vertical layers [#]")
+
+# For richness
+p_viol_richness <- create_violin_plot(df_fin, "richness", "Richness [#]")
+
+p_indicators_violin <- ggarrange(p_viol_stem_density,p_viol_vert, p_viol_rIVI, p_viol_richness,
+                                 labels = c("[a]", "[b]", "[c]", "[d]"),  # Add labels for each subplot,
+                                 legend = "none",
+                                 font.label = list(size = 10, face = "plain") ) # Adjust legend position if needed)
+
+(p_indicators_violin)
+ggsave(filename = 'outFigs/fig_indicators_violin.png', 
+       plot = p_indicators_violin, 
+       width = 7, height = 7, dpi = 300, bg = 'white')
+
+
+# visualize vertical classes by UpSEt plot
+
+# TEST -----------------------------------
+
+library(UpSetR)
+
+dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
+                 vert = c('m', 
+                          's', 'j',
+                          'j','s','m',
+                          's',
+                          'j','s',
+                          's',
+                          'm','j','s'))
+# Step 1: Create a binary presence/absence matrix for each site
+dd_wide <- dd %>%
+  pivot_wider(names_from = vert, values_from = vert, 
+              values_fn = length, values_fill = 0) %>%
+  mutate(m = ifelse(m > 0, 1, 0),
+         j = ifelse(j > 0, 1, 0),
+         s = ifelse(s > 0, 1, 0))
+
+# Step 2: Select only the columns with presence/absence data
+upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
+  as.data.frame()
+
+# Step 3: Create the UpSet plot
+upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
+
+
+
+# 
 
 
 
@@ -840,14 +1293,6 @@ perform_wilcox_test(df_regen_delay, "distance_edge", "low", "sufficient")
 
 
 
-
-
-
-
-
-
-
-
 # make a plot? not working wnow
 df_stock_density %>% 
   ggplot(aes(#x = manag,
@@ -929,298 +1374,6 @@ df_stock_density_simpl %>%
 
 
 # Compare categories occurences by chi square
-
-
-
-
-
-
-# Vertical layers  --------------------------------------
-
-
-## Get presence absence data for indiviual layers --------------------------
-
-# Group by cluster and VegType, check if stem_density > 0
-vert_class_presence_absence <- stem_dens_species_long %>%
-  group_by(cluster, VegType) %>%
-  summarise(has_stem_density = sum(stem_density > 0, na.rm = TRUE) > 0) %>%
-  ungroup() %>%
-  # Filter only where there is stem density present
-  dplyr::filter(has_stem_density) %>%
-  dplyr::select(cluster, VegType)
-
-# Now find clusters where no VegType has stem_density > 0
-# Find clusters where no vegType has stem_density
-all_clusters <- stem_dens_species_long %>%
-  ungroup() %>% 
-  dplyr::select(cluster, VegType) %>% 
-  distinct(cluster)
-
-clusters_with_stem_density <- presence_absence %>%
-  ungroup() %>% 
-  dplyr::select(cluster, VegType) %>% 
-  distinct(cluster)
-
-clusters_without_stem_density <- all_clusters %>%
-  anti_join(clusters_with_stem_density, by = "cluster") %>%
-  mutate(VegType = "0")
-
-# Combine clusters with and without stem density
-final_result <- bind_rows(vert_class_presence_absence, clusters_without_stem_density) %>%
-  arrange(cluster, VegType)
-
-# Display final result
-final_result
-
-# reclassify naming convention
-
-final_result <- final_result %>%
-  mutate(VegType = case_when(
-    VegType == "Mature" ~ "m",
-    VegType == "Saplings" ~ "s",
-    VegType == "Juveniles" ~ "j",
-    TRUE ~ VegType # In case there are other values
-  )) %>% 
-  left_join(clim_cluster_indicator, by = c('cluster' = 'site'))  
-
-# Group by cluster, concatenate VegType into a single string for each cluster
-vegtype_classes <- final_result %>%
-  group_by(cluster, clim_class) %>%
-  summarise(veg_class = paste(sort(unique(VegType)), collapse = "")) %>%
-  ungroup()
-
-# Count the occurrences of each veg_class within each clim_class
-vegtype_class_count <- vegtype_classes %>%
-  group_by(clim_class, veg_class) %>%
-  summarise(count = n()) %>%
-  ungroup() %>%
-  arrange(clim_class, veg_class)
-
-# Calculate the total counts per clim_class
-vegtype_class_percent <- vegtype_class_count %>%
-  group_by(clim_class) %>%
-  mutate(total_count = sum(count)) %>% 
-  ungroup() %>%
-  # Calculate the percentage for each veg_class within each clim_class
-  mutate(percent = round((count / total_count) * 100, 1))
-
-
-# order the classes:
-
-# Set up the correct factor levels for veg_class based on your preferred order
-vegtype_class_percent$veg_class <- factor(vegtype_class_percent$veg_class, 
-                                        levels = c("0", "s", "js", "j", "jm",  "jms", "ms", "m"))
-
-# Define a green color palette using colorRampPalette for 's' to 'jms' classes
-green_palette <- colorRampPalette(c("lightgreen", "darkgreen"))(7)  # 7 shades of green
-
-# Combine the red color for '0' with the generated green palette
-color_palette <- c("0" = "red", setNames(green_palette, c("s", "js", "j", "jm",  "jms", "ms", "m")))
-
-
-
-# Create a stacked bar plot
-p_vertical_classes <- ggplot(vegtype_class_percent, aes(x = clim_class, y = percent, fill = veg_class)) +
-  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
- geom_text(aes(label = #paste0(count, " (", percent, "%)")
-                ifelse(percent>=2, percent, '')
-               ),
-            position = position_stack(vjust = 0.5),  # Labels inside the bars
-          size = 3, color = "black") +  # Adjust text size and color
- # scale_y_continuous(labels = percent_format()) +  # Format y-axis as percentage
-  labs(x = "", y = "Percentage", 
-       fill = "Vertical\nclass",
-       title = "") +
-  scale_fill_manual(values = color_palette) +  # Apply the color palette with green gradient and red
-  theme_classic2() +  # Use a clean theme
-  theme(
-   # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
-    plot.title = element_text(hjust = 0.5)  # Center the title
-  )
-
-
-
-ggsave(filename = 'outFigs/fig_vert_classes_share_clim_clust.png', 
-              plot = p_vertical_classes, 
-               width = 5, height = 4, dpi = 300, bg = 'white')
-
-
-
-
-# PLOT: summary inicators -----------------------------------------------------
-# Define the function to create a customizable violin plot
-create_violin_plot <- function(df, y_var, y_label) {
-  df %>%
-    ggplot(aes(x = clim_class, y = !!sym(y_var))) +  # Use dynamic y variable
-    geom_violin(aes(fill = clim_class), 
-                trim = TRUE, alpha = 0.6) +  # Create the violin plot
-    geom_boxplot(width = 0.15) +
-    scale_fill_manual(values = c("orange", "red", "blue")) +
-    labs(x = '',
-         fill = 'Clim_ENV cluster',
-         y = y_label) +  # Use dynamic y label
-    theme_classic2() +
-    theme(legend.position = "none")
-}
-
-# Example usage for rIVI, n_vertical, and richness
-
-# For rIVI
-p_viol_stem_density <- create_violin_plot(df_fin, "stem_density", "Stem density")
-
-# For rIVI
-p_viol_rIVI <- create_violin_plot(df_fin, "rIVI", "rIVI")
-
-# For n_vertical
-p_viol_vert <- create_violin_plot(df_fin, "n_vertical", "Vertical richness")
-
-# For richness
-p_viol_richness <- create_violin_plot(df_fin, "richness", "Richness")
-
-ggarrange(p_viol_stem_density,p_vertical_classes, p_viol_rIVI, p_viol_richness)
-
-# visualize vertical classes by UpSEt plot
-
-# TEST -----------------------------------
-
-library(UpSetR)
-
-dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
-                 vert = c('m', 
-                          's', 'j',
-                          'j','s','m',
-                          's',
-                          'j','s',
-                          's',
-                          'm','j','s'))
-# Step 1: Create a binary presence/absence matrix for each site
-dd_wide <- dd %>%
-  pivot_wider(names_from = vert, values_from = vert, 
-              values_fn = length, values_fill = 0) %>%
-  mutate(m = ifelse(m > 0, 1, 0),
-         j = ifelse(j > 0, 1, 0),
-         s = ifelse(s > 0, 1, 0))
-
-# Step 2: Select only the columns with presence/absence data
-upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
-  as.data.frame()
-
-# Step 3: Create the UpSet plot
-upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
-
-
-
-
-
-
-
-
-# Get again individual layers:
-df_vert_full <- 
-  stem_dens_species_long %>% 
-  left_join(clim_cluster_indicator, by = c('cluster' = 'site')) %>% 
-  dplyr::filter(stem_density>0) %>% 
-  ungroup(.) %>% 
-  dplyr::select(cluster, VegType) %>%
-  group_by(cluster) %>%
-  distinct(.) %>% 
-  mutate(n_layers = n()) #%>% 
-
-
-
-# Calculate frequencies of individual layers and combinations
-layer_frequencies <- 
-  df_vert_full %>%
-  group_by(cluster) %>% 
-  right_join(df_stems) %>% # to account for teh empty ones
-  mutate(VegType = case_when(
-    is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
-    TRUE ~ VegType           # Keep existing values for non-NA cases
-  )) %>% 
-  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
-  ungroup() %>%
-  count(layers)
-
-layer_frequencies$prop <- layer_frequencies$n/n_clusters*100
-(layer_frequencies)
-
-# plot how often each category occurs
-windows()
-layer_frequencies %>% 
-  ggplot(aes(x = reorder(layers, -n), y = n)) +
-  geom_bar(stat = "identity") #, position = "fill") #+
-#geom_text(aes(label = paste0(round(scales::percent, 1), "%"), 
-#              y = cumsum(n) - n/2), 
-#          position = position_fill(), 
-#          color = "white", 
-#          size = 3) +
-ylab("Percentage (%)") +
-  theme_classic() +
-  labs(fill = "Layers")
-
-
-layer_frequencies %>% 
-  ggplot(aes(fill = layers     , 
-             area = prop      ,
-             label = paste(layers, "\n", round(prop,2), "%"))) +
-  geom_treemap() +
-  geom_treemap_text(colour ="white", place = "centre")# +
-
-
-
-
-layer_reg_frequencies <- 
-  df_vert_full %>%
-  dplyr::filter(VegType != 'Mature') %>% 
-  group_by(cluster) %>% 
-  right_join(df_stems) %>% # to account for teh empty ones
-  mutate(VegType = case_when(
-    is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
-    TRUE ~ VegType           # Keep existing values for non-NA cases
-  )) %>% 
-  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
-  ungroup() %>%
-  count(layers)
-
-
-# View the result
-print(layer_reg_frequencies)
-
-
-###### chi sqare goodnes of fit: -------------------
-# expecting that categories are equally distributed: divide total observations by number of groups
-# Total observations
-total_observations <- sum(layer_reg_frequencies$n)
-
-# Expected frequencies if all layers were equally likely
-expected_frequencies <- rep(total_observations / nrow(layer_reg_frequencies), 
-                            nrow(layer_reg_frequencies))
-
-# Perform the chi-square test for goodness of fit
-chi_square_test_result <- chisq.test(x = layer_reg_frequencies$n, 
-                                     p = expected_frequencies / total_observations)
-
-# Print the result
-print(chi_square_test_result)
-
-
-# compare residuals to understand the differences between groups:
-# Assuming chi_square_test_result is the result of your chi-square test
-# and layer_reg_frequencies contains the observed frequencies for your categories
-
-# Calculate expected frequencies
-expected_frequencies <- chi_square_test_result$expected
-
-# Calculate standardized residuals
-standardized_residuals <- (layer_reg_frequencies$n - expected_frequencies) / sqrt(expected_frequencies)
-
-# Associate residuals with group names
-residuals_table <- data.frame(Group = layer_reg_frequencies$layers, 
-                              StandardizedResiduals = standardized_residuals)
-
-# Print the residuals table, sorted by the absolute value of residuals
-residuals_table <- residuals_table[order(abs(residuals_table$StandardizedResiduals), decreasing = TRUE),]
-print(residuals_table)
 
 
 
