@@ -46,10 +46,6 @@ df_sim <- fread('outTable/df_simulated.csv')
 df_field     <- fread('outData/veg_density_DBH.csv')
 df_indicators <- fread('outData/indicators_for_cluster_analysis.csv')
 
-df_indicators <- df_indicators %>% 
-  rename(prcp = prec) %>% 
-  rename(site = cluster)
-
 
 # List average field data as input for the landscape level simulation
 # "23_132" - "1_1"
@@ -132,24 +128,24 @@ for (combination in plot_combinations) {
 ggarrange(plotlist = plot_list_all, ncol = 2, nrow = 3, common.legend = TRUE) # 
  
 
-# make a plot manually: tmp spei
-p1 <- ggplot(df_indicators, aes(x = tmp, y = spei)) +
+# make a plot manually: tmp spei3
+p1 <- ggplot(df_indicators, aes(x = tmp, y = spei33)) +
   geom_point(color = 'grey', alpha = 0.3) + 
-  geom_text(data = df_indicators_sub, aes(x = tmp, y = spei, label = cluster, color = clim_cluster), 
+  geom_text(data = df_indicators_sub, aes(x = tmp, y = spei3, label = cluster, color = clim_cluster), 
             vjust = -0.1, size = 6) +
-  geom_point(data = df_indicators_sub, aes(x = tmp, y = spei, color = clim_cluster), size = 3) +
+  geom_point(data = df_indicators_sub, aes(x = tmp, y = spei3, color = clim_cluster), size = 3) +
   # labs(#title = paste(combination$x, "vs", combination$y),
   #   x = "tmp",
-  #   y = "spei") +
+  #   y = "spei3") +
   theme_bw() +
   theme(aspect.ratio = 1)  # Ensure the plot is square
 
 
-p2 <- ggplot(df_indicators, aes(x = tmp_z, y = spei)) +
+p2 <- ggplot(df_indicators, aes(x = tmp_z, y = spei3)) +
   geom_point(color = 'grey', alpha = 0.3) + 
-  geom_text(data = df_indicators_sub, aes(x = tmp_z, y = spei, label = cluster, color = clim_cluster), 
+  geom_text(data = df_indicators_sub, aes(x = tmp_z, y = spei3, label = cluster, color = clim_cluster), 
             vjust = -0.1, size = 6) +
-  geom_point(data = df_indicators_sub, aes(x = tmp_z, y = spei, color = clim_cluster), size = 3) +
+  geom_point(data = df_indicators_sub, aes(x = tmp_z, y = spei3, color = clim_cluster), size = 3) +
    theme_bw() +
   theme(aspect.ratio = 1)  # Ensure the plot is square
 
@@ -166,7 +162,7 @@ ggarrange(p1,p2,p3, common.legend = T, ncol = 3, nrow = 1)
 
 # plot only subset: climatic clusters (12 points)
 df_indicators_sub %>% 
-  ggplot(aes(x = spei,
+  ggplot(aes(x = spei3,
                  y = tmp_z)) +
   geom_point(aes(color = clim_cluster)) + 
   geom_smooth()
@@ -214,13 +210,132 @@ unique(df_sim$run_nr)  # 5 repetitions
 
 
 ### Indicators from simulated ata : ------------------------------------------------------ 
+
 # richness
 # rIVI
 # stem density
 # vertical classes
 # summarize across simulation repetition and across the clim model
 
-##### Species richness ------------------------------------
+##### Investigate on average seed scenario -----------------------------------------------
+
+# Calculate averages grouped by year, clim_cluster, species, run_nr, and category
+df_avg <- df_sim %>%
+  group_by(year, cluster, clim_cluster, species, run_nr, category) %>%
+  summarise(mean_count_ha = mean(count_ha, na.rm = TRUE),
+            mean_basal_area = mean(basal_area_m2, na.rm = TRUE))
+
+
+# START - average seed scenarios 
+
+###### Species richness ------------------------------------
+df_richness <- df_avg %>% 
+  group_by(year,run_nr,  cluster) %>%  #clim_modelclim_cluster, 
+  summarize(richness = n_distinct(species))
+
+df_richness %>% 
+  # dplyr::filter(run_nr == 1 & clim_model == 'NCC')  %>% 
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = richness,
+                color = cluster,
+                group = cluster))
+
+
+###### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
+# get species importance value: from relative density, relative BA
+# first calculate the total values per ha, then add it to original table to calculate teh rIVI based on relative dominance
+df_sum_cluster <- df_sim %>% 
+  group_by(year,  cluster, clim_scenario, ext_seed) %>%# clim_cluster clim_model ,,
+  summarize(sum_stems = sum(count_ha, na.rm = T),
+            sum_BA = sum(basal_area_m2, na.rm = T)) %>% 
+  ungroup()
+
+
+df_IVI <- df_sim %>% 
+  # group by spei3es across the levels
+  group_by(year, species, cluster, clim_scenario, ext_seed) %>% #clim_cluster,clim_model , 
+  summarize(sp_dens = sum(count_ha),
+            sp_BA   = sum(basal_area_m2)) %>% 
+  ungroup(.) %>% 
+  left_join(df_sum_cluster) %>% # merge sums per whole cluster
+  mutate(rel_dens  = sp_dens/sum_stems,
+         rel_BA  = sp_BA/sum_BA,
+         rIVI = ( rel_dens +rel_BA)/2) %>% # relative species importance value
+  # filter teh dominant species - highest rIVI
+  group_by(year, cluster,  clim_scenario, ext_seed) %>% #clim_model ,
+  dplyr::filter(rIVI == max(rIVI)) %>%
+  sample_n(1) %>%  # Select a random row if there are ties
+  rename(dominant_species      = species)
+
+
+
+
+##### Structure: Vertical classes & stem density -------------------------------------------------------------
+# inspeact vertical classes
+df_structure <- df_sim %>% 
+  group_by(year, cluster, clim_scenario, ext_seed) %>% #clim_model , 
+  summarize(n_vertical = n_distinct(category),
+            stem_density = sum(count_ha)) 
+
+
+# change in number of vertical layers
+ggplot(df_structure) + 
+  geom_line(aes(x = year,
+                y = n_vertical,
+                color = cluster,
+                group = cluster)) + 
+  facet_wrap(clim_scenario~ext_seed)
+
+
+
+# change in stem density
+ggplot(df_structure) + 
+  geom_line(aes(x = year,
+                y = stem_density,
+                color = cluster,
+                group = cluster)) + 
+  facet_wrap(clim_scenario~ext_seed)
+
+
+# merge df indicators 
+df_sim_indicators <- df_richness %>% 
+  left_join(df_IVI, by = join_by(year, cluster, clim_scenario, ext_seed)) %>%
+  left_join(df_structure, by = join_by(year, cluster, clim_scenario, ext_seed)) %>% 
+  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
+         str_cluster = str_sub(cluster, -1, -1))  #%>% # add indication of the strutural cluster (1,2,3,4)
+
+
+
+
+
+
+
+# END
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### Investigate betwee model, and seeds scenarios -------------------------
+
+###### Species richness ------------------------------------
 df_richness <- df_sim %>% 
   group_by(year, cluster,  clim_scenario, ext_seed) %>%  #clim_modelclim_cluster, 
   summarize(richness = n_distinct(species))
@@ -235,7 +350,7 @@ df_richness %>%
   facet_wrap(clim_scenario~ext_seed)
 
 
-##### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
+###### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
 # get species importance value: from relative density, relative BA
 # first calculate the total values per ha, then add it to original table to calculate teh rIVI based on relative dominance
 df_sum_cluster <- df_sim %>% 
@@ -246,7 +361,7 @@ df_sum_cluster <- df_sim %>%
 
 
 df_IVI <- df_sim %>% 
-  # group by speies across the levels
+  # group by spei3es across the levels
   group_by(year, species, cluster, clim_scenario, ext_seed) %>% #clim_cluster,clim_model , 
   summarize(sp_dens = sum(count_ha),
             sp_BA   = sum(basal_area_m2)) %>% 
