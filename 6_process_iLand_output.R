@@ -35,7 +35,7 @@ library(tidyr)
 
 
 # Cluster analysis
-library(cluster)
+#library(cluster)
 
 # Process input data -----------------------------------------------------------
 # get simulated data
@@ -96,10 +96,28 @@ df_indicators_sub <- df_indicators %>%
          str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
 
-df_sim <- df_sim %>%
-  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
+df_sim2 <- df_sim %>%
+  rename(landscape = cluster) %>% 
+  mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
+         str_cluster = str_sub(landscape, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
+str(df_sim)
+head(df_sim)
+
+# filter teh data for teh baseic scenario: one lansca, one clim scenarions, ...
+# the most basic example:
+
+df_sim %>% 
+  dplyr::filter(clim_model == 'ICHEC' & clim_scenario == 'HISTO' &
+                  cluster == '1_4' & 
+                  run_nr == '1'&
+                  ext_seed  == 'noseed' &
+                  count_ha > 0
+                ) %>% 
+  View()
+  ggplot(aes(x = year,
+             y = count_ha )) +
+  geom_line()
 
 
 
@@ -183,23 +201,23 @@ df_indicators_sub %>%
 # 3 climatic models
 # 4 climate scenarios
 # 2 seed added/no
-unique(df_sim$cluster)  # 12, 3 climatic, 4 strcutural in each climate cluster
+unique(df_sim2$landscape)  # 12, 3 climatic, 4 strcutural in each climate cluster
 #[1] "1_1" "1_2" "1_3" "1_4" "2_1" "2_2" "2_3" "2_4" "2_5" "3_1" "3_2" "3_3"
 
-unique(df_sim$species) # 24
+unique(df_sim2$species) # 24
 #[1] "acps" "cabe" "potr" "saca" "quro" "acca" "frex" "ulgl" "lade" "tico" "piab" "fasy" "psme"
 #[14] "soau" "pisy" "bepe" "abal" "alin" "algl" "soar" "coav" "acpl" "rops" "casa"
 
 
-unique(df_sim$clim_model)
+unique(df_sim2$clim_model)
 # [1] "ICHEC" "MPI"   "NCC"  
 
-unique(df_sim$clim_scenario)
+unique(df_sim2$clim_scenario)
 # [1] "HISTO" "RCP26" "RCP45" "RCP85"
 
 # external seed: external seed present or not?? TRUE/FALSE
 # years: 1-30
-unique(df_sim$run_nr)  # 5 repetitions
+unique(df_sim2$run_nr)  # 5 repetitions
 
 
 # df_cl %>% 
@@ -219,51 +237,58 @@ unique(df_sim$run_nr)  # 5 repetitions
 
 ##### Investigate on average seed scenario -----------------------------------------------
 
-# Calculate averages grouped by year, clim_cluster, species, run_nr, and category
-df_avg <- df_sim %>%
-  group_by(year, cluster, clim_cluster, species, run_nr, category) %>%
+# Calculate averages grouped by year, seed strategy, clim_cluster, species, run_nr, and vertical category
+df_avg <- df_sim2 %>%
+  group_by(year, landscape, clim_cluster, species, run_nr, category) %>%
   summarise(mean_count_ha = mean(count_ha, na.rm = TRUE),
-            mean_basal_area = mean(basal_area_m2, na.rm = TRUE))
+            mean_basal_area = mean(basal_area_m2, na.rm = TRUE)) %>% 
+  mutate(landscape_run = paste(landscape, run_nr))  # yunique run per lanscape scenario
 
 
 # START - average seed scenarios 
 
 ###### Species richness ------------------------------------
-df_richness <- df_avg %>% 
-  group_by(year,run_nr,  cluster) %>%  #clim_modelclim_cluster, 
-  summarize(richness = n_distinct(species))
+df_richness <- 
+  df_avg %>% 
+  group_by(year, clim_cluster, landscape_run) %>%  #clim_modelclim_cluster, 
+  dplyr::filter(mean_count_ha>0) %>% 
+  summarize(richness = n_distinct(species))# %>% 
+  #View()
+
 
 df_richness %>% 
-  # dplyr::filter(run_nr == 1 & clim_model == 'NCC')  %>% 
+   dplyr::filter(landscape_run == "1_1 5" )  %>%
+  #View()
   ggplot() + 
   geom_line(aes(x = year,
                 y = richness,
-                color = cluster,
-                group = cluster))
+                color = landscape_run,
+                group = landscape_run)) + 
+  facet_grid(.~ clim_cluster)
 
 
 ###### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
 # get species importance value: from relative density, relative BA
-# first calculate the total values per ha, then add it to original table to calculate teh rIVI based on relative dominance
-df_sum_cluster <- df_sim %>% 
-  group_by(year,  cluster, clim_scenario, ext_seed) %>%# clim_cluster clim_model ,,
-  summarize(sum_stems = sum(count_ha, na.rm = T),
-            sum_BA = sum(basal_area_m2, na.rm = T)) %>% 
+# first calculate the total values per ha/landscape/run, then add it to original table to calculate teh rIVI based on relative dominance
+df_sum_landscape <- df_avg %>% 
+  group_by(year,  landscape_run) %>%# clim_cluster clim_model ,, clim_scenario, ext_seed,
+  summarize(sum_stems = sum(mean_count_ha, na.rm = T),
+            sum_BA = sum(mean_basal_area , na.rm = T)) %>% 
   ungroup()
 
 
-df_IVI <- df_sim %>% 
-  # group by spei3es across the levels
-  group_by(year, species, cluster, clim_scenario, ext_seed) %>% #clim_cluster,clim_model , 
-  summarize(sp_dens = sum(count_ha),
-            sp_BA   = sum(basal_area_m2)) %>% 
+df_IVI <- df_avg %>% 
+  # group by speies across the levels
+  group_by(year, species, landscape_run) %>% #clim_cluster,clim_model , landscape, clim_scenario, ext_seed
+  summarize(sp_dens = sum(mean_count_ha),
+            sp_BA   = sum(mean_basal_area)) %>% 
   ungroup(.) %>% 
-  left_join(df_sum_cluster) %>% # merge sums per whole cluster
+  left_join(df_sum_landscape) %>% # merge sums per whole cluster
   mutate(rel_dens  = sp_dens/sum_stems,
          rel_BA  = sp_BA/sum_BA,
          rIVI = ( rel_dens +rel_BA)/2) %>% # relative species importance value
   # filter teh dominant species - highest rIVI
-  group_by(year, cluster,  clim_scenario, ext_seed) %>% #clim_model ,
+  group_by(year, landscape_run) %>% #clim_model ,,  clim_scenario, ext_seed
   dplyr::filter(rIVI == max(rIVI)) %>%
   sample_n(1) %>%  # Select a random row if there are ties
   rename(dominant_species      = species)
@@ -273,19 +298,21 @@ df_IVI <- df_sim %>%
 
 ##### Structure: Vertical classes & stem density -------------------------------------------------------------
 # inspeact vertical classes
-df_structure <- df_sim %>% 
-  group_by(year, cluster, clim_scenario, ext_seed) %>% #clim_model , 
+df_structure <- df_avg %>% 
+  group_by(year, landscape_run,clim_cluster ) %>% #clim_model , , clim_scenario, ext_seed
   summarize(n_vertical = n_distinct(category),
-            stem_density = sum(count_ha)) 
+            stem_density = sum(mean_count_ha)) 
 
 
 # change in number of vertical layers
 ggplot(df_structure) + 
   geom_line(aes(x = year,
                 y = n_vertical,
-                color = cluster,
-                group = cluster)) + 
-  facet_wrap(clim_scenario~ext_seed)
+                color = clim_cluster ,
+                group = landscape_run
+                ),
+            alpha = 0.5) #+ 
+#  facet_wrap(clim_scenario~ext_seed)
 
 
 
@@ -293,25 +320,22 @@ ggplot(df_structure) +
 ggplot(df_structure) + 
   geom_line(aes(x = year,
                 y = stem_density,
-                color = cluster,
-                group = cluster)) + 
-  facet_wrap(clim_scenario~ext_seed)
+                color = clim_cluster ,
+                group = landscape_run
+            ), alpha = 0.5 ) +
+  
+  facet_wrap(clim_cluster~.)
 
 
 # merge df indicators 
-df_sim_indicators <- df_richness %>% 
-  left_join(df_IVI, by = join_by(year, cluster, clim_scenario, ext_seed)) %>%
-  left_join(df_structure, by = join_by(year, cluster, clim_scenario, ext_seed)) %>% 
-  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1))  #%>% # add indication of the strutural cluster (1,2,3,4)
+df_sim_indicators <-
+  df_richness %>% 
+  left_join(df_IVI, by = join_by(year, landscape_run)) %>% #, clim_scenario, ext_seed
+  left_join(df_structure, by = join_by(year, landscape_run, clim_cluster)) #%>% #, clim_scenario, ext_seed
+#  mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic landscape (1,2,3)
+#         str_cluster = str_sub(landscape, -1, -1))  #%>% # add indication of the strutural cluster (1,2,3,4)
 
 
-
-
-
-
-
-# END
 
 
 
@@ -334,6 +358,7 @@ df_sim_indicators <- df_richness %>%
 
 
 ##### Investigate betwee model, and seeds scenarios -------------------------
+# SKIP 
 
 ###### Species richness ------------------------------------
 df_richness <- df_sim %>% 
@@ -414,12 +439,12 @@ df_sim_indicators <- df_richness %>%
          str_cluster = str_sub(cluster, -1, -1))  #%>% # add indication of the strutural cluster (1,2,3,4)
  
   
-
+#### END 
   
 ##### evaluate initial state with my sites (only 12 sites! )   -------------------------
 # filterr initial state: year == 0
 df_sim_indicators0 <- df_sim_indicators %>% 
-  dplyr::filter(year == 0 & clim_scenario == "HISTO")
+  dplyr::filter(year == 0 ) #& clim_scenario == "HISTO"
 
 
 ###### merge field with simulated data in year 0 
