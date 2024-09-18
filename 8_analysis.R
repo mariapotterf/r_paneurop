@@ -105,7 +105,8 @@ df_fin <- df_fin %>%
     clim_cluster_spei3 == 3 ~ "hot-dry-clay"    # Cluster 3: hot, dry, more clay
   )) %>% 
   mutate( clim_cluster_spei3 = as.factor(clim_cluster_spei3),
-          clim_class = as.factor(clim_class))
+          clim_class = as.factor(clim_class)) %>% 
+  mutate(stem_regeneration = sum_stems_juvenile + sum_stems_sapling)
 
 
 # export as xy coordinates climate cluster categorized 
@@ -621,7 +622,7 @@ ggsave(filename = 'outFigs/fig_p_species_distribution_global.png',
        width = 7, height = 5.5, dpi = 300, bg = 'white')
 
 
-# Species compositiosn: country -----------------------------------
+#### Species compositiosn: country -----------------------------------
 
 # Summarize the total stem density per species for each climate class
 species_composition <- stem_dens_species_long %>%
@@ -709,7 +710,6 @@ stem_dens_species_long %>%
 ## Structure ---------------------------------------------------------
 
 ### Vertical structure  --------------------------------------
-
 
 ## Get presence absence data for indiviual layers --------------------------
 
@@ -995,7 +995,7 @@ ggsave(filename = 'outFigs/fig_indicators_violin.png',
 
 # visualize vertical classes by UpSEt plot
 
-# TEST -----------------------------------
+# Upset plot -----------------------------------
 
 library(UpSetR)
 
@@ -1404,8 +1404,10 @@ correlation_matrix
 
 
 
-#5. test model ---------------------------------
-
+#5. Drivers ---------------------------------
+# for all regeneration (juveniles and saplings)
+# split table in two: drivers for advanced (> 1000 stems/ha)
+#                     drivers for delayed regeneration (<50 stems/ha)  
 
 # variables selecteion processs for drivers  ------------------------------------
 
@@ -1548,12 +1550,19 @@ k.check(m.tw1)
 
 # TW has a better fit, also can handle zero!
 
-# Run univariate models for set of dependent variables (stem density)
+# Run univariate models for set of dependent variables (stem density) ------------------
 # and spei predictors to se teh best spei
+df_fin <- df_fin %>% 
+  mutate(country_full    = factor(country_full),
+         country_abbr    = factor(country_abbr),
+         country_pooled  = factor(country_pooled),
+         region          = factor(region))
+
 
 # List of dependent variables
 dependent_vars <- c("sum_stems_juvenile", 
                     "sum_stems_sapling", 
+                    "stem_regeneration", # sum of juveniles and saplings
                     "sum_stems_mature"
                     #"stem_density"
 )
@@ -1563,11 +1572,15 @@ predictor_vars <- c("spei1", "spei3", "spei6", "spei12", "spei24",
                     "tmp", "tmp_z", "prcp", "prcp_z", 
                     "drought_spei1", "drought_spei3", "drought_spei6", 
                     "drought_spei12", "drought_spei24",
-                    "drought_tmp", "drought_prcp")
+                    "drought_tmp", "drought_prcp",
+                    "management_intensity",
+                    "distance_edge", 
+                    "disturbance_severity", 
+                    "sand_extract", 
+                    "clay_extract", 
+                    "depth_extract", 
+                    "av.nitro")
 
-
-
-# TEST
 
 # Initialize a data frame to store AIC values and deviance explained
 model_metrics <- data.frame(Predictor = character(), 
@@ -1603,26 +1616,357 @@ for (dep in dependent_vars) {
 View(model_metrics)
 
 # # Select the best predictor for each dependent variable based on the lowest AIC
-best_predictors <- model_metrics %>%
-  mutate(category = case_when(
+best_predictors <- 
+  model_metrics %>%
+  mutate(dependent_category = case_when(
     grepl("sapl", Dependent  ) ~ "sapling",
     grepl("juven", Dependent  ) ~ "juvenile",
     grepl("mature", Dependent  ) ~ "mature",
+    grepl("regen", Dependent  ) ~ "regeneration_pool",
     TRUE ~ "other"
   )) %>%
-  group_by(Dependent, category) %>%
+  mutate(predictor_category = case_when(
+    grepl("^manag", Predictor) ~ "Management",  # General SPEI variables
+    grepl("^spei", Predictor) ~ "Clim",  # General SPEI variables
+    grepl("^drought_spei", Predictor) ~ "Clim",  # Drought-related SPEI
+    grepl("^tmp", Predictor) & !grepl("drought", Predictor) ~ "Clim",  # Temperature variables
+    grepl("^prcp", Predictor) & !grepl("drought", Predictor) ~ "Clim",  # Precipitation variables
+    grepl("^drought_tmp", Predictor) ~ "Clim",  # Drought temperature
+    grepl("^drought_prcp", Predictor) ~ "Clim",  # Drought precipitation
+    grepl("extract|av\\.nitro", Predictor) ~ "Soil",  # Soil properties like sand, clay, depth, nitrogen
+    grepl("distance_edge|disturbance_severity", Predictor) ~ "Disturbance",  # Disturbance variables
+    TRUE ~ "Other"  # Catch-all for any other predictor
+  )) %>% 
+  group_by(Dependent, dependent_category, predictor_category) %>%
   slice_min(AIC, n = 3)   # Select the best 3 based on AIC
 # slice(which.max(DevianceExplained))
 
-best_predictors
+print(best_predictors)
+
+View(best_predictors)
+
+best_predictors %>% 
+  dplyr::filter(dependent_category == 'regeneration_pool')
 
 sjPlot::tab_df(model_metrics,
                #col.header = c(as.character(qntils), 'mean'),
                show.rownames = FALSE,
-               file="outTable/find_best_spei.doc",
+               file="outTable/find_best_predictors.doc",
                digits = 1) 
 
-# we found that for every vegetation vertical cla has different sentiticity to SPEI scale:
+
+sjPlot::tab_df(best_predictors,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = FALSE,
+               file="outTable/best_predictors.doc",
+               digits = 1) 
+
+
+
+# test for poled regeneration: -------------------------------------------------
+
+library(mgcv)
+library(MASS)
+
+df_fin <- df_fin %>% 
+  mutate(
+    tmp_c = tmp - mean(tmp, na.rm = TRUE),  # Centering temperature
+    prcp_c = prcp - mean(prcp, na.rm = TRUE) # Centering precipitation
+  )
+
+# Define the model using the best predictors for 'regeneration_pool'
+initial_model <- gam(stem_regeneration ~ 
+                       s(prcp, k = 10) +                 # Precipitation (Clim)
+                        s(tmp_z, k = 10)  +                # Temperature Z-score (Clim)
+                        s(distance_edge, k = 10) +       # Distance to edge (Disturbance)
+                        s(disturbance_severity) +           # Disturbance severity (Disturbance)
+                        s(management_intensity, by = country_pooled, k = 5) +  # Country-specific management effects
+                        s(av.nitro, k = 15) +            # Available nitrogen (Soil)
+                        s(clay_extract, k = 10) +        # Clay content (Soil)
+                        ti(tmp_z, prcp) +                # Interaction between temperature and precipitation (Clim interaction)
+                        ti(x, y) +                       # Spatial autocorrelation
+                        s(region, bs = 're') +           # Region as a random effect
+                        s(country_abbr, bs = 're'),      # Country as a random effect
+                     family = Tweedie(p = 1.46),        # Tweedie distribution for skewed data
+                     method = 'REML',
+                     data = df_fin)
+
+summary(initial_model)
+appraise(initial_model)
+draw(initial_model)
+
+
+
+# Step 1: Start with the base model using spatial smoothers (ti(x, y))
+base_model <- gam(stem_regeneration ~ ti(x, y), 
+                  family = Tweedie(p = 1.46), 
+                  method = 'REML',
+                  data = df_fin)
+summary(base_model)
+
+drought_model <- gam(stem_regeneration ~ ti(x, y) + s(drought_spei6, k = 15), 
+                  family = Tweedie(p = 1.46), 
+                  method = 'REML',
+                  data = df_fin)
+
+summary(drought_model)
+plot(drought_model, page = 1)
+
+
+# Step 2: Add temperature smoother (tmp_z)
+temp_model <- gam(stem_regeneration ~ ti(x, y) + s(tmp_z, k = 10), 
+                  family = Tweedie(p = 1.46), 
+                  method = 'REML',
+                  data = df_fin)
+summary(temp_model)
+
+# Step 3: Add precipitation smoother (prcp)
+precip_model <- gam(stem_regeneration ~ ti(x, y) + s(tmp, k = 5) + 
+                      s(prcp, k = 5) , 
+                    family = Tweedie(p = 1.46), 
+                    method = 'REML',
+                    data = df_fin)
+summary(precip_model)
+appraise(precip_model)
+
+
+# Step 3: Add precipitation smoother (prcp)
+drought_precip_model <- gam(stem_regeneration ~ ti(x, y) + s(tmp, k = 5) + 
+                      s(prcp, k = 5) + 
+                      s(drought_spei6, k = 5), 
+                    family = Tweedie(p = 1.46), 
+                    method = 'REML',
+                    data = df_fin)
+summary(drought_precip_model)
+appraise(drought_precip_model)
+
+
+
+# Step 4: Add distance to edge smoother (distance_edge)
+distance_model <- gam(stem_regeneration ~ ti(x, y) + s(tmp_z, k = 10) + s(prcp, k = 10) + 
+                        s(distance_edge, k = 10), 
+                      family = Tweedie(p = 1.46), 
+                      method = 'REML',
+                      data = df_fin)
+summary(distance_model)
+
+# Step 5: Add disturbance severity smoother (disturbance_severity)
+disturbance_model <- gam(stem_regeneration ~ ti(x, y) + s(tmp_z, k = 10) + s(prcp, k = 10) + 
+                           s(distance_edge, k = 10) + s(disturbance_severity), 
+                         family = Tweedie(p = 1.46), 
+                         method = 'REML',
+                         data = df_fin)
+summary(disturbance_model)
+
+# Step 6: Add management intensity with country-specific smooth (management_intensity)
+management_model <- gam(stem_regeneration ~ ti(x, y) + #s(spei24) + 
+                          s(tmp, k = 10) + s(prcp, k = 10) + 
+                          s(distance_edge, k = 10) + s(disturbance_severity) + 
+                          s(management_intensity, k = 10) + 
+                          s(region, bs = 're') + 
+                          s(country_pooled, bs = 're'), #, by = country_pooled,
+                        family = Tweedie(p = 1.46), 
+                        method = 'REML',
+                        data = df_fin)
+summary(management_model)
+
+# Step 7: Add soil variables (available nitrogen and clay content)
+soil_model <- gam(stem_regeneration ~ ti(x, y) + s(tmp, k = 10) + s(prcp, k = 10) + 
+                    s(distance_edge, k = 10) + s(disturbance_severity) + 
+                    s(management_intensity) + 
+                    s(av.nitro, k = 15) + 
+                    s(clay_extract, k = 10) +
+                    s(region, bs = 're') + 
+                    s(country_pooled, bs = 're'), #, by = country_pooled,, 
+                  family = Tweedie(p = 1.46), 
+                  method = 'REML',
+                  data = df_fin)
+summary(soil_model)
+appraise(soil_model)
+
+# Step 8: Add interaction between temperature and precipitation
+interaction_model <- gam(stem_regeneration ~ ti(x, y) + tmp_c+ 
+                           prcp_c + 
+                           distance_edge + 
+                           disturbance_severity + 
+                           s(management_intensity, k = 5) + 
+                           s(av.nitro, k = 15) + 
+                           clay_extract + 
+                           tmp_c*prcp_c  +
+                           s(region, bs = 're') + 
+                           s(country_pooled, bs = 're'), #, by = country_pooled,, , 
+                         family = Tweedie(p = 1.46), 
+                         method = 'REML',
+                         data = df_fin)
+summary(interaction_model)
+k.check(interaction_model)
+plot.gam(interaction_model)
+
+
+interaction_model_smooth <- gam(stem_regeneration ~ ti(x, y) + 
+                                  s(tmp_c) +              # Smooth for temperature
+                                  s(prcp_c) +             # Smooth for precipitation
+                                  ti(tmp_c, prcp_c) +     # Smooth interaction of temperature and precipitation
+                                  distance_edge + 
+                                  disturbance_severity + 
+                                  s(management_intensity, k = 5) + 
+                                  s(av.nitro, k = 15) + 
+                                  clay_extract + 
+                                  s(region, bs = 're') + 
+                                  s(country_pooled, bs = 're'), 
+                                family = Tweedie(p = 1.46), 
+                                method = 'REML',
+                                data = df_fin)
+
+
+
+draw(interaction_model_smooth)
+summary(interaction_model_smooth)
+appraise(interaction_model_smooth)
+
+
+
+
+# Visualize the main effect of tmp_c
+library( ggeffects)
+tmp_effect <- ggpredict(interaction_model_smooth, terms = "tmp_c")
+p1 <- plot(tmp_effect) + ggtitle("Effect of Temperature on Stem Regeneration")
+
+# Visualize the main effect of prcp_c
+prcp_effect <- ggpredict(interaction_model_smooth, terms = "prcp_c")
+p2 <- plot(prcp_effect) + ggtitle("Effect of Precipitation on Stem Regeneration")
+
+# Visualize the interaction effect of tmp_c and prcp_c
+interaction_effect <- ggpredict(interaction_model_smooth, terms = c("tmp_c", "prcp_c"))
+p3 <- plot(interaction_effect) + ggtitle("Interaction: Temperature and Precipitation on Stem Regeneration")
+ggarrange(p1,p2,p3)
+
+
+
+# understand smooths vs ggpredict
+m_c <- gam(stem_regeneration ~ #ti(x, y) + 
+      s(tmp_c) +              # Smooth for temperature
+      s(prcp_c) +             # Smooth for precipitation
+      ti(tmp_c, prcp_c),# +     # Smooth interaction of temperature and precipitation
+      family = Tweedie(p = 1.46), 
+    method = 'REML',
+    data = df_fin)
+
+
+m <- gam(stem_regeneration ~ #ti(x, y) + 
+             s(tmp) +              # Smooth for temperature
+             s(prcp) +             # Smooth for precipitation
+             ti(tmp, prcp),# +     # Smooth interaction of temperature and precipitation
+           family = Tweedie(p = 1.46), 
+           method = 'REML',
+           data = df_fin)
+
+
+AIC(m_c, m)
+draw(m_c)
+draw(m)
+
+
+# plotting :
+tmp_effect <- ggpredict(m_c, terms = "tmp_c")
+p1_c <- plot(tmp_effect) + ggtitle("Effect of Temperature on Stem Regeneration")
+
+# Visualize the main effect of prcp_c
+prcp_effect <- ggpredict(m_c, terms = "prcp_c")
+p2_c <- plot(prcp_effect) + ggtitle("Effect of Precipitation on Stem Regeneration")
+
+# Visualize the interaction effect of tmp_c and prcp_c
+interaction_effect <- ggpredict(m_c, terms = c("tmp_c", "prcp_c"))
+p3_c <- plot(interaction_effect) + ggtitle("Interaction: Temperature and Precipitation on Stem Regeneration")
+ggarrange(p1_c,p2_c,p3_c)
+
+
+# no centered, simple: --------------------- 
+# plotting :
+tmp_effect <- ggpredict(m, terms = "tmp")
+p1 <- plot(tmp_effect) + ggtitle("Effect of Temperature on Stem Regeneration")
+
+# Visualize the main effect of prcp_c
+prcp_effect <- ggpredict(m, terms = "prcp")
+p2 <- plot(prcp_effect) + ggtitle("Effect of Precipitation on Stem Regeneration")
+
+# Visualize the interaction effect of tmp_c and prcp_c
+interaction_effect <- ggpredict(m, terms = c("tmp", "prcp"))
+p3 <- plot(interaction_effect) + ggtitle("Interaction: Temperature and Precipitation on Stem Regeneration")
+ggarrange(p1,p2,p3)
+
+
+
+
+
+
+
+
+
+# Step 9: Add random effects for region and country
+random_effects_model <- gam(stem_regeneration ~ ti(x, y) + s(tmp, k = 10) + s(prcp, k = 10) + 
+                              s(distance_edge, k = 10) + s(disturbance_severity) + 
+                              s(management_intensity, by = country_pooled, k = 5) + 
+                              s(av.nitro, k = 15) + s(clay_extract, k = 10) + 
+                              ti(tmp, prcp) + s(region, bs = 're') + s(country_abbr, bs = 're'), 
+                            family = Tweedie(p = 1.46), 
+                            method = 'REML',
+                            data = df_fin)
+summary(random_effects_model)
+
+
+
+# Step 9: Add random effects for region and country
+random_effects_model_simpl <- gam(stem_regeneration ~ ti(x, y) + s(tmp, k = 10) + s(prcp, k = 10) + 
+                              s(distance_edge, k = 10) + s(disturbance_severity) + 
+                              s(management_intensity, k = 5) +  # , by = country_pooled, 
+                              s(av.nitro, k = 15) + s(clay_extract, k = 10) + 
+                              ti(tmp, prcp) + s(region, bs = 're') + s(country_abbr, bs = 're'), 
+                            family = Tweedie(p = 1.46), 
+                            method = 'REML',
+                            data = df_fin)
+summary(random_effects_model_simpl)
+
+
+
+
+# Step 10: Compare models using AIC
+AIC_comparison <- AIC(base_model, drought_model, temp_model, precip_model, distance_model, disturbance_model, 
+                      management_model, soil_model, interaction_model, random_effects_model, random_effects_model_simpl)
+print(AIC_comparison)
+
+# Step 11: Check residual plots and diagnostics for the final model
+best_model <- interaction_model  # Choose the best model based on AIC and performance
+
+# Visualize residuals and fitted values
+appraise(best_model)
+plot(best_model, page = 1)
+
+# Step 12: Check for concurvity (multicollinearity)
+concurvity(best_model)
+
+# Step 13: Perform k-check to validate smoothers (overfitting)
+k.check(best_model)
+
+# Final model diagnostics:
+summary(best_model)
+
+
+
+
+
+
+
+
+
+
+## delayed ---------------------------------------------------------------------
+
+## advanced regeneration -------------------------------------------------------
+
+
+
+
 
 
 ### identify the most important predictors -----------------------------------------
@@ -1810,82 +2154,6 @@ k.check(gam_model)
 
 concurvity(gam_model)
 
-# FRAMEWORKD: stepwise preicor selection -------------------------------------------------------------
-
-# Load necessary libraries
-library(mgcv)
-library(ggplot2)
-
-# filter the extreme values: 
-# Filter out extreme values or cap them
-df_fin_filtered <- df_fin[df_fin$sum_stems_juvenile < quantile(df_fin$sum_stems_juvenile, 0.99), ]
-
-
-
-
-# Step 1: Define the base model with spatial smoothers (ti(x, y))
-base_model <- gam(sum_stems_juvenile ~ ti(x, y), 
-                  family = Tweedie(p = 1.46), 
-                  method = 'REML',
-                  data = df_fin_filtered)
-summary(base_model)
-
-# Step 2: Add temperature smoother
-temp_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7), 
-                  family = Tweedie(p = 1.46), 
-                  method = 'REML',
-                  data = df_fin_filtered)
-summary(temp_model)
-
-# Step 3: Add precipitation smoother
-precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(prcp_z, k = 7), 
-                    family = Tweedie(p = 1.46), 
-                    method = 'REML',
-                    data = df_fin_filtered)
-summary(precip_model)
-
-# Step 4: Combine temperature and precipitation smoothers
-temp_precip_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp_z, k = 7), 
-                         family = Tweedie(p = 1.46), 
-                         method = 'REML',
-                         data = df_fin_filtered)
-summary(temp_precip_model)
-
-# Step 5: Add interaction term between temperature and precipitation
-interaction_model <- gam(sum_stems_juvenile ~ ti(x, y) + ti(tmp_z, prcp_z, k = 10), 
-                         family = Tweedie(p = 1.46), 
-                         method = 'REML',
-                         data = df_fin_filtered)
-summary(interaction_model)
-
-# Step 6: Add random effects for country and region
-random_effects_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp_z, k = 7) +
-                              s(country_abbr, bs = "re") + s(region, bs = "re"),
-                            family = Tweedie(p = 1.46), 
-                            method = 'REML',
-                            data = df_fin_filtered)
-summary(random_effects_model)
-
-# Step 7: Add management intensity by country
-management_model <- gam(sum_stems_juvenile ~ ti(x, y) + s(tmp_z, k = 7) + s(prcp_z, k = 7) +
-                          s(country_abbr, bs = "re") + s(region, bs = "re") + 
-                          s(management_intensity, by = country_pooled, k = 10),
-                        family = Tweedie(p = 1.46), 
-                        method = 'REML',
-                        data = df_fin_filtered)
-summary(management_model)
-
-# Step 8: Compare models using AIC
-AIC(base_model, temp_model, precip_model, temp_precip_model, interaction_model, random_effects_model, management_model)
-
-# Step 9: Check residual plots and diagnostics for the final model
-best_model <- interaction_model      # Choose your best model after comparison
-appraise(best_model)
-plot(best_model, page=1)
-
-# Optional: You can check concurvity or k.check if needed
-concurvity(best_model)
-k.check(best_model)
 
 
 # continue with teh improved models: ------------------
