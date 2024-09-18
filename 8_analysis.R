@@ -566,21 +566,34 @@ top_species_per_clim_class$Species <- factor(top_species_per_clim_class$Species,
 
 # Load the RColorBrewer package for color palettes
 library(RColorBrewer)
-table(top_species_per_clim_class$seral_type, top_species_per_clim_class$Species)
+# species_table <- table(top_species_per_clim_class$seral_type, top_species_per_clim_class$Species)
+# 
+# # Count non-zero species in each seral type
+# species_counts <- apply(species_table, 1, function(x) sum(x > 0))
+# 
+# # Extract the count for "Early seral"
+# pioneer_n     <- species_counts["Pioneer"]
+# early_seral_n <- species_counts["Early seral"]
+# late_seral_n  <- species_counts["Late seral"]
+# 
+# 
+# # Define color palettes for each seral type
+# pioneer_colors       <- brewer.pal(pioneer_n, "Blues")    # Red shades for pioneer species
+# early_seral_colors   <- brewer.pal(early_seral_n, "Oranges")  # Orange shades for early seral species
+# late_seral_colors    <- brewer.pal(late_seral_n, "Greens")  # Green shades for late seral species
+# 
+# # Create a color mapping for Species based on the seral_type
+# top_species_per_clim_class$color <- NA
+# top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Pioneer"]     <- pioneer_colors
+# top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Early seral"] <- early_seral_colors
+# top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Late seral"]  <- late_seral_colors
+# 
+# # Create a named vector for the colors, so each Species has a color
+# species_colors <- setNames(top_species_per_clim_class$color, top_species_per_clim_class$Species)
 
-# Define color palettes for each seral type
-pioneer_colors       <- brewer.pal(4, "Blues")    # Red shades for pioneer species
-early_seral_colors   <- brewer.pal(3, "Oranges")  # Orange shades for early seral species
-late_seral_colors    <- brewer.pal(6, "Greens")  # Green shades for late seral species
+n_colors <- length(unique(top_species_per_clim_class$Species))
+my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Extend to 12 colors 
 
-# Create a color mapping for Species based on the seral_type
-top_species_per_clim_class$color <- NA
-top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Pioneer"] <- pioneer_colors
-top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Early seral"] <- early_seral_colors
-top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Late seral"] <- late_seral_colors
-
-# Create a named vector for the colors, so each Species has a color
-species_colors <- setNames(top_species_per_clim_class$color, top_species_per_clim_class$Species)
 
 # Create the stacked bar plot
 p_species_distribution <- ggplot(top_species_per_clim_class, 
@@ -593,7 +606,7 @@ p_species_distribution <- ggplot(top_species_per_clim_class,
   labs(x = "", y = "Percentage", 
        fill = "Species",
        title = "") +
-  scale_fill_manual(values = species_colors) +  # Apply the color palette based on seral type
+  scale_fill_manual(values = my_colors) +  # Apply the color palette based on seral type
   theme_classic() +  # Use a clean theme
   theme(
     # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
