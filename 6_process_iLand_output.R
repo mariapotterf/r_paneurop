@@ -569,7 +569,7 @@ df_merge %>%
 # !!!!
 
 
-# TEST START 
+# TEST START - for one variable
 
 # Step 1: Calculate median and IQR for field data (year = 1)
 field_summary <- df_merge %>%
@@ -730,6 +730,31 @@ windows()
 ggarrange(p1, p2, p3, p4,common.legend = TRUE , ncol = 2, nrow = 2)
 
 
+# Add an overarching title and subtitle to the ggarrange layout
+# Use ggarrange to combine the plots
+combined_plot <- ggarrange(p1, p2, p3, p4, 
+                           ncol = 2, nrow = 2, 
+                           common.legend = TRUE, legend = "top") +
+  theme(
+    plot.title = element_text(size = 10, face = "bold", hjust = 0.5),  # Title format
+    plot.subtitle = element_text(size = 10, hjust = 0.5),  # Subtitle format
+    axis.title.y = element_text(size = 8),  # Y-axis labels
+    axis.text.y = element_text(size = 8),    # Y-axis text
+    axis.text.x = element_text(size = 8),    # X-axis text
+    legend.title = element_text(size = 10),  # Legend title
+    legend.text = element_text(size = 8)     # Legend text size
+  )
+
+# Add title and subtitle using annotate_figure
+p_field_vs_simulated <- annotate_figure(combined_plot,
+                top = text_grob("Development of Indices Over Time by Climatic-Environmental Clusters", 
+                                color = "black", face = "bold", size = 12),
+                bottom = text_grob("Error bars represent median and IQR. Field data: year 1, simulated data: year 25 (median-IQR for years 20-30)", 
+                                   color = "black", size = 10)
+)
+
+ggsave(filename = 'outFigs/fig_field_vs_simulated.png', 
+       plot = p_field_vs_simulated, width = 7, height = 7, dpi = 300, bg = 'white')
 
 
 # Plot: indicators development oevr time -------------------------------------
