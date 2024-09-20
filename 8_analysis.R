@@ -1491,9 +1491,27 @@ correlation_matrix
 # split table in two: drivers for advanced (> 1000 stems/ha)
 #                     drivers for delayed regeneration (<50 stems/ha)  
 
-# variables selecteion processs for drivers  ------------------------------------
 
-## predictor selection: SPEI for stem density:  ------------------------------------------------------
+
+df_fin <- df_fin %>% 
+  mutate(country_full    = factor(country_full),
+         country_abbr    = factor(country_abbr),
+         country_pooled  = factor(country_pooled),
+         region          = factor(region))
+
+
+
+df_fin <- df_fin %>% 
+  mutate(
+    tmp_c = tmp - mean(tmp, na.rm = TRUE),  # Centering temperature
+    prcp_c = prcp - mean(prcp, na.rm = TRUE) # Centering precipitation
+  )
+
+
+
+
+
+## Variables selection: Corelations  ------------------------------------------------------
 
 # Select relevant columns for the plot
 df_pairs <- df_fin %>%
@@ -1571,7 +1589,7 @@ print(ordered_spearman)
 # sp_prcp            0.210360501
 
 
-### check for multicollinearity -----------------------------------------------------
+#### check for multicollinearity -----------------------------------------------------
 
 library(car)
 selected_data <- df_fin %>%
@@ -1632,14 +1650,7 @@ k.check(m.tw1)
 
 # TW has a better fit, also can handle zero!
 
-# Run univariate models for set of dependent variables (stem density) ------------------
-# and spei predictors to se teh best spei
-df_fin <- df_fin %>% 
-  mutate(country_full    = factor(country_full),
-         country_abbr    = factor(country_abbr),
-         country_pooled  = factor(country_pooled),
-         region          = factor(region))
-
+##### Run univariate models for set of dependent variables (stem density) ------------------
 
 # List of dependent variables
 dependent_vars <- c("sum_stems_juvenile", 
@@ -1745,16 +1756,230 @@ sjPlot::tab_df(best_predictors,
 
 
 
+
+###  variable selection: BORUTA ---------------------------------------------
+library(Boruta)
+library(randomForest)
+ 
+
+# List of dependent variables
+dependent_vars <- c("sum_stems_juvenile", 
+                    "sum_stems_sapling", 
+                    "stem_regeneration", # sum of juveniles and saplings
+                   # "sum_stems_mature",
+                    "stem_density"      # sum across all classes
+)
+
+# List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
+predictor_vars_sub <- c(#"spei1", "spei3", 
+                    #"spei6", 
+                   # "spei12", 
+                    #"spei24",
+                    "tmp", 
+                    #"tmp_z", 
+                    "prcp", 
+                    #"prcp_z", 
+                    #"drought_spei1", "drought_spei3", "drought_spei6", 
+                    "drought_spei12", 
+                    #"drought_spei24",
+                    #"drought_tmp", 
+                    #"drought_prcp",
+                    "salvage_intensity",
+                    "management_intensity",
+                    # disturbance chars
+                    "distance_edge", 
+                    "disturbance_severity",
+                    
+                    # soil
+                    "sand_extract", 
+                    "clay_extract", 
+                    "depth_extract", 
+                    
+                    # site info
+                    "av.nitro",
+                    "richness",
+                    'rIVI',
+                    "sum_stems_mature",
+                    "n_vertical")
+
+
+
+# Subset the dataset to include only predictor and dependent variables
+df_for_boruta <- df_fin[, c(dependent_vars, predictor_vars_sub), with=FALSE]
+
+# check for correlations and remote the highly correlated predictors
+cor_matrix <- cor(df_for_boruta[, predictor_vars_sub, with=FALSE], use="pairwise.complete.obs")
+# View correlation matrix to find high correlations
+round(cor_matrix, 1)
+
+# Optionally, remove highly correlated variables (threshold > 0.75, for example)
+# Find pairs of highly correlated variables
+high_cor <- findCorrelation(cor_matrix, cutoff = 0.75)
+predictor_vars_cleaned <- predictor_vars[-high_cor]
+
+
+##### Example for one dependent variable (sum_stems_juvenile) -----------------
+set.seed(123)  # For reproducibility
+boruta_results <- Boruta(stem_regeneration ~ ., 
+                         data = df_for_boruta[, c("stem_regeneration", predictor_vars_sub), with=FALSE], 
+                         doTrace = 2)
+
+# Print results
+print(boruta_results)
+
+# Visualize important and non-important variables
+windows()
+plot(boruta_results)
+
+# check list of important predictors:
+boruta_results$finalDecision
+boruta_results$ImpHistory  # get importance scores: as a median
+
+# Get the median importance score for each variable
+importance_scores <- apply(boruta_results$ImpHistory, 2, function(x) median(x, na.rm = TRUE))
+
+
+
+
+# test all dependent: ------------------------------------------------------------
+
+# Initialize an empty list to store results for each dependent variable
+boruta_decisions <- list()
+
+# Loop through each dependent variable
+for (dep_var in dependent_vars) {
+  set.seed(123)  # For reproducibility
+  
+  # Run Boruta analysis
+  boruta_results <- Boruta(as.formula(paste(dep_var, "~ .")), 
+                           data = df_for_boruta[, c(dep_var, predictor_vars_sub), with = FALSE], 
+                           doTrace = 2)
+  
+  # Store the final decisions (Confirmed, Tentative, Rejected) for each dependent variable
+  boruta_decisions[[dep_var]] <- boruta_results$finalDecision
+}
+
+# Combine all the individual data frames into a single data frame
+boruta_decision_df <- do.call(rbind, boruta_decisions)
+
+df1 <-as.data.frame(boruta_decisions$sum_stems_juvenile)
+df2 <-as.data.frame(boruta_decisions$sum_stems_sapling)
+df3 <-as.data.frame(boruta_decisions$stem_regeneration)
+df4 <-as.data.frame(boruta_decisions$stem_density)
+
+dd <- cbind(df1, df2, df3, df4)
+
+
+
+# View the final decision table
+print(boruta_decision_df)
+
+# Make it manually, does now work very well now:
+
+# Create the dataframe
+dd <- data.frame(
+  sum_stems_juvenile = c("Confirmed", "Confirmed", "Confirmed", "Tentative", "Rejected", "Rejected", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed"),
+  sum_stems_sapling = c("Confirmed", "Confirmed", "Confirmed", "Confirmed", "Rejected", "Tentative", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Confirmed", "Confirmed", "Tentative", "Confirmed"),
+  stem_regeneration = c("Confirmed", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Rejected", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Confirmed"),
+  stem_density = c("Confirmed", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Rejected", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Confirmed"),
+  row.names = c("tmp", "prcp", "drought_spei12", "salvage_intensity", "management_intensity", "distance_edge", "disturbance_severity", "sand_extract", "clay_extract", "depth_extract", "av.nitro", "richness", "rIVI", "sum_stems_mature", "n_vertical")
+)
+
+# Melt the dataframe into long format
+dd_melt <- melt(as.matrix(dd))
+
+# Rename the columns
+colnames(dd_melt) <- c("Variable", "Predictor", "Decision")
+
+# Create a color mapping for the Boruta decisions
+dd_melt$Color <- with(dd_melt, ifelse(Decision == "Confirmed", "green", 
+                                      ifelse(Decision == "Tentative", "orange", "red")))
+
+# Plot the heatmap
+ggplot(dd_melt, aes(x = Variable, y = Predictor, fill = Decision)) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = c("Confirmed" = "darkgreen", "Tentative" = "orange", "Rejected" = "red")) +
+  labs(title = "Boruta Decision Plot", x = "Dependent", y = "Variables") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+# Model: delayed vs advanced regeneration ---------------------------------------------------------------------------------
+
+# occurence or risk of teh binary outcome
+# Create the binary outcome variable for regeneration status
+df_fin$delayed <- ifelse(df_fin$stem_regeneration < 50, 1,0)
+df_fin$advanced <- ifelse(df_fin$stem_regeneration > 1000, 1,0)
+
+
+# Logistic regression model
+model <- glm(delayed ~ tmp + prcp + drought_spei12 + management_intensity + distance_edge + 
+               disturbance_severity + av.nitro + sand_extract + clay_extract + depth_extract, 
+             family = binomial, data = df_fin)
+
+# View summary of the model
+summary(model)
+plot(model)
+
+
+
+
+
+
+# analyse the most important drivers ------------------------------------------------------
+
+# Apply the log10(x + 1) transformation to sum_stems_juvenile
+df_fin$log_sum_stems_juvenile <- log10(df_fin$sum_stems_juvenile + 1)
+
+
+# Select only the confirmed important predictors from Boruta
+important_vars <- c("spei12", "tmp", "tmp_z", "prcp", "prcp_z", 
+                    "drought_spei12", "sand_extract", "clay_extract", 
+                    "depth_extract", "av.nitro")
+
+# Create a subset of the data for important variables
+df_important <- df_fin[, important_vars, with = FALSE]
+
+# Calculate the Spearman correlation matrix (since you're dealing with environmental data, Spearman may be more appropriate)
+cor_matrix <- cor(df_important, method = "spearman", use = "complete.obs")
+
+# Find pairs of highly correlated variables (correlation > 0.7)
+library(caret)
+high_cor <- findCorrelation(cor_matrix, cutoff = 0.6)
+
+# Remove the highly correlated variables
+if (length(high_cor) > 0) {
+  important_vars_cleaned <- important_vars[-high_cor]
+} else {
+  important_vars_cleaned <- important_vars  # No variables to remove
+}
+
+# View the remaining predictors after removing correlations
+important_vars_cleaned
+
+
+# Create a formula for the GAM using the cleaned important predictors
+gam_formula <- as.formula(paste("log_sum_stems_juvenile ~", 
+                                paste("s(", important_vars_cleaned, ")", collapse = " + ")))
+
+# Fit the GAM model
+gam_model <- gam(gam_formula, data = df_fin, family = gaussian())
+
+# View the summary of the GAM model
+summary(gam_model)
+appraise(gam_model)
+
+
+
+
+
+
+
+
+
 # test for poled regeneration: -------------------------------------------------
-
-library(mgcv)
-library(MASS)
-
-df_fin <- df_fin %>% 
-  mutate(
-    tmp_c = tmp - mean(tmp, na.rm = TRUE),  # Centering temperature
-    prcp_c = prcp - mean(prcp, na.rm = TRUE) # Centering precipitation
-  )
 
 # Define the model using the best predictors for 'regeneration_pool'
 initial_model <- gam(stem_regeneration ~ 
