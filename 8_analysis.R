@@ -479,11 +479,11 @@ ggarrange(p_IVI_manag, p_richness_manag,
 
 # 2. species composition per stems: --------------
 
-# identify seral stages
+# identify seral stages and whether the species are coniferous or deciduous
 df_seral_species <- data.frame(
   Species = c("abal", "lade", "piab", "pist", "pisy", "psme", "taba", "acca", "acpl", "acps", "aehi", "aial", "algl",
-          "alin", "alvi", "besp", "cabe", "casa", "fasy", "frex", "fror", "ilaq", "juni", "jure", "osca", "otsp",
-          "posp", "potr", "prav", "quro", "qusp", "rops", "saca", "sasp", "soar", "soau", "soto", "tisp", "ulsp"),
+              "alin", "alvi", "besp", "cabe", "casa", "fasy", "frex", "fror", "ilaq", "juni", "jure", "osca", "otsp",
+              "posp", "potr", "prav", "quro", "qusp", "rops", "saca", "sasp", "soar", "soau", "soto", "tisp", "ulsp"),
   latinn = c("Abies alba", "Larix decidua", "Picea abies", "Pinus strobus", "Pinus sylvestris", "Pseudotsuga menziesii",
              "Taxus baccata", "Acer campestre", "Acer platanoides", "Acer pseudoplatanus", "Aesculus hippocastanum",
              "Ailanthus altissima", "Alnus glutinosa", "Alnus incarna", "Alnus viridis", "Betula spp.", "Carpinus betulus",
@@ -492,12 +492,20 @@ df_seral_species <- data.frame(
              "Quercus robur/petraea", "Quercus spp.", "Robinia pseudoacacia", "Salix caprea", "Salix spp.", "Sorbus aria",
              "Sorbus aucuparia", "Sorbus torminalis", "Tilia spp.", "Ulmus spp."),
   seral_type = c("Late seral", "Early seral", "Late seral", "Late seral", "Early seral", "Late seral", 
-              "Late seral", "Late seral", "Late seral", "Late seral", "Late seral", "Pioneer", "Pioneer",
-              "Pioneer", "Pioneer", "Pioneer", "Late seral", "Late seral", "Late seral", "Pioneer", "Early seral",
-              "Late seral", "Early seral", "Early seral", "Late seral", "Other", "Pioneer", "Pioneer", 
-              "Early seral", "Late seral", "Late seral", "Pioneer", "Pioneer", "Pioneer", "Early seral", 
-              "Early seral", "Early seral", "Late seral", "Late seral")
+                 "Late seral", "Late seral", "Late seral", "Late seral", "Late seral", "Pioneer", "Pioneer",
+                 "Pioneer", "Pioneer", "Pioneer", "Late seral", "Late seral", "Late seral", "Pioneer", "Early seral",
+                 "Late seral", "Early seral", "Early seral", "Late seral", "Other", "Pioneer", "Pioneer", 
+                 "Early seral", "Late seral", "Late seral", "Pioneer", "Pioneer", "Pioneer", "Early seral", 
+                 "Early seral", "Early seral", "Late seral", "Late seral"),
+  type = c("Coniferous", "Coniferous", "Coniferous", "Coniferous", "Coniferous", "Coniferous", "Coniferous", "Deciduous",
+           "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous",
+           "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous",
+           "Deciduous", "Other", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous",
+           "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous")
 )
+
+# Display the dataframe
+df_seral_species
 
 
 
@@ -518,20 +526,81 @@ stem_dens_species_long %>%
   arrange(desc(share)) #%>% 
 #View()
 
+
+
+# Species composition: vertical class  ------------------------------------
+# Summarize the data by VegType and Species
+mean_stems_vertical <- stem_dens_species_long %>%
+  group_by(VegType, Species) %>%
+  summarize(mean_stems = mean(stem_density, na.rm = TRUE)) %>%
+  ungroup()
+
+# Calculate total stems per species and reorder Species factor
+species_order <- mean_stems_vertical %>%
+  group_by(Species) %>%
+  summarize(total_stems = sum(mean_stems)) %>%
+  arrange(total_stems)
+
+# Reorder Species based on total stem density (ascending, so most prevalent species will be in the back)
+mean_stems_vertical <- mean_stems_vertical %>%
+  mutate(Species = factor(Species, levels = species_order$Species))
+
+# Reorder VegType factor to have "Saplings", "Juveniles", "Mature"
+mean_stems_vertical <- mean_stems_vertical %>%
+  mutate(VegType = factor(VegType, levels = c("Saplings", "Juveniles", "Mature")))
+
+#### Fix the color mapping ----------------------
+
+# Create a color palette based on the number of unique species
+n_colors <- length(unique(mean_stems_vertical$Species))
+species_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)
+
+# Map colors to each species
+mean_stems_vertical$color <- species_colors[as.numeric(mean_stems_vertical$Species)]
+
+#### 3D Plot using latticeExtra ----------------------
+
+# Set up PNG device with 300 DPI and 7x7 inch size
+png(filename = "outFigs/3D_bar_plot_trees_species.png", width = 7, height = 7, units = "in", res = 300)
+
+
+# Create a 3D bar plot using latticeExtra
+cloud(mean_stems ~ Species * VegType, data = mean_stems_vertical,
+      panel.3d.cloud = panel.3dbars, 
+      col.facet = mean_stems_vertical$color,  # Use the color for each species
+      xbase = 0.4, 
+      ybase = 0.4,
+      scales = list(arrows = FALSE, col = 1), 
+      par.settings = list(axis.line = list(col = "transparent")),
+      screen = list(z = 60, x = -60),  # Adjust view angle
+      main = "Mean Stems per Species and Growth Class",
+      key = list(space = "right", 
+                 z = list(draw = FALSE),  # Remove z-axis labels
+                 y = list(draw = FALSE),  # Remove y-axis (bottom) labels
+                 title = "Tree Species", 
+                 points = list(pch = 15, col = species_colors),  # Color points for species
+                 text = list(as.character(levels(mean_stems_vertical$Species)))))  # Correct species labels
+
+
+# Close the PNG device to save the file
+dev.off()
+# # Create a 3D bar plot using latticeExtra with the adjusted settings
+# cloud(mean_stems ~ Species * VegType, data = mean_stems_vertical,
+#       panel.3d.cloud = panel.3dbars, 
+#       col.facet = mean_stems_vertical$color,  # Use the color for each species
+#       xbase = 0.4, 
+#       ybase = 0.4,
+#       scales = list(arrows = FALSE, 
+#                     col = 1, 
+#                     z = list(draw = FALSE),  # Remove z-axis labels
+#                     y = list(draw = FALSE),  # Remove y-axis (bottom) labels
+#                     x = list(rot = 90)),     # Rotate x-axis (Species) labels for readability
+#       par.settings = list(axis.line = list(col = "transparent")),
+#       screen = list(z = 60, x = -60),  # Adjust view angle
+#       main = "Mean Stems per Species and Growth Class")
+
+
 #### Global species composition ----------------------
-
-#sum of species per fiel wrork: from 37 tree species
-# Calculate species richness per clim_class
-species_richness <- top_species_per_clim_class %>%
-  group_by(clim_class) %>%
-  summarise(species_richness = n_distinct(Species))
-
-stem_dens_species_long %>% 
-  ungroup() %>% 
-  dplyr::filter(stem_density > 0) %>% 
-  summarise(species_richness = n_distinct(Species))
- 
-
 # Summarize the total stem density per species for each climate class
 species_composition <- stem_dens_species_long %>%
   group_by(clim_class, Species) %>%
@@ -544,6 +613,19 @@ species_composition <- species_composition %>%
   mutate(total_stems_clim_class = sum(sum_stems),  # Total stem density in each climate class
          share = (sum_stems / total_stems_clim_class) * 100) %>%  # Calculate percentage share
   ungroup()
+
+
+#sum of species per fiel wrork: from 37 tree species
+# Calculate species richness per clim_class
+species_richness <- top_species_per_clim_class %>%
+  group_by(clim_class) %>%
+  summarise(species_richness = n_distinct(Species))
+
+stem_dens_species_long %>% 
+  ungroup() %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  summarise(species_richness = n_distinct(Species))
+ 
 
 
 # Use different gradient depepnding fof teh seral stage: 
@@ -1816,15 +1898,274 @@ interaction_model_smooth <- gam(stem_regeneration ~ ti(x, y) +
                                   s(country_pooled, bs = 're'), 
                                 family = Tweedie(p = 1.46), 
                                 method = 'REML',
+                                select = TRUE,
                                 data = df_fin)
 
 
 
-draw(interaction_model_smooth)
-summary(interaction_model_smooth)
-appraise(interaction_model_smooth)
+#  from chatGPT:
+
+interaction_model_improved <- gam(stem_regeneration ~ ti(x, y) + 
+                                    s(tmp_c) + 
+                                    s(prcp_c) + 
+                                    ti(tmp_c, prcp_c) + 
+                                    s(distance_edge) +              # Smooth for non-linearity
+                                    disturbance_severity + 
+                                    ti(tmp_c, disturbance_severity) + # Interaction with disturbance
+                                    ti(prcp_c, disturbance_severity) + # Interaction with disturbance
+                                    s(clay_extract) + 
+                                    #s(salvage_intensity ) +
+                                    s(management_intensity, k = 5) + 
+                                    s(av.nitro, k = 15) + 
+                                    s(region, bs = "re") + 
+                                    s(country_pooled, bs = "re"),
+                                  family = Tweedie(p = 1.46), 
+                                  method = 'REML',
+                                  data = df_fin)
+
+interaction_model_hierarchical <- gam(stem_regeneration ~ ti(x, y) + 
+                                        s(tmp_c) + 
+                                        s(prcp_c) + 
+                                        ti(tmp_c, prcp_c) + 
+                                        s(distance_edge) + 
+                                        disturbance_severity + 
+                                        s(clay_extract) + 
+                                        s(management_intensity, k = 5) + 
+                                        s(av.nitro, k = 15) + 
+                                        # Hierarchical random effects
+                                        s(region, bs = "re") +             # Random effect for regions
+                                        s(country_pooled, bs = "re", by = region), # Random effect for countries, with regions nested within countries
+                                      family = Tweedie(p = 1.46), 
+                                      method = 'REML',
+                                      data = df_fin)
 
 
+interaction_model_hierarchical2 <- gam(stem_regeneration ~ ti(x, y, bs = 'gp') + 
+                                        s(tmp_c) + 
+                                        s(prcp_c) + 
+                                        ti(tmp_c, prcp_c) + 
+                                        s(distance_edge) + 
+                                        disturbance_severity + 
+                                        s(clay_extract) + 
+                                        s(management_intensity, k = 5) + 
+                                        s(av.nitro, k = 15) + 
+                                         s(richness) +
+                                         s(sum_stems_mature, k = 4) +
+                                        # Hierarchical random effects
+                                        s(region, bs = "re") +             # Random effect for regions
+                                        s(country_pooled, bs = "re", by = region), # Random effect for countries, with regions nested within countries
+                                      family = Tweedie(p = 1.46), 
+                                      method = 'REML',
+                                      data = df_fin)
+
+
+AIC(interaction_model_improved, interaction_model_smooth, interaction_model_hierarchical,interaction_model_hierarchical2)
+draw(interaction_model_improved)
+summary(interaction_model_hierarchical2)
+appraise(interaction_model_hierarchical)
+
+# account for climatic variables - aggregated on 9 km resolution:
+df_fin <- df_fin %>%
+  mutate(clim_id = factor(paste(tmp, prcp, sep = "_")))  # Create a unique identifier for temp/precip combinations
+
+
+
+interaction_model_hierarchical3 <- gam(stem_regeneration ~ ti(x, y, bs = 'gp') + 
+                                         s(tmp_c) + 
+                                         s(prcp_c) + 
+                                         ti(tmp_c, prcp_c) + 
+                                         s(distance_edge) + 
+                                         disturbance_severity + 
+                                         s(clay_extract) + 
+                                         s(management_intensity, k = 5) + 
+                                         s(av.nitro, k = 15) + 
+                                         s(richness) +
+                                         s(sum_stems_mature, k = 4) +
+                                         s(clim_id,  bs = "re") + # account for gropped clim predictors
+                                         # Hierarchical random effects
+                                         s(region, bs = "re") +             # Random effect for regions
+                                         s(region, bs = "re", by = country_pooled), # Random effect for countries, with regions nested within countries
+                                       family = Tweedie(p = 1.46), 
+                                       method = 'REML',
+                                       data = df_fin)
+
+summary(interaction_model_hierarchical3_nb)
+appraise(interaction_model_hierarchical3_nb)
+AIC(interaction_model_hierarchical3_nb,
+  interaction_model_hierarchical3, 
+    interaction_model_hierarchical2,interaction_model_hierarchical_clim_smooth)
+
+interaction_model_hierarchical_clim_smooth <- gam(stem_regeneration ~ ti(x, y, bs = 'gp') + 
+                                         s(tmp_c) + 
+                                         s(prcp_c) + 
+                                         ti(tmp_c, prcp_c) + 
+                                         s(distance_edge) + 
+                                         disturbance_severity + 
+                                         s(clay_extract) + 
+                                         s(management_intensity, k = 5) + 
+                                         s(av.nitro, k = 15) + 
+                                         s(richness) +
+                                         s(sum_stems_mature, k = 4) +
+                                         s(region, bs = "re") +               # Random effect for regions
+                                         s(region , bs = "re", by = country_pooled),  # Regions nested within countries
+                                       family = Tweedie(p = 1.46), 
+                                       method = 'REML',
+                                       data = df_fin)
+
+
+interaction_model_hierarchical3_nb <- gam(stem_regeneration ~ ti(x, y, bs = "gp") + 
+                                            s(tmp_c) + 
+                                            s(prcp_c) + 
+                                            ti(tmp_c, prcp_c) + 
+                                            s(distance_edge) + 
+                                            disturbance_severity + 
+                                            s(clay_extract) + 
+                                            s(management_intensity, k = 5) + 
+                                            s(av.nitro, k = 15) + 
+                                            s(richness) +
+                                            s(sum_stems_mature, k = 4) +
+                                            s(clim_id, bs = "re") + 
+                                            s(region, bs = "re"),  # Removed nesting
+                                          family = nb(),  # Negative binomial family
+                                          method = 'REML',
+                                          data = df_fin)
+
+# specify spatial autocorrelatin
+
+interaction_model_spatial <- gamm(stem_regeneration ~ s(tmp_c) + 
+                                    s(prcp_c) + 
+                                    ti(tmp_c, prcp_c) + 
+                                    s(distance_edge) + 
+                                    disturbance_severity + 
+                                    s(clay_extract) + 
+                                    s(management_intensity, k = 5) + 
+                                    s(av.nitro, k = 15), # + 
+                                    #s(richness) + 
+                                    #s(sum_stems_mature, k = 4),
+                                  family = Tweedie(p = 1.46), 
+                                  method = "REML",
+                                  data = df_fin,
+                                  correlation = corExp(form = ~ x + y, nugget = TRUE))  # Exponential correlation
+
+
+interaction_model_spatial_gauss <- gamm(stem_regeneration ~ s(tmp_c) + 
+                                    s(prcp_c) + 
+                                    ti(tmp_c, prcp_c) + 
+                                    s(distance_edge) + 
+                                    disturbance_severity + 
+                                    s(clay_extract) + 
+                                    s(management_intensity, k = 5) + 
+                                    s(av.nitro, k = 15), # + 
+                                  #s(richness) + 
+                                  #s(sum_stems_mature, k = 4),
+                                  family = Tweedie(p = 1.46), 
+                                  method = "REML",
+                                  data = df_fin,
+                                  correlation = corGaus(form = ~ x + y, nugget = TRUE))  # Gaussian correlation
+
+
+
+interaction_model_spatial_spher <- gamm(stem_regeneration ~ s(tmp_c) + 
+                                          s(prcp_c) + 
+                                          ti(tmp_c, prcp_c) + 
+                                          s(distance_edge) + 
+                                          disturbance_severity + 
+                                          s(clay_extract) + 
+                                          s(management_intensity, k = 5) + 
+                                          s(av.nitro, k = 15), # + 
+                                        #s(richness) + 
+                                        #s(sum_stems_mature, k = 4),
+                                        family = Tweedie(p = 1.46), 
+                                        method = "REML",
+                                        data = df_fin,
+                                        correlation = corSpher(form = ~ x + y, nugget = TRUE))  # Spherical correlation
+
+
+
+# Do i need more explicit spatial correlatio? 
+
+# test by steps: Morans test of residual, variogram
+#check for spatial autocorrelation in residuals
+library(spdep)
+
+# Coordinates of your plots
+coords <- cbind(df_fin$x, df_fin$y)
+
+# Create spatial neighbors (you can adjust the k-nearest neighbors or distance-based method)
+nb <- knearneigh(coords, k = 4)  # k can be adjusted based on your data
+
+# Convert to list of neighbors
+nb_list <- knn2nb(nb)
+
+# Create spatial weights matrix
+weights <- nb2listw(nb_list)
+
+# Calculate Moran's I for the model residuals
+moran.test(residuals(interaction_model_hierarchical2), listw = weights)
+
+# MOrans I is significant, positive, -> there is spatial autocorrelation
+
+## get variogram
+# Create a spatial dataframe
+model_residuals <- residuals(interaction_model_hierarchical2)
+df_fin2 <- df_fin
+df_fin2$residuals <- model_residuals
+sf_residuals <- st_as_sf(df_fin2, coords = c("x", "y"), crs = 25832)
+
+library(gstat)
+
+# Compute the empirical variogram of residuals
+variogram_residuals <- variogram(residuals ~ 1, sf_residuals)
+
+# Plot the variogram
+plot(variogram_residuals)
+
+fitted_variogram <- fit.variogram(variogram_residuals, vgm("Sph"))
+plot(variogram_residuals, fitted_variogram)
+
+# my data are of course aggregated on climatic lelevl!!! (clim vars from ERA NET!)
+
+# average dependent variable bassed on unique tmp and prec
+# Step 1: Create a unique ID for each unique combination of tmp and prcp
+
+# Step 2: Aggregate stem_density and other necessary columns by this unique ID
+df_fin_agg <- df_fin %>%
+  group_by(clim_id) %>%
+  summarise(
+    avg_stem_regeneration = mean(stem_regeneration, na.rm = TRUE),  # Average stem density
+    tmp_c = first(tmp_c),  # Retain the first tmp value for each group (all are the same in the group)
+    prcp_c = first(prcp_c),  # Retain the first prcp value
+    tmp = first(tmp),  # Retain the first tmp value for each group (all are the same in the group)
+    prcp = first(prcp),  # Retain the first prcp value
+    richness = mean(richness, na.rm = TRUE),  # Example: average other columns if needed
+    management_intensity = mean(management_intensity, na.rm = TRUE)  # Average other variables if required
+  ) %>%
+  ungroup()
+
+
+df_fin_agg <- df_fin %>%
+  group_by(clim_id) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE),  # Average all numeric columns
+            across(where(is.character), first),             # Retain the first value for all character columns
+            across(where(is.factor), first))   
+
+
+# Fit your model with the aggregated data
+interaction_model_agg <- gam(stem_regeneration ~ 
+                               s(tmp_c) + 
+                               s(prcp_c) + 
+                               ti(tmp_c, prcp_c) + 
+                               # Include other variables as needed
+                               s(richness) + 
+                               s(management_intensity),
+                             family = Tweedie(p = 1.46), 
+                             method = 'REML',
+                             data = df_fin_agg)
+
+summary(interaction_model_agg)
+appraise(interaction_model_agg)
+
+hist(df_fin_agg$stem_regeneration)
 
 
 # Visualize the main effect of tmp_c
