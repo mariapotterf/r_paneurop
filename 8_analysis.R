@@ -1613,7 +1613,7 @@ vif_values <- vif(lm_model)
 
 # final climatic predictors are tmp and prec
 
-### test with univariate models & AIC ----------------------------------------------
+### test with different families ----------------------------------------------
 hist(df_fin$stem_density)
 
 
@@ -1656,16 +1656,24 @@ k.check(m.tw1)
 dependent_vars <- c("sum_stems_juvenile", 
                     "sum_stems_sapling", 
                     "stem_regeneration", # sum of juveniles and saplings
-                    "sum_stems_mature"
+                    #"sum_stems_mature",
+                    "advanced",
+                    "delayed"
                     #"stem_density"
 )
 
 # List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
-predictor_vars <- c("spei1", "spei3", "spei6", "spei12", "spei24",
-                    "tmp", "tmp_z", "prcp", "prcp_z", 
-                    "drought_spei1", "drought_spei3", "drought_spei6", 
-                    "drought_spei12", "drought_spei24",
-                    "drought_tmp", "drought_prcp",
+predictor_vars <- c("spei1", "spei3", "spei6", 
+  "spei12", 
+  #"spei24",
+                    "tmp", 
+                    #"tmp_z", 
+                    "prcp", 
+                    #"prcp_z", 
+                   # "drought_spei1", "drought_spei3", "drought_spei6", 
+  #                  "drought_spei12", 
+  "drought_spei24",
+   #                 "drought_tmp", "drought_prcp",
                     "management_intensity",
                     "distance_edge", 
                     "disturbance_severity", 
@@ -1761,13 +1769,37 @@ sjPlot::tab_df(best_predictors,
 library(Boruta)
 library(randomForest)
  
+df_fin$log_distance_edge        <- log(df_fin$distance_edge + 1)
+df_fin$log_disturbance_severity <- log(df_fin$disturbance_severity + 0.001)
+df_fin$log_depth_extract        <- log(df_fin$depth_extract + 1) # in cm
+df_fin$salvage_intensity        <- df_fin$salvage_intensity + 0.01 # increase a bit
 
+
+# occurence or risk of teh binary outcome
+# Create the binary outcome variable for regeneration status
+df_fin$delayed <- ifelse(df_fin$stem_regeneration < 50, 1,0)
+df_fin$advanced <- ifelse(df_fin$stem_regeneration > 1000, 1,0)
+
+
+# account for climatic variables - aggregated on 9 km resolution:
+df_fin <- df_fin %>%
+  mutate(clim_grid = factor(paste(tmp, prcp, sep = "_")))  # Create a unique identifier for temp/precip combinations
+
+
+
+# Make sure df_fin has no missing values, if necessary
+df_fin <- na.omit(df_fin)
+
+
+hist(df_fin$log_depth_extract)
 # List of dependent variables
 dependent_vars <- c("sum_stems_juvenile", 
                     "sum_stems_sapling", 
                     "stem_regeneration", # sum of juveniles and saplings
                    # "sum_stems_mature",
-                    "stem_density"      # sum across all classes
+                   # "stem_density",      # sum across all classes
+                   "advanced",
+                   "delayed"
 )
 
 # List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
@@ -1784,7 +1816,7 @@ predictor_vars_sub <- c(#"spei1", "spei3",
                     #"drought_spei24",
                     #"drought_tmp", 
                     #"drought_prcp",
-                    "salvage_intensity",
+                    #"salvage_intensity",
                     "management_intensity",
                     # disturbance chars
                     "distance_edge", 
@@ -1810,18 +1842,37 @@ df_for_boruta <- df_fin[, c(dependent_vars, predictor_vars_sub), with=FALSE]
 # check for correlations and remote the highly correlated predictors
 cor_matrix <- cor(df_for_boruta[, predictor_vars_sub, with=FALSE], use="pairwise.complete.obs")
 # View correlation matrix to find high correlations
-round(cor_matrix, 1)
+round(cor_matrix, 2)
 
 # Optionally, remove highly correlated variables (threshold > 0.75, for example)
 # Find pairs of highly correlated variables
 high_cor <- findCorrelation(cor_matrix, cutoff = 0.75)
-predictor_vars_cleaned <- predictor_vars[-high_cor]
+predictor_vars_cleaned <- predictor_vars_sub[-high_cor]
+
+
+# remove high correlated predictor:
+# Set the upper triangle and the diagonal of the correlation matrix to NA
+cor_matrix[upper.tri(cor_matrix, diag = TRUE)] <- NA
+
+# Find pairs of variables with correlations above the threshold (e.g., 0.75)
+high_cor_pairs <- which(abs(cor_matrix) > 0.7, arr.ind = TRUE)
+
+# Display highly correlated pairs
+print(high_cor_pairs)
+
+# Identify the names of predictors to be removed (keep the first occurrence)
+predictors_to_remove <- unique(rownames(high_cor_pairs))
+
+predictor_vars_cleaned <- predictor_vars_sub[!(predictor_vars_sub %in% predictors_to_remove)]
+
+# Display cleaned predictor variables
+print(colnames(predictor_vars_cleaned))
 
 
 ##### Example for one dependent variable (sum_stems_juvenile) -----------------
 set.seed(123)  # For reproducibility
 boruta_results <- Boruta(stem_regeneration ~ ., 
-                         data = df_for_boruta[, c("stem_regeneration", predictor_vars_sub), with=FALSE], 
+                         data = df_for_boruta[, c("stem_regeneration", predictor_vars_cleaned), with=FALSE], 
                          doTrace = 2)
 
 # Print results
@@ -1835,96 +1886,449 @@ plot(boruta_results)
 boruta_results$finalDecision
 boruta_results$ImpHistory  # get importance scores: as a median
 
-# Get the median importance score for each variable
-importance_scores <- apply(boruta_results$ImpHistory, 2, function(x) median(x, na.rm = TRUE))
+
+# Extract final decisions for each variable
+decisions_df <- as.data.frame(boruta_results$finalDecision)
+decisions_df$dependent = "stem_regeneration"  # create new variable for depepndet variable
+
+
+# Add row names as a new column called "Variable"
+decisions_df$Variable <- rownames(decisions_df)
+
+# Rename the decision column to "Decision"
+colnames(decisions_df) <- c("Decision", "Dependent", "Variable")
+
+# Extract importance history and remove shadow variables (those that start with 'shadow')
+importance_history <- boruta_results$ImpHistory[, !grepl("shadow", colnames(boruta_results$ImpHistory))]
+
+# Convert the importance history to a data frame for easier manipulation
+importance_df <- as.data.frame(importance_history)
+
+# Pivot the entire data frame to long format (all columns)
+importance_long <- importance_df %>%
+  pivot_longer(cols = everything(),  # Select all columns
+               names_to = "Variable", 
+               values_to = "Importance")
+
+
+out_df <- importance_long %>% 
+  left_join(decisions_df,by = join_by(Variable))
 
 
 
 
-# test all dependent: ------------------------------------------------------------
+# TEST LOOP BORUTA ---------------------------------------
 
-# Initialize an empty list to store results for each dependent variable
-boruta_decisions <- list()
-
-# Loop through each dependent variable
-for (dep_var in dependent_vars) {
-  set.seed(123)  # For reproducibility
+# Define the function that performs Boruta analysis and returns the merged result
+run_boruta_analysis <- function(dep_var, df_for_boruta, predictor_vars_sub) {
   
   # Run Boruta analysis
-  boruta_results <- Boruta(as.formula(paste(dep_var, "~ .")), 
+  boruta_results <- Boruta(as.formula(paste(dep_var, "~ .")),
                            data = df_for_boruta[, c(dep_var, predictor_vars_sub), with = FALSE], 
                            doTrace = 2)
   
-  # Store the final decisions (Confirmed, Tentative, Rejected) for each dependent variable
-  boruta_decisions[[dep_var]] <- boruta_results$finalDecision
+  # Extract final decisions for each variable
+  decisions_df <- as.data.frame(boruta_results$finalDecision)
+  decisions_df$Dependent <- dep_var  # Create new column for the dependent variable
+  
+  # Add row names as a new column called "Variable"
+  decisions_df$Variable <- rownames(decisions_df)
+  
+  # Rename the decision column to "Decision"
+  colnames(decisions_df) <- c("Decision", "Dependent", "Variable")
+  
+  # Extract importance history and remove shadow variables
+  importance_history <- boruta_results$ImpHistory[, !grepl("shadow", colnames(boruta_results$ImpHistory))]
+  
+  # Convert the importance history to a data frame
+  importance_df <- as.data.frame(importance_history)
+  
+  # Pivot the data to long format
+  importance_long <- importance_df %>%
+    pivot_longer(cols = everything(),  # Select all columns
+                 names_to = "Variable", 
+                 values_to = "Importance")
+  
+  # Merge the importance scores with the Boruta decisions
+  result_df <- importance_long %>%
+    left_join(decisions_df, by = "Variable")
+  
+  return(result_df)
 }
 
-# Combine all the individual data frames into a single data frame
-boruta_decision_df <- do.call(rbind, boruta_decisions)
+# Apply the function to each dependent variable using lapply or a loop
+out_list <- lapply(dependent_vars, function(dep_var) {
+  print(dep_var)
+  run_boruta_analysis(dep_var, df_fin, predictor_vars_cleaned)
+})
 
-df1 <-as.data.frame(boruta_decisions$sum_stems_juvenile)
-df2 <-as.data.frame(boruta_decisions$sum_stems_sapling)
-df3 <-as.data.frame(boruta_decisions$stem_regeneration)
-df4 <-as.data.frame(boruta_decisions$stem_density)
+# Combine the results into a single dataframe
+out_df <- bind_rows(out_list)
 
-dd <- cbind(df1, df2, df3, df4)
+# View the final output
+head(out_df)
 
+# Order variables by median importance, from lowest to highest
+out_df <- out_df %>%
+  group_by(Variable) %>%
+  mutate(median_importance = median(Importance, na.rm = TRUE)) %>%
+  ungroup() %>%
+  arrange(median_importance)
 
+# Create a factor for ordered variables by median importance
+out_df$Variable <- factor(out_df$Variable, levels = unique(out_df$Variable))
 
-# View the final decision table
-print(boruta_decision_df)
+p_select_vars_boruta <- out_df %>% 
+  dplyr::filter(!grepl('sum_', Dependent)) %>% 
+  ggplot(aes(x = Variable, y = Importance, fill = Decision)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Confirmed" = "green", "Rejected" = "red", "Tentative" = "orange")) +
+  labs(title = "Boxplot of Importance by Variables",
+       x = "Variables", 
+       y = "Importance") +
+  theme_classic2() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = 'bottom') + # Rotate x-axis labels for better readability
+facet_wrap(Dependent ~.)
 
-# Make it manually, does now work very well now:
+ggsave('outFigs/fig_select_vars_boruta.png', plot = p_select_vars_boruta, width =7,height = 7)
+# get sumary table:
 
-# Create the dataframe
-dd <- data.frame(
-  sum_stems_juvenile = c("Confirmed", "Confirmed", "Confirmed", "Tentative", "Rejected", "Rejected", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed"),
-  sum_stems_sapling = c("Confirmed", "Confirmed", "Confirmed", "Confirmed", "Rejected", "Tentative", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Confirmed", "Confirmed", "Tentative", "Confirmed"),
-  stem_regeneration = c("Confirmed", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Rejected", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Confirmed"),
-  stem_density = c("Confirmed", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Rejected", "Tentative", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Confirmed", "Tentative", "Confirmed"),
-  row.names = c("tmp", "prcp", "drought_spei12", "salvage_intensity", "management_intensity", "distance_edge", "disturbance_severity", "sand_extract", "clay_extract", "depth_extract", "av.nitro", "richness", "rIVI", "sum_stems_mature", "n_vertical")
-)
+out_df_summary <- out_df %>% 
+       dplyr::filter(Importance != -Inf) %>% 
+  group_by(Dependent, Variable, Decision ) %>% 
+  summarise(median = median(Importance , na.rm = T))# %>% 
+  #group_by(Dependent) %>% 
+  #slice_max(order_by = median, n = 5) %>%
+  #print(n = 40)
+# 
 
-# Melt the dataframe into long format
-dd_melt <- melt(as.matrix(dd))
-
-# Rename the columns
-colnames(dd_melt) <- c("Variable", "Predictor", "Decision")
-
-# Create a color mapping for the Boruta decisions
-dd_melt$Color <- with(dd_melt, ifelse(Decision == "Confirmed", "green", 
-                                      ifelse(Decision == "Tentative", "orange", "red")))
-
-# Plot the heatmap
-ggplot(dd_melt, aes(x = Variable, y = Predictor, fill = Decision)) +
-  geom_tile(color = "white") +
-  scale_fill_manual(values = c("Confirmed" = "darkgreen", "Tentative" = "orange", "Rejected" = "red")) +
-  labs(title = "Boruta Decision Plot", x = "Dependent", y = "Variables") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-
-
-# Model: delayed vs advanced regeneration ---------------------------------------------------------------------------------
-
-# occurence or risk of teh binary outcome
-# Create the binary outcome variable for regeneration status
-df_fin$delayed <- ifelse(df_fin$stem_regeneration < 50, 1,0)
-df_fin$advanced <- ifelse(df_fin$stem_regeneration > 1000, 1,0)
-
-
-# Logistic regression model
-model <- glm(delayed ~ tmp + prcp + drought_spei12 + management_intensity + distance_edge + 
-               disturbance_severity + av.nitro + sand_extract + clay_extract + depth_extract, 
-             family = binomial, data = df_fin)
-
-# View summary of the model
-summary(model)
-plot(model)
+View(out_df_summary)
 
 
 
+
+## Models: prepare fin tables ---------------------------------------------------------------------------------
+
+# Subsetting the data for different models
+# Variables to be used for each dependent variable
+predictors_delayed <- c("rIVI", 
+                        # "n_vertical",  # remove as it has only 1/0 outcome
+                        # "richness",    #
+                        "sum_stems_mature", 
+                        "prcp",
+                        "drought_spei12",
+                        "tmp",
+                        "av.nitro",
+                        "depth_extract",
+                        "management_intensity",
+                        "country_pooled","clim_grid", "clim_class", "x", "y")
+
+
+
+predictors_advanced <- c("richness", "rIVI", "n_vertical", "sum_stems_mature", "drought_spei12", 
+                         "country_pooled","clim_grid",  "clim_class", "x", "y")
+predictors_stem_regeneration <- c("richness", "n_vertical", "rIVI", "prcp", "drought_spei12",
+                                  "country_pooled", "clim_grid", "clim_class", "x", "y")
+
+# Subset the data
+df_delayed <- df_fin %>% dplyr::select(all_of(c("delayed", predictors_delayed)))
+df_advanced <- df_fin %>% dplyr::select(all_of(c("advanced", predictors_advanced)))
+df_stem_regeneration <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", predictors_stem_regeneration)))
+
+# Removing rows with missing data (if any)
+df_delayed <- na.omit(df_delayed)
+df_advanced <- na.omit(df_advanced)
+df_stem_regeneration <- na.omit(df_stem_regeneration)
+
+
+# Fit a logistic regression model to predict delayed regeneration using the Tweedie distribution:
+
+# test if any outcme is only 1 or only 0
+# table(df_delayed$delayed, df_delayed$country_pooled)
+# 
+# AT  CH  CZ  DE  FR  PL  SI  SK
+# 0  54  24 127 417  60  37  55  18
+# 1   3   0   8  42   3   0   1   0
+# > table(df_delayed$delayed, df_delayed$clim_class)
+# 
+# hot-dry-clay hot-dry-sand wet-warm-clay
+# 0          374          147           271
+# 1           26           18            13
+
+
+
+logistic_model_delayed <- glm(delayed ~ #richness, # + 
+                                rIVI + 
+                                #n_vertical # + 
+                                sum_stems_mature + 
+                                prcp +
+                                tmp +
+                                drought_spei12 +
+                                depth_extract +
+                                av.nitro +
+                                management_intensity,
+                                #country_pooled + clim_class, 
+                              family = binomial(link = "logit"), data = df_delayed)
+
+# View model summary for delayed regeneration
+summary(logistic_model_delayed)
+plot(gamm_model_delayed, page = 1)
+
+library(car)
+vif(gamm_model_delayed)  # Check for VIF values - need to be calculated from a linear model!
+
+
+
+# visualize:
+# Generate predictions for each predictor
+effects_rIVI <- ggpredict(gamm_model_delayed, terms = "rIVI")
+#effects_sum_stems_mature <- ggeffect(gamm_model_delayed, terms = "sum_stems_mature")
+effects_prcp <- ggpredict(gamm_model_delayed, terms = "prcp")
+effects_tmp <- ggpredict(gamm_model_delayed, terms = "tmp")
+effects_drought_spei12 <- ggpredict(gamm_model_delayed, terms = "drought_spei12")
+effects_depth_extract <- ggpredict(gamm_model_delayed, terms = "depth_extract")
+effects_av_nitro <- ggpredict(gamm_model_delayed, terms = "av.nitro")
+
+
+
+# Plot for rIVI
+plot(effects_rIVI) + 
+  ggtitle("Effect of rIVI on Delayed Regeneration") +
+  xlab("rIVI") + 
+  ylab("Predicted Probability of Delayed Regeneration")
+
+# Plot for sum_stems_mature
+# plot(effects_sum_stems_mature) + 
+#   ggtitle("Effect of Sum of Stems (Mature) on Delayed Regeneration") +
+#   xlab("Sum of Stems (Mature)") + 
+#   ylab("Predicted Probability of Delayed Regeneration")
+
+# Plot for prcp
+plot(effects_prcp) + 
+  ggtitle("Effect of Precipitation (prcp) on Delayed Regeneration") +
+  xlab("Precipitation (prcp)") + 
+  ylab("Predicted Probability of Delayed Regeneration")
+
+# Plot for tmp
+plot(effects_tmp) + 
+  ggtitle("Effect of Temperature (tmp) on Delayed Regeneration") +
+  xlab("Temperature (tmp)") + 
+  ylab("Predicted Probability of Delayed Regeneration")
+
+# Plot for drought_spei12
+plot(effects_drought_spei12) + 
+  ggtitle("Effect of Drought Index (SPEI12) on Delayed Regeneration") +
+  xlab("Drought SPEI12") + 
+  ylab("Predicted Probability of Delayed Regeneration")
+
+# Plot for depth_extract
+plot(effects_depth_extract) + 
+  ggtitle("Effect of Depth Extract on Delayed Regeneration") +
+  xlab("Depth Extract") + 
+  ylab("Predicted Probability of Delayed Regeneration")
+
+# Plot for av.nitro
+plot(effects_av_nitro) + 
+  ggtitle("Effect of Available Nitrogen on Delayed Regeneration") +
+  xlab("Available Nitrogen") + 
+  ylab("Predicted Probability of Delayed Regeneration")
+
+
+# seems not crrect: maybe i need to include the random effects?
+plot(df_delayed$rIVI, df_delayed$delayed)
+
+# Fit the Generalized Additive Mixed Model (GAMM)
+gamm_model_delayed <- bam(delayed ~ s(rIVI, k =3) + 
+                            #s(sum_stems_mature, k =3) + 
+                            s(prcp, k =3) + 
+                            s(tmp, k =3) + 
+                            s(drought_spei12, k =3) + s(depth_extract, k =3) + 
+                            s(av.nitro, k =3) ,#+
+                          
+                            #clim_class,
+                           # s(management_intensity, k = 3) + 
+                            #s(country_pooled, bs = "re"), 
+                          family = binomial(link = "logit"), data = df_delayed, method = "REML")
+
+
+gamm_model_delayed_clim_clust <- bam(delayed ~ s(rIVI, k =3) + #s(sum_stems_mature, k =3) + 
+                            s(prcp, k =3) + 
+                            s(tmp, k =3) + 
+                            s(drought_spei12, k =3) + s(depth_extract, k =3) + 
+                            s(av.nitro, k =3)+
+                            clim_class,
+                          #s(management_intensity) + 
+                          #s(country_pooled, bs = "re"), 
+                          family = binomial(link = "logit"), data = df_delayed, method = "REML")
+
+
+
+AIC(gamm_model_delayed_clim_clust, gamm_model_delayed)
+vif(gamm_model_delayed)
+
+library(GGally)
+
+# Select relevant predictors and create a scatter plot matrix
+selected_predictors <- df_delayed[, c("rIVI", "prcp", "tmp", "drought_spei12", "depth_extract", "av.nitro" 
+                                      )]
+ggpairs(selected_predictors)
+
+
+
+
+
+# View model summary
+summary(gamm_model_delayed)
+summary(gamm_model_delayed_clim_clust)
+plot(gamm_model_delayed)
+
+# model diagnostics:
+par(mfrow = c(2, 2))  # Create a 2x2 plot layout
+gam.check(gamm_model_delayed)
+appraise(gamm_model_delayed)
+
+
+
+
+
+
+# test interactions:
+
+# Fit a GAM model with interaction terms
+interaction_model <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) + 
+                           s(depth_extract) + s(av.nitro) + ti(rIVI, prcp), 
+                         family = binomial(link = "logit"), 
+                         data = df_delayed, 
+                         method = "REML")
+
+# View the summary of the model with interactions
+summary(interaction_model)
+appraise(interaction_model)
+
+
+# Add more interaction terms to your model
+interaction_model_extended <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) + 
+                                    s(depth_extract) + s(av.nitro) + 
+                                    ti(rIVI, prcp) +    # Existing interaction term
+                                    ti(tmp, prcp) +     # Temperature and precipitation
+                                    ti(rIVI, tmp) +     # rIVI and temperature
+                                    ti(drought_spei12, prcp) +  # Drought index and precipitation
+                                    ti(depth_extract, prcp) +  # Depth extract and precipitation
+                                    ti(av.nitro, rIVI),   # Available nitrogen and rIVI
+                                  family = binomial(link = "logit"), data = df_delayed, method = "REML")
+
+# Check the summary of the updated model
+summary(interaction_model_extended)
+
+# Simplify the model by removing non-significant interaction terms step-by-step
+interaction_model_simplified <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) + 
+                                      s(depth_extract) + s(av.nitro) + 
+                                      ti(rIVI, prcp) + 
+                                      #ti(rIVI, drought_spei12) + 
+                                      #ti(tmp, prcp) +
+                                      ti(drought_spei12, management_intensity),
+                                    family = binomial(link = "logit"), 
+                                    data = df_delayed, method = "REML",
+                                    select = TRUE)
+
+# Check the summary of the simplified model
+summary(interaction_model_simplified)
+
+# Get predicted probabilities for rIVI and prcp
+predicted_rIVI <- ggpredict(interaction_model_simplified, terms = "rIVI")
+predicted_prcp <- ggpredict(interaction_model_simplified, terms = "prcp")
+
+# Visualize the predicted probability effect of rIVI
+plot(predicted_rIVI) +
+  ggtitle("Effect of rIVI on Probability of Delayed Regeneration") +
+  xlab("rIVI") + ylab("Predicted Probability of Delayed Regeneration")
+
+# Visualize the predicted probability effect of prcp
+plot(predicted_prcp) +
+  ggtitle("Effect of Precipitation (prcp) on Probability of Delayed Regeneration") +
+  xlab("Precipitation (prcp)") + ylab("Predicted Probability of Delayed Regeneration")
+
+hist(df_delayed$prcp, breaks = 30, main = "Distribution of Precipitation Values", xlab = "Precipitation (prcp)")
+
+
+df_delayed_filtered <- df_delayed[df_delayed$prcp <= 1500, ]
+
+# The best for delayed regeneration!!
+final_model_filtered <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15), # + #s(drought_spei12, k = 15) +
+                            #  te(drought_spei12, prcp, k =5), 
+                            family = binomial(link = "logit"),
+                            data = df_delayed_filtered, method = "REML")
+
+# Check the summary and visualize the effects again
+summary(final_model_filtered)
+
+# Visualize the results
+predicted_prcp    <- ggpredict(final_model_filtered, terms = "prcp")
+predicted_rIVI    <- ggpredict(final_model_filtered, terms = "rIVI")
+
+plot(predicted_prcp) +
+  ggtitle("Effect of Precipitation (prcp) with Higher k Value") +
+  xlab("Precipitation (prcp)") + ylab("Predicted Probability of Delayed Regeneration") +
+  geom_point(data = df_delayed_filtered, aes(x = prcp, y = delayed), 
+             color = "blue", alpha = 0.5, position = position_jitter(height = 0.05), size = 1)
+
+plot(predicted_rIVI) +
+  ggtitle("Effect of rIVI") +
+  xlab("rIVI") + ylab("Predicted Probability of Delayed Regeneration") +
+  geom_point(data = df_delayed_filtered, aes(x = rIVI, y = delayed), 
+             color = "blue", alpha = 0.5, position = position_jitter(height = 0.05), size = 1)
+
+
+# try again to explan dthe model:
+
+# Update the model with additional predictors
+updated_model <- gam(delayed ~ s(rIVI, k =15) + s(prcp,k=15) + tmp + drought_spei12 +
+                       av.nitro + depth_extract + management_intensity +
+                       s(x, y),  # including smooth effect of spatial coordinates
+                     family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
+
+# Summary of the updated model
+summary(updated_model)
+
+# Include interaction terms
+interaction_model <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) +
+                           s(av.nitro) + s(depth_extract) + s(management_intensity) +
+                           s(x, y) + 
+                           ti(rIVI, prcp) +  # Interaction between rIVI and precipitation
+                           ti(management_intensity, prcp) + # Interaction between management intensity and precipitation
+                           ti(rIVI, drought_spei12), # Interaction between rIVI and drought index
+                         family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
+
+# Summary of the interaction model
+summary(interaction_model)
+
+base_model <- gam(delayed ~ s(rIVI, k = 10) + s(prcp, k = 10) + s(drought_spei12, k = 10) +
+                    s(tmp, k = 10) + s(av.nitro, k = 10) + s(depth_extract, k = 10) +
+                    s(management_intensity, k = 10) + s(x, y), 
+                  family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
+
+summary(base_model)
+gam.check(base_model)
+
+plot(base_model, pages = 1, residuals = TRUE, rug = TRUE, shade = TRUE)
+
+
+interaction_model_1 <- gam(delayed ~ s(rIVI) + s(prcp) + 
+                             ti(rIVI, prcp), 
+                           family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
+summary(interaction_model_1)
+
+interaction_model_2 <- gam(delayed ~ s(rIVI) + s(prcp, k = 15) + s(drought_spei12) + 
+                             ti(prcp, drought_spei12), 
+                           family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
+summary(interaction_model_2)
+
+
+interaction_model_3 <- gam(delayed ~ s(rIVI) + s(prcp, k = 15) + s(drought_spei12) + 
+                             ti(rIVI, drought_spei12), 
+                           family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
+summary(interaction_model_3)
 
 
 
@@ -2188,10 +2592,6 @@ AIC(interaction_model_improved, interaction_model_smooth, interaction_model_hier
 draw(interaction_model_improved)
 summary(interaction_model_hierarchical2)
 appraise(interaction_model_hierarchical)
-
-# account for climatic variables - aggregated on 9 km resolution:
-df_fin <- df_fin %>%
-  mutate(clim_id = factor(paste(tmp, prcp, sep = "_")))  # Create a unique identifier for temp/precip combinations
 
 
 
