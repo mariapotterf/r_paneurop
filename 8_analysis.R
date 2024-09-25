@@ -1965,6 +1965,7 @@ predictors_delayed <- c("rIVI",
                         # "richness",    # remove as it has only 1/0 outcome
                         "sum_stems_mature", 
                         "prcp",
+                        "spei12",
                         "drought_spei12",
                         "tmp",
                         "av.nitro",
@@ -2006,6 +2007,77 @@ df_stem_regeneration <- na.omit(df_stem_regeneration)
 
 
 
+df_delayed_filtered <- df_delayed[df_delayed$prcp <= 1500, ]  
+
+# The best for delayed regeneration!! including spei during drought, neither during the whole period did not improve model
+final_model_filtered <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15), #+ #s(spei12, k = 5)  + s(tmp, k = 5),
+                            #  te(drought_spei12, prcp, k =5), 
+                            family = binomial(link = "logit"),
+                            data = df_delayed_filtered, method = "REML")
+
+# The best for delayed regeneration!!
+final_model_filtered2 <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15) + s(spei12, k = 15),# +
+                            #  te(drought_spei12, prcp, k =5), 
+                            family = binomial(link = "logit"),
+                            data = df_delayed_filtered, method = "REML")
+
+# The best for delayed regeneration!!
+final_model_filtered3 <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15) + s(spei12, k = 15) +
+                               ti(spei12, rIVI, k =10), 
+                             family = binomial(link = "logit"),
+                             data = df_delayed_filtered, method = "REML")
+
+
+#
+
+# Check the summary and visualize the effects again
+summary(final_model_filtered)
+
+# Visualize the results
+predicted_prcp    <- ggpredict(final_model_filtered, terms = "prcp")
+predicted_rIVI    <- ggpredict(final_model_filtered, terms = "rIVI")
+#predicted_spei    <- ggpredict(final_model_filtered, terms = "spei12")
+#predicted_tmp    <- ggpredict(final_model_filtered, terms = "tmp")
+
+p1_delayed <- plot(predicted_prcp) +
+  ggtitle("Precipitation (prcp)") +
+   xlab("Precipitation (prcp)") + ylab("Predicted Probability of Delayed Regeneration")# +
+  # geom_point(data = df_delayed_filtered, aes(x = prcp, y = delayed), 
+  #           alpha = 0.3, position = position_jitter(height = 0.05), size = 1)
+
+p2_delayed <- plot(predicted_rIVI) +
+   ggtitle("Effect of rIVI") +
+   xlab("rIVI") + ylab("Predicted Probability of Delayed Regeneration") #+
+  # geom_point(data = df_delayed_filtered, aes(x = rIVI, y = delayed), 
+  #             alpha = 0.3, position = position_jitter(height = 0.05), size = 1)
+
+#p3_delayed <- plot(predicted_spei) 
+#p4_delayed <- plot(predicted_tmp)
+
+p_all_delayed <- ggarrange(p1_delayed, p2_delayed) # , p3_delayed, p4_delayed
+
+# Save the combined plot (optional)
+ggsave("outFigs/drivers_delayed.png", p_all_delayed, width = 7, height = 4, dpi = 300,  bg = 'white')
+
+# try again to expand the model: - does not work, he predictors are then not reasonable
+
+# Update the model with additional predictors
+updated_model <- gam(delayed ~ s(rIVI, k =15) + s(prcp,k=15) + tmp + drought_spei12 +
+                       av.nitro + depth_extract + management_intensity +
+                       s(x, y),  # including smooth effect of spatial coordinates
+                     family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
+
+# Summary of the updated model
+summary(updated_model)
+
+# Include interaction terms
+interaction_model <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) +
+                           s(av.nitro) + s(depth_extract) + s(management_intensity) +
+                           s(x, y) + 
+                           ti(rIVI, prcp) +  # Interaction between rIVI and precipitation
+                           ti(management_intensity, prcp) + # Interaction between management intensity and precipitation
+                           ti(rIVI, drought_spei12), # Interaction between rIVI and drought index
+                         family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
 
 
 # test interactions:
@@ -2066,58 +2138,12 @@ plot(predicted_prcp) +
 
 hist(df_delayed$prcp, breaks = 30, main = "Distribution of Precipitation Values", xlab = "Precipitation (prcp)")
 
-
-df_delayed_filtered <- df_delayed[df_delayed$prcp <= 1500, ]  
-
-# The best for delayed regeneration!!
-final_model_filtered <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15), # + #s(drought_spei12, k = 15) +
-                            #  te(drought_spei12, prcp, k =5), 
-                            family = binomial(link = "logit"),
-                            data = df_delayed_filtered, method = "REML")
-
-# Check the summary and visualize the effects again
-summary(final_model_filtered)
-
-# Visualize the results
-predicted_prcp    <- ggpredict(final_model_filtered, terms = "prcp")
-predicted_rIVI    <- ggpredict(final_model_filtered, terms = "rIVI")
-
-plot(predicted_prcp) +
-  ggtitle("Effect of Precipitation (prcp) with Higher k Value") +
-  xlab("Precipitation (prcp)") + ylab("Predicted Probability of Delayed Regeneration") +
-  geom_point(data = df_delayed_filtered, aes(x = prcp, y = delayed), 
-             color = "blue", alpha = 0.5, position = position_jitter(height = 0.05), size = 1)
-
-plot(predicted_rIVI) +
-  ggtitle("Effect of rIVI") +
-  xlab("rIVI") + ylab("Predicted Probability of Delayed Regeneration") +
-  geom_point(data = df_delayed_filtered, aes(x = rIVI, y = delayed), 
-             color = "blue", alpha = 0.5, position = position_jitter(height = 0.05), size = 1)
-
-
-# try again to explan dthe model:
-
-# Update the model with additional predictors
-updated_model <- gam(delayed ~ s(rIVI, k =15) + s(prcp,k=15) + tmp + drought_spei12 +
-                       av.nitro + depth_extract + management_intensity +
-                       s(x, y),  # including smooth effect of spatial coordinates
-                     family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
-
-# Summary of the updated model
-summary(updated_model)
-
-# Include interaction terms
-interaction_model <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) +
-                           s(av.nitro) + s(depth_extract) + s(management_intensity) +
-                           s(x, y) + 
-                           ti(rIVI, prcp) +  # Interaction between rIVI and precipitation
-                           ti(management_intensity, prcp) + # Interaction between management intensity and precipitation
-                           ti(rIVI, drought_spei12), # Interaction between rIVI and drought index
-                         family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
-
-
-
 # analyse the most important drivers ------------------------------------------------------
+
+
+
+
+
 
 
 
