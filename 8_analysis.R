@@ -1974,9 +1974,32 @@ predictors_delayed <- c("rIVI",
                         "country_pooled","clim_grid", "clim_class", "x", "y")
 
 
-predictors_advanced <- c("richness", "rIVI", "n_vertical", "sum_stems_mature", "drought_spei12", 
-                         "country_pooled","clim_grid",  "clim_class", "x", "y")
-predictors_stem_regeneration <- c("richness", "n_vertical", "rIVI", "prcp", "drought_spei12",
+predictors_advanced <- c("richness", 
+                         "rIVI", 
+                         "n_vertical", 
+                         "sum_stems_mature", 
+                         "spei12",
+                         "drought_spei12", 
+                         "country_pooled",
+                         
+                         "tmp",
+                         "av.nitro",
+                         "depth_extract",
+                         "management_intensity",
+                         "clim_grid",  
+                         "clim_class", 
+                         "x", "y")
+predictors_stem_regeneration <- c("richness",
+                                  "n_vertical", 
+                                  "rIVI", 
+                                  "prcp", 
+                                  "spei12",
+                                  "drought_spei12",
+                                  "spei12",
+                                  "tmp",
+                                  "av.nitro",
+                                  "depth_extract",
+                                  "management_intensity",
                                   "country_pooled", "clim_grid", "clim_class", "x", "y")
 
 # Subset the data
@@ -1988,6 +2011,10 @@ df_stem_regeneration <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", p
 df_fin <- df_fin %>% 
   mutate(adv_delayed = ifelse(stem_regeneration < 50, "Delayed", 
                               ifelse(stem_regeneration > 1000, "Advanced", NA)))
+
+
+# Check sites differences -------------------------------------------------
+
 
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
@@ -2083,7 +2110,7 @@ df_delayed <- df_fin[df_fin$adv_delayed == "Delayed", ]
 df_advanced <- df_fin[df_fin$adv_delayed == "Advanced", ]
 
 # List of continuous variables to test
-variables <- c("rIVI", "sum_stems_mature", "prcp", "spei12", "drought_spei12", 
+variables <- c("rIVI", "sum_stems_mature", "prcp", "spei12", "drought_spei12", "spei3", "drought_spei3", 
                "tmp", "av.nitro", "depth_extract", "management_intensity")
 
 # Apply t-test or Mann-Whitney U test
@@ -2114,12 +2141,13 @@ test_results_df$p_value <- round(test_results_df$p_value,2 )
 print(test_results_df)
 
 
-# Removing rows with missing data (if any)
+# Removing rows with missing data (if any) -------------------------------------
 df_delayed <- na.omit(df_delayed)
 df_advanced <- na.omit(df_advanced)
 df_stem_regeneration <- na.omit(df_stem_regeneration)
 
 
+### DELAYED REGENERATION drivers ----------------------------------------------- 
 # Fit a logistic regression model to predict delayed regeneration using the Tweedie distribution:
 
 # test if any outcme is only 1 or only 0
@@ -2267,86 +2295,7 @@ p_all_delayed <- ggarrange(p1_delayed, p2_delayed, p5_delayed, widths = c(1, 1, 
 ggsave("outFigs/drivers_delayed.png", p_all_delayed, width = 7, height = 4, 
        dpi = 300,  bg = 'white')
 
-# try again to expand the model: - does not work, he predictors are then not reasonable
-
-# Update the model with additional predictors
-updated_model <- gam(delayed ~ s(rIVI, k =15) + s(prcp,k=15) + tmp + drought_spei12 +
-                       av.nitro + depth_extract + management_intensity +
-                       s(x, y),  # including smooth effect of spatial coordinates
-                     family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
-
-# Summary of the updated model
-summary(updated_model)
-
-# Include interaction terms
-interaction_model <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) +
-                           s(av.nitro) + s(depth_extract) + s(management_intensity) +
-                           s(x, y) + 
-                           ti(rIVI, prcp) +  # Interaction between rIVI and precipitation
-                           ti(management_intensity, prcp) + # Interaction between management intensity and precipitation
-                           ti(rIVI, drought_spei12), # Interaction between rIVI and drought index
-                         family = binomial(link = "logit"), data = df_delayed_filtered, method = "REML")
-
-
-# test interactions:
-
-# Fit a GAM model with interaction terms
-interaction_model <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) + 
-                           s(depth_extract) + s(av.nitro) + ti(rIVI, prcp), 
-                         family = binomial(link = "logit"), 
-                         data = df_delayed, 
-                         method = "REML")
-
-# View the summary of the model with interactions
-summary(interaction_model)
-appraise(interaction_model)
-
-
-# Add more interaction terms to your model
-interaction_model_extended <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) + 
-                                    s(depth_extract) + s(av.nitro) + 
-                                    ti(rIVI, prcp) +    # Existing interaction term
-                                    ti(tmp, prcp) +     # Temperature and precipitation
-                                    ti(rIVI, tmp) +     # rIVI and temperature
-                                    ti(drought_spei12, prcp) +  # Drought index and precipitation
-                                    ti(depth_extract, prcp) +  # Depth extract and precipitation
-                                    ti(av.nitro, rIVI),   # Available nitrogen and rIVI
-                                  family = binomial(link = "logit"), data = df_delayed, method = "REML")
-
-# Check the summary of the updated model
-summary(interaction_model_extended)
-
-# Simplify the model by removing non-significant interaction terms step-by-step
-interaction_model_simplified <- gam(delayed ~ s(rIVI) + s(prcp) + s(tmp) + s(drought_spei12) + 
-                                      s(depth_extract) + s(av.nitro) + 
-                                      ti(rIVI, prcp) + 
-                                      #ti(rIVI, drought_spei12) + 
-                                      #ti(tmp, prcp) +
-                                      ti(drought_spei12, management_intensity),
-                                    family = binomial(link = "logit"), 
-                                    data = df_delayed, method = "REML",
-                                    select = TRUE)
-
-# Check the summary of the simplified model
-summary(interaction_model_simplified)
-
-# Get predicted probabilities for rIVI and prcp
-predicted_rIVI <- ggpredict(interaction_model_simplified, terms = "rIVI")
-predicted_prcp <- ggpredict(interaction_model_simplified, terms = "prcp")
-
-# Visualize the predicted probability effect of rIVI
-plot(predicted_rIVI) +
-  ggtitle("Effect of rIVI on Probability of Delayed Regeneration") +
-  xlab("rIVI") + ylab("Predicted Probability of Delayed Regeneration")
-
-# Visualize the predicted probability effect of prcp
-plot(predicted_prcp) +
-  ggtitle("Effect of Precipitation (prcp) on Probability of Delayed Regeneration") +
-  xlab("Precipitation (prcp)") + ylab("Predicted Probability of Delayed Regeneration")
-
-hist(df_delayed$prcp, breaks = 30, main = "Distribution of Precipitation Values", xlab = "Precipitation (prcp)")
-
-# analyse the most important drivers ------------------------------------------------------
+### ADVANCED : analyse the most important drivers ------------------------------------------------------
 
 
 
@@ -2355,7 +2304,7 @@ hist(df_delayed$prcp, breaks = 30, main = "Distribution of Precipitation Values"
 
 
 
-# test for poled regeneration: -------------------------------------------------
+### POOLED REGENERATION test for pooled regeneration: -------------------------------------------------
 
 # Define the model using the best predictors for 'regeneration_pool'
 initial_model <- gam(stem_regeneration ~ 
