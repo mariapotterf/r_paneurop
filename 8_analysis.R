@@ -1974,7 +1974,6 @@ predictors_delayed <- c("rIVI",
                         "country_pooled","clim_grid", "clim_class", "x", "y")
 
 
-
 predictors_advanced <- c("richness", "rIVI", "n_vertical", "sum_stems_mature", "drought_spei12", 
                          "country_pooled","clim_grid",  "clim_class", "x", "y")
 predictors_stem_regeneration <- c("richness", "n_vertical", "rIVI", "prcp", "drought_spei12",
@@ -1984,6 +1983,136 @@ predictors_stem_regeneration <- c("richness", "n_vertical", "rIVI", "prcp", "dro
 df_delayed <- df_fin %>% dplyr::select(all_of(c("delayed", predictors_delayed)))
 df_advanced <- df_fin %>% dplyr::select(all_of(c("advanced", predictors_advanced)))
 df_stem_regeneration <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", predictors_stem_regeneration)))
+
+# make median +IQR plots of variables for quick view
+df_fin <- df_fin %>% 
+  mutate(adv_delayed = ifelse(stem_regeneration < 50, "Delayed", 
+                              ifelse(stem_regeneration > 1000, "Advanced", NA)))
+
+# Select relevant columns including 'RegenerationStatus' and the desired variables
+variables_to_plot <- c(
+  "rIVI", "sum_stems_mature", "prcp", 
+  "richness",
+  "n_vertical",
+ # "spei1", "drought_spei1",                      
+  "spei3", "drought_spei3",
+                      #  "spei12", "drought_spei12", 
+                      
+                      # "spei24", "drought_spei24" ,
+                       "tmp", "av.nitro", "depth_extract", "management_intensity", 
+ "distance_edge" ,
+ "salvage_intensity",
+ "clay_extract",
+ "sand_extract",
+ "disturbance_severity",
+                       "adv_delayed"
+                       )
+
+#                       "country_pooled", "clim_grid",, "clim_class"
+
+# Step 2: Calculate median and IQR for each variable by regeneration status
+summary_stats <- 
+  df_fin %>%
+  na.omit() %>% 
+    dplyr::select(all_of(variables_to_plot)) %>% 
+  gather(key = "Variable", value = "Value", -adv_delayed) %>%
+  group_by(adv_delayed, Variable) %>%
+  summarise(
+    Median = median(Value, na.rm = TRUE),
+    Q1 = quantile(Value, 0.25, na.rm = TRUE),
+    Q3 = quantile(Value, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(IQR_Lower = Median - Q1, 
+         IQR_Upper = Q3 - Median)
+
+# Step 3: Create the median and IQR plot using ggplot2
+ggplot(summary_stats, aes(x = Variable, y = Median, color = adv_delayed)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +  # Points for median
+  geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, 
+                position = position_dodge(width = 0.5)) +          # Error bars for IQR
+  labs(title = "Median and IQR Plot for Delayed vs Advanced Regeneration",
+       x = "Variables", y = "Median and IQR") +
+  theme_minimal() +
+  facet_wrap(.~Variable, scales = 'free')+
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_manual(values = c("blue", "red")) +  # Set colors for delayed vs advanced
+  theme(legend.title = element_blank())            # Remove legend title
+
+
+# Step 1: Reshape the data to long format
+df_long <- df_fin %>%
+  na.omit() %>% 
+  dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
+  gather(key = "Variable", value = "Value", -adv_delayed)
+
+# Calculate max value for each variable to set label.y properly
+df_long_summary <- df_long %>%
+  group_by(Variable) %>%
+  summarize(max_value = max(Value, na.rm = TRUE)) %>%
+  mutate(label_y = max_value + (0.1 * max_value)) # Add a 10% margin above the max value for label
+
+# Create a named vector for easy lookup in stat_compare_means
+label_y_positions <- setNames(df_long_summary$label_y, df_long_summary$Variable)
+
+# Plot using ggboxplot
+p_boxplot_wilcox <- ggboxplot(df_long, x = "adv_delayed", y = "Value", 
+          color = "adv_delayed", palette = c("blue", "red"),
+          facet.by = "Variable", scales = "free_y", 
+          ylab = "Values", xlab = "Regeneration Status") +
+  stat_compare_means(aes(group = adv_delayed), method = "wilcox.test", 
+                     label = "p.signif", 
+                     label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
+                     size = 4) + 
+  theme_minimal() +
+  labs(title = "Boxplots with Mann-Whitney Test for Delayed vs Advanced Regeneration",
+       x = "Regeneration Status", y = "Values")
+
+
+p_boxplot_wilcox
+
+# Save the combined plot (optional)
+ggsave("outFigs/p_boxplot_wilcox.png", p_boxplot_wilcox, width = 7, height = 7, 
+       dpi = 300,  bg = 'white')
+
+
+
+
+# Assuming `df_delayed_filtered` is your data frame
+# Splitting data into delayed and advanced groups based on stem_regeneration
+df_delayed <- df_fin[df_fin$adv_delayed == "Delayed", ]
+df_advanced <- df_fin[df_fin$adv_delayed == "Advanced", ]
+
+# List of continuous variables to test
+variables <- c("rIVI", "sum_stems_mature", "prcp", "spei12", "drought_spei12", 
+               "tmp", "av.nitro", "depth_extract", "management_intensity")
+
+# Apply t-test or Mann-Whitney U test
+test_results <- lapply(variables, function(var) {
+  delayed_values <- df_delayed[[var]]
+  advanced_values <- df_advanced[[var]]
+  
+  # Check if data is normally distributed
+  normality_delayed <- shapiro.test(delayed_values)$p.value
+  normality_advanced <- shapiro.test(advanced_values)$p.value
+  
+  if (normality_delayed > 0.05 & normality_advanced > 0.05) {
+    test <- t.test(delayed_values, advanced_values)  # Use t-test if data is normal
+  } else {
+    test <- wilcox.test(delayed_values, advanced_values)  # Use Mann-Whitney U test if not normal
+  }
+  
+  return(data.frame(
+    Variable = var,
+    Test = ifelse(normality_delayed > 0.05 & normality_advanced > 0.05, "T-test", "Mann-Whitney"),
+    p_value = test$p.value
+  ))
+})
+
+# Combine results into a single data frame
+test_results_df <- do.call(rbind, test_results)
+test_results_df$p_value <- round(test_results_df$p_value,2 )
+print(test_results_df)
+
 
 # Removing rows with missing data (if any)
 df_delayed <- na.omit(df_delayed)
@@ -2006,58 +2135,137 @@ df_stem_regeneration <- na.omit(df_stem_regeneration)
 # 1           26           18            13
 
 
-
+# the distribution of vaues: i have very few locations of very high precipitation (>1500 mm/year) - remove those 
 df_delayed_filtered <- df_delayed[df_delayed$prcp <= 1500, ]  
 
 # The best for delayed regeneration!! including spei during drought, neither during the whole period did not improve model
-final_model_filtered <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15), #+ #s(spei12, k = 5)  + s(tmp, k = 5),
-                            #  te(drought_spei12, prcp, k =5), 
+final_model_filtered <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15) + s(spei12, k = 15)  + s(tmp, k = 15)+
+                              ti(spei12, prcp, k =5), 
                             family = binomial(link = "logit"),
                             data = df_delayed_filtered, method = "REML")
 
-# The best for delayed regeneration!!
-final_model_filtered2 <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15) + s(spei12, k = 15),# +
-                            #  te(drought_spei12, prcp, k =5), 
-                            family = binomial(link = "logit"),
-                            data = df_delayed_filtered, method = "REML")
+# Model 1: Interaction between spei12 and tmp
+model_interaction_1 <- gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) +
+                             ti(spei12, tmp, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_delayed_filtered, method = "REML")
+summary(model_interaction_1)
 
-# The best for delayed regeneration!!
-final_model_filtered3 <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15) + s(spei12, k = 15) +
-                               ti(spei12, rIVI, k =10), 
-                             family = binomial(link = "logit"),
-                             data = df_delayed_filtered, method = "REML")
+# Model 2: Interaction between rIVI and prcp
+model_interaction_2 <- gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 3) +
+                             ti(rIVI, prcp, k = 15), 
+                           family = binomial(link = "logit"),
+                           data = df_delayed_filtered, method = "REML",
+                           select = TRUE)
+
+# Model 2: Interaction between rIVI and prcp
+model_interaction_2_sub <- gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) +# s(spei12, k = 15) + s(tmp, k = 3) +
+                             ti(rIVI, prcp, k = 10), 
+                           family = binomial(link = "logit"),
+                           data = df_delayed_filtered, method = "REML",
+                           select = TRUE)
 
 
-#
+summary(model_interaction_2_sub)
+gam.check(model_interaction_2_sub)
+k.check(model_interaction_2_sub)
+
+# Visualize the interaction effect in 3D
+vis.gam(model_interaction_2, view = c("rIVI", "prcp"), plot.type = "persp",
+        color = "topo", zlab = "Effect on log-odds",
+        main = "Interaction between rIVI and prcp",
+        theta = 30, phi = 30)
+
+# Model 3: Interaction between rIVI and spei12
+model_interaction_3 <- gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) +
+                             ti(rIVI, spei12, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_delayed_filtered, method = "REML")
+summary(model_interaction_3)
+
+# Model 4: Interaction between tmp and prcp
+model_interaction_4 <- gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) +
+                             ti(tmp, prcp, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_delayed_filtered, method = "REML")
+summary(model_interaction_4)
+
+
+# Model 5: Multiple interactions between spei12 with prcp, and rIVI with tmp
+model_interaction_5 <- gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) +
+                             ti(spei12, prcp, k = 5) + ti(rIVI, tmp, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_delayed_filtered, method = "REML")
+summary(model_interaction_5)
+
+
+# Model 6: Interaction between tmp and management_intensity
+model_interaction_6 <- gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) +
+                             s(management_intensity, k = 5) + ti(tmp, management_intensity, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_delayed_filtered, method = "REML")
+summary(model_interaction_6)
+
+# Test management effects:
+# Model 6: Interaction between tmp and management_intensity
+model_interaction_7 <-gam(delayed ~ s(rIVI, k = 15) + s(prcp, k = 15) +# s(spei12, k = 15) + s(tmp, k = 3) +
+                            ti(management_intensity, drought_spei12, k = 10), 
+                          family = binomial(link = "logit"),
+                          data = df_delayed_filtered, method = "REML",
+                          select = TRUE)
+summary(model_interaction_7)
+
+# no effect of management intensity: tested fro interaction between manag intensity, prcp, spei, drought_spei, tmp
+
+# Generate predictions using ggpredict for the interaction term at different levels of prcp
+predicted_int <- ggpredict(model_interaction_7, terms = c("management_intensity [all]", "drought_spei12 [-1,0,1]"))
+plot(predicted_int) + ggtitle('rIVI vs prcp p = 0.07')
+
+
+
+
+
 
 # Check the summary and visualize the effects again
 summary(final_model_filtered)
+summary(model_interaction_2)
+plot.gam(model_interaction_2)
+
+
+AIC(model_interaction_2, final_model_filtered, model_interaction_2_sub, model_interaction_7)
 
 # Visualize the results
-predicted_prcp    <- ggpredict(final_model_filtered, terms = "prcp")
-predicted_rIVI    <- ggpredict(final_model_filtered, terms = "rIVI")
-#predicted_spei    <- ggpredict(final_model_filtered, terms = "spei12")
-#predicted_tmp    <- ggpredict(final_model_filtered, terms = "tmp")
+predicted_prcp    <- ggpredict(model_interaction_2_sub, terms = "prcp")
+predicted_rIVI    <- ggpredict(model_interaction_2_sub, terms = "rIVI")
+#predicted_spei    <- ggpredict(model_interaction_2, terms = "spei12")
+#predicted_tmp    <- ggpredict(model_interaction_2, terms = "tmp")
+# Generate predictions using ggpredict for the interaction term at different levels of prcp
+predicted_int <- ggpredict(model_interaction_2_sub, terms = c("rIVI [all]", "prcp [600, 900, 1200]"))
 
 p1_delayed <- plot(predicted_prcp) +
-  ggtitle("Precipitation (prcp)") +
-   xlab("Precipitation (prcp)") + ylab("Predicted Probability of Delayed Regeneration")# +
+  ggtitle("[a]  Precipitation **") +
+   xlab("Precipitation (mm)") + ylab("Probability of Delayed Regeneration [%]") +
+  theme_classic2()
   # geom_point(data = df_delayed_filtered, aes(x = prcp, y = delayed), 
   #           alpha = 0.3, position = position_jitter(height = 0.05), size = 1)
 
 p2_delayed <- plot(predicted_rIVI) +
-   ggtitle("Effect of rIVI") +
-   xlab("rIVI") + ylab("Predicted Probability of Delayed Regeneration") #+
+   ggtitle("[b] rIVI **") +
+   xlab("rIVI") + ylab("Probability of Delayed Regeneration [%]") +
+  theme_classic2()
   # geom_point(data = df_delayed_filtered, aes(x = rIVI, y = delayed), 
   #             alpha = 0.3, position = position_jitter(height = 0.05), size = 1)
 
 #p3_delayed <- plot(predicted_spei) 
 #p4_delayed <- plot(predicted_tmp)
+p5_delayed <- plot(predicted_int) + ggtitle('rIVI vs prcp p = 0.07')
+p5_delayed
 
-p_all_delayed <- ggarrange(p1_delayed, p2_delayed) # , p3_delayed, p4_delayed
-
+p_all_delayed <- ggarrange(p1_delayed, p2_delayed, p5_delayed, widths = c(1, 1, 1.5), nrow = 1, ncol = 3) # 
+(p_all_delayed)
 # Save the combined plot (optional)
-ggsave("outFigs/drivers_delayed.png", p_all_delayed, width = 7, height = 4, dpi = 300,  bg = 'white')
+ggsave("outFigs/drivers_delayed.png", p_all_delayed, width = 7, height = 4, 
+       dpi = 300,  bg = 'white')
 
 # try again to expand the model: - does not work, he predictors are then not reasonable
 
