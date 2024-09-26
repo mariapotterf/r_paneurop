@@ -1963,6 +1963,7 @@ View(out_df_summary)
 predictors_delayed <- c("rIVI", 
                         # "n_vertical",  # remove as it has only 1/0 outcome
                         # "richness",    # remove as it has only 1/0 outcome
+                        "sand_extract",
                         "sum_stems_mature", 
                         "prcp",
                         "spei12",
@@ -1981,11 +1982,13 @@ predictors_advanced <- c("richness",
                          "spei12",
                          "drought_spei12", 
                          "country_pooled",
-                         
+                         "prcp",
                          "tmp",
+                         "sand_extract",
                          "av.nitro",
                          "depth_extract",
                          "management_intensity",
+                         "disturbance_severity",
                          "clim_grid",  
                          "clim_class", 
                          "x", "y")
@@ -2162,9 +2165,94 @@ df_stem_regeneration <- na.omit(df_stem_regeneration)
 # 0          374          147           271
 # 1           26           18            13
 
-
+hist(df_delayed$prcp )
+hist(df_delayed$tmp)
 # the distribution of vaues: i have very few locations of very high precipitation (>1500 mm/year) - remove those 
-df_delayed_filtered <- df_delayed[df_delayed$prcp <= 1500, ]  
+df_delayed_filtered <- df_delayed[df_delayed$tmp >= 8 & df_delayed$prcp <= 1500, ]  
+
+
+# test only clim variables (to fit with advanced regen)
+
+delayed_clim_model <- gam(delayed ~ 
+                        s(prcp, k = 5) + 
+                        spei12+
+                        s(tmp) + 
+                       
+                        #s(management_intensity) +
+                        ti(prcp,tmp, k = 5), #+ #+
+                        #  ti(tmp,spei12, k = 20)                      , 
+                      family = binomial(link = "logit"),
+                      data = df_delayed_filtered, 
+                      method = "REML")
+
+summary(delayed_clim_model)
+
+pp <- ggpredict(delayed_clim_model, terms = c("tmp [all]", "prcp [800,1100]"))
+plot(pp)
+
+# Alternative Model with Reduced k Values and Different Specification
+alternative_model <- gam(delayed ~ s(prcp, k = 4) + s(tmp, k = 4) + 
+                           rIVI +
+                           spei12 + 
+                           s(management_intensity) +
+                           ti(prcp, tmp, k = 3) +
+                           s(country_pooled, bs = "re"),  # Adding country as a random effect,
+                         family = binomial(link = "logit"),
+                         data = df_delayed_filtered, 
+                         method = "REML")
+
+summary(alternative_model)
+
+# Generate the predictions again using ggpredict
+predicted_alternative <- ggpredict(alternative_model, terms = c("tmp [all]", "prcp [700,900]"))
+plot(predicted_alternative) + ggtitle("Predicted probabilities of delayed regeneration")
+
+
+# test spatial autocorrelation
+# Extract residuals from the model
+model_residuals <- residuals(alternative_model, type = "pearson")
+
+# Make sure your spatial coordinates are in the dataframe
+coords <- cbind(df_delayed_filtered$x, df_delayed_filtered$y)
+
+# Create a spatial weights matrix using the k-nearest neighbors method (e.g., k = 5)
+# You can adjust 'k' based on your data distribution
+knn <- knearneigh(coords, k = 5)
+nb <- knn2nb(knn)
+listw <- nb2listw(nb, style = "W", zero.policy = TRUE)
+
+# Perform Moran's I test
+moran_test <- moran.test(model_residuals, listw, zero.policy = TRUE)
+print(moran_test)
+
+
+summary(delayed_clim_model)
+appraise(delayed_clim_model)
+gam.check(delayed_clim_model)
+k.check(delayed_clim_model)
+
+predict1 <- ggpredict(delayed_clim_model, term = 'tmp')
+predict2 <- ggpredict(delayed_clim_model, term = 'prcp')
+predict3 <- ggpredict(delayed_clim_model, term = 'spei12')
+predict4 <- ggpredict(delayed_clim_model, term = 'management_intensity')
+predicted_int <- ggpredict(delayed_clim_model, terms = c("tmp [all]", "prcp [600,900,1200]"))
+plot(predicted_int) + ggtitle('rIVI vs prcp p = 0.07')
+# !!!
+
+p1<-plot(predict1) + ggtitle("*") + theme_classic2()
+p2<-plot(predict2) + ggtitle("***") + theme_classic2()
+p3<-plot(predict3) + ggtitle("***") + theme_classic2()
+p4<- plot(predict4) + ggtitle("*") + theme_classic2()
+
+p_out<-ggarrange(p1,p2,p3,p4, ncol = 4, nrow = 1, labels=c('[a]', "[b]", "[c]", "[d]"),
+                 font.label = list(size = 12, face = "plain"))
+
+ggsave('outFigs/drivers_delayed.png', p_out, width = 7, height = 2.5, 
+       dpi = 300,bg = 'white' )
+
+
+
+
 
 # The best for delayed regeneration!! including spei during drought, neither during the whole period did not improve model
 final_model_filtered <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15) + s(spei12, k = 15)  + s(tmp, k = 15)+
@@ -2297,11 +2385,161 @@ ggsave("outFigs/drivers_delayed.png", p_all_delayed, width = 7, height = 4,
 
 ### ADVANCED : analyse the most important drivers ------------------------------------------------------
 
+hist(df_advanced$prcp) # Data filtering: Removing sites with very high precipitation (>1500 mm/year)
+#  df_advanced_filtered <- df_advanced[df_advanced$prcp <= 1500, ] )
+
+# manuall testing
+
+# Model 2: Interaction between rIVI and prcp
+m1 <- gam(advanced ~ s(rIVI, k = 15) + s(prcp, k = 15) +  
+                                 s(spei12, k = 15) + s(tmp, k = 3) +
+                                 s(richness) +
+                                 ti(rIVI, prcp, k = 10), 
+                               family = binomial(link = "logit"),
+                               data = df_advanced, method = "REML",
+                               select = TRUE)
+
+
+summary(m1)
+gam.check(m1)
+k.check(m1)
+appraise(m1)
+
+
+# Basic model with most important predictors
+# Filter data for values below 1500 mm/year precipitation
+df_advanced_filtered <- df_advanced[df_advanced$prcp <= 1500, ] 
+
+# Remove missing values (if any) for smooth modeling
+df_advanced_filtered <- na.omit(df_advanced_filtered)
+
+basic_model <- gam(advanced ~ richness + 
+                     rIVI + 
+                     n_vertical+
+                     s(sum_stems_mature, k =3) +
+                     s(prcp, k = 15) + 
+                     s(spei12, k = 15) +
+                     s(tmp, k = 15) + 
+                     s(av.nitro, k = 5) +
+                     sand_extract +
+                     management_intensity, 
+                   family = binomial(link = "logit"),
+                   data = df_advanced_filtered, method = "REML")
+
+
+adv_clim_model <- gam(advanced ~ #richness + 
+                    # rIVI + 
+                     #n_vertical+
+                     #s(sum_stems_mature, k =3) +
+                     s(prcp, k = 15) + 
+                     s(spei12, k = 15) +
+                     s(tmp, k = 15) + 
+                     s(av.nitro, k = 5) +
+                     sand_extract +
+                     s(management_intensity) +
+                      ti(prcp,tmp) +
+                      ti(management_intensity,spei12)# +
+                      , 
+                   family = binomial(link = "logit"),
+                   data = df_advanced_filtered, 
+                   method = "REML")
 
 
 
+summary(adv_clim_model)
+appraise(adv_clim_model)
+gam.check(adv_clim_model)
+k.check(adv_clim_model)
+
+predict1 <- ggpredict(adv_clim_model, term = 'tmp')
+predict2 <- ggpredict(adv_clim_model, term = 'prcp')
+predict3 <- ggpredict(adv_clim_model, term = 'spei12')
+predict4 <- ggpredict(adv_clim_model, term = 'management_intensity')
 
 
+p1<-plot(predict1) + ggtitle("*") + theme_classic2()
+p2<-plot(predict2) + ggtitle("***") + theme_classic2()
+p3<-plot(predict3) + ggtitle("***") + theme_classic2()
+p4<- plot(predict4) + ggtitle("*") + theme_classic2()
+
+p_out<-ggarrange(p1,p2,p3,p4, ncol = 4, nrow = 1, labels=c('[a]', "[b]", "[c]", "[d]"),
+          font.label = list(size = 12, face = "plain"))
+
+ggsave('outFigs/drivers_advanced.png', p_out, width = 7, height = 2.5, 
+       dpi = 300,bg = 'white' )
+
+sjPlot::tab_model(adv_clim_model,    file = "outTable/drivers_advanced.doc")
+
+# Required libraries
+library(spdep)
+
+# Extract residuals from the model
+model_residuals <- residuals(adv_clim_model, type = "pearson")
+
+# Get spatial coordinates
+coords <- cbind(df_delayed_filtered$x, df_delayed_filtered$y)
+
+# Create a spatial weights matrix (e.g., using the nearest neighbors approach)
+nb <- knn2nb(knearneigh(coords, k = 5))  # k = 5 means considering the 5 nearest neighbors
+listw <- nb2listw(nb, style = "W")
+
+# Calculate Moran's I
+moran_test <- moran.test(model_residuals, listw)
+print(moran_test)
+
+# no spatial autocorrelation
+
+
+df_fin %>% 
+  dplyr::select(stem_regeneration, advanced)
+
+
+interaction_model_1 <- gam(advanced ~ richness + rIVI + n_vertical +
+                             s(sum_stems_mature, k = 3) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) + 
+                             s(av.nitro, k = 5) + sand_extract + management_intensity +
+                             ti(rIVI, prcp, k = 15), 
+                           family = binomial(link = "logit"),
+                           data = df_advanced_filtered, method = "REML")
+summary(interaction_model_1)
+gam.check(interaction_model_1)
+
+interaction_model_2 <- gam(advanced ~ richness + rIVI + n_vertical +
+                             s(sum_stems_mature, k = 3) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) + 
+                             s(av.nitro, k = 5) + sand_extract + 
+                             ti(management_intensity, tmp, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_advanced_filtered, method = "REML")
+summary(interaction_model_2)
+gam.check(interaction_model_2)
+
+
+interaction_model_3 <- gam(advanced ~ richness + rIVI + n_vertical +
+                             s(sum_stems_mature, k = 3) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) + 
+                             s(av.nitro, k = 5) + sand_extract + management_intensity +
+                             ti(spei12, tmp, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_advanced_filtered, method = "REML")
+summary(interaction_model_3)
+gam.check(interaction_model_3)
+
+
+interaction_model_4 <- gam(advanced ~ richness + rIVI + n_vertical +
+                             s(sum_stems_mature, k = 3) + s(prcp, k = 15) + s(spei12, k = 15) + s(tmp, k = 15) + 
+                             s(av.nitro, k = 5) + sand_extract + management_intensity +
+                             ti(spei12, prcp, k = 5) + ti(rIVI, prcp, k = 5), 
+                           family = binomial(link = "logit"),
+                           data = df_advanced_filtered, method = "REML")
+summary(interaction_model_4)
+gam.check(interaction_model_4)
+
+# Compare models using AIC and Deviance Explained
+AIC(basic_model, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4)
+
+# best: basic model
+summary(basic_model)
+
+p <- ggpredict(basic_model, term = 'n_vertical')
+plot(p)
 
 
 ### POOLED REGENERATION test for pooled regeneration: -------------------------------------------------
