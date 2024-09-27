@@ -1996,7 +1996,6 @@ predictors_stem_regeneration <- c("richness",
                                   "n_vertical", 
                                   "rIVI", 
                                   "prcp", 
-                                  "spei12",
                                   "drought_spei12",
                                   "spei12",
                                   "tmp",
@@ -2009,6 +2008,522 @@ predictors_stem_regeneration <- c("richness",
 df_delayed <- df_fin %>% dplyr::select(all_of(c("delayed", predictors_delayed)))
 df_advanced <- df_fin %>% dplyr::select(all_of(c("advanced", predictors_advanced)))
 df_stem_regeneration <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", predictors_stem_regeneration)))
+
+
+
+# test drivers: simplify the analysis:
+# Subset the data
+df_delayed2 <- df_fin %>% dplyr::select(all_of(c("delayed", predictor_vars_sub, "management_intensity",
+                                                "country_pooled", "clim_grid", "clim_class", "x", "y")))
+df_advanced2 <- df_fin %>% dplyr::select(all_of(c("advanced", predictor_vars_sub, "management_intensity",
+                                                 "country_pooled", "clim_grid", "clim_class", "x", "y")))
+df_stem_regeneration2 <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,"management_intensity",
+                                                          "country_pooled", "clim_grid", "clim_class", "x", "y")))
+table(df_fin$delayed)
+table(df_fin$advanced)
+
+
+
+
+# Check drivers: simpler! START -------
+
+# Check the structure of the data
+str(df_delayed2)
+
+# Check for missing values
+sum(is.na(df_delayed2))
+
+# Inspect the distribution of each predictor
+hist(df_delayed2$prcp, main="Histogram of Precipitation (prcp)", xlab="prcp")
+hist(df_delayed2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
+
+# Check collinearity using the VIF
+vif_check <- performance::check_collinearity(df_delayed2)
+print(vif_check)
+
+# END
+# Adding a small constant to handle zero-inflation
+df_delayed2$richness_adj <- df_delayed2$richness + 0.01
+df_delayed2$n_vertical_adj <- df_delayed2$n_vertical + 0.01
+df_delayed2$sum_stems_mature_adj <- df_delayed2$sum_stems_mature + 0.01
+
+
+library(corrplot)
+numeric_vars <- df_delayed2[, sapply(df_delayed2, is.numeric)]
+cor_matrix <- cor(na.omit(numeric_vars))
+corrplot(cor_matrix)
+
+ggplot(df_delayed2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ delayed)
+
+basic_gam <- gam(delayed ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+                   s(distance_edge) +
+                   s(depth_extract) +
+                   s(disturbance_severity) +
+                   s(sand_extract) +
+                   s(av.nitro) +
+                   #s(richness_adj, k = 3) + 
+                   #s(n_vertical_adj, k = 3) + 
+                   #s(sum_stems_mature_adj, k = 5) + 
+                   s(management_intensity, k = 5) +
+                   s(country_pooled, bs = 're') # + clim_grid + clim_class
+                 , 
+                 family = binomial(link = "logit"), data = df_delayed2, method = "REML")
+summary(basic_gam)
+gam.check(basic_gam)
+appraise(basic_gam)
+windows()
+plot.gam(basic_gam, page = 1)
+
+
+interaction_model_1 <- gam(delayed ~ 
+                             s(prcp, k = 10) + 
+                             s(tmp, k = 10) + 
+                             s(spei12, k = 10) +
+                             s(distance_edge) + 
+                             s(depth_extract) +
+                             s(disturbance_severity) +
+                             s(sand_extract) + 
+                             s(av.nitro) +
+                             s(management_intensity, k = 5) +
+                             s(country_pooled, bs = "re") +
+                             ti(prcp, tmp, k = 5), 
+                           family = binomial(link = "logit"), 
+                           data = df_delayed2, 
+                           method = "REML")
+
+summary(interaction_model_1)
+
+interaction_model_2 <- gam(delayed ~ 
+                             s(prcp, k = 10) + 
+                             s(tmp, k = 10) + 
+                             s(spei12, k = 10) +
+                             s(distance_edge) + 
+                             s(depth_extract) +
+                             s(disturbance_severity) +
+                             s(sand_extract) + 
+                             s(av.nitro, k = 15) +
+                             s(management_intensity, k = 5) +
+                             s(country_pooled, bs = "re") +
+                             s(clim_grid, bs = "re") +
+                             ti(management_intensity, disturbance_severity) +
+                             #ti(tmp, spei12, k = 5) +
+                             ti(prcp, tmp, k = 5), 
+                           family = binomial(link = "logit"), 
+                           data = df_delayed2, 
+                           method = "REML")
+
+summary(interaction_model_2)
+appraise(interaction_model_2)
+
+interaction_model_3 <- gam(delayed ~ 
+                             s(prcp, k = 10) + 
+                             s(tmp, k = 10) + 
+                             s(spei12, k = 10) +
+                             s(distance_edge) + 
+                             s(depth_extract) +
+                             s(disturbance_severity) +
+                             s(sand_extract) + 
+                             s(av.nitro) +
+                             s(management_intensity, k = 5) +
+                             s(country_pooled, bs = "re") +
+                             ti(tmp, management_intensity, k = 5), 
+                           family = binomial(link = "logit"), 
+                           data = df_delayed2, 
+                           method = "REML")
+
+summary(interaction_model_3)
+AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3)
+BIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3)
+
+predicted_interaction <- ggpredict(interaction_model_2, terms = c("prcp", "spei12"))
+plot(predicted_interaction)
+
+windows()
+plot.gam(interaction_model_2, page = 1)
+appraise(interaction_model_2)
+summary(interaction_model_2)
+gam.check(interaction_model_2)
+k.check(interaction_model_2)
+
+# see influential points:
+influence_data <- influence.gam(interaction_model_2)
+summary(influence_data)
+
+# identify observations with high influence
+high_influence <- which(influence_data > 0.2)  # Adjust the threshold as needed
+df_delayed2[high_influence, ]
+
+
+draw(interaction_model_2)
+summary(interaction_model_2)
+
+
+# Generate predictions for each significant predictor using ggpredict
+predicted_prcp <- ggpredict(interaction_model_2, terms = "prcp")
+predicted_tmp <- ggpredict(interaction_model_2, terms = "tmp")
+predicted_spei12 <- ggpredict(interaction_model_2, terms = "spei12")
+predicted_disturbance_severity <- ggpredict(interaction_model_2, terms = "disturbance_severity")
+#predicted_disturbance_severity <- ggpredict(interaction_model_2, terms = "disturbance_severity")
+predicted_interaction <- ggpredict(interaction_model_2, terms = c("prcp", "tmp[8,9,10]"))
+
+
+
+# Plot for 'prcp'
+plot_prcp <- ggplot(predicted_prcp, aes(x = x, y = predicted)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "blue") +
+  geom_point(data = df_delayed2, aes(x = prcp, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Precipitation (prcp)", x = "prcp", 
+       y = "Probability of Delayed Regeneration") +
+  theme_minimal()
+
+# Plot for 'tmp'
+plot_tmp <- ggplot(predicted_tmp, aes(x = x, y = predicted)) +
+  geom_line(color = "red", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "red") +
+  geom_point(data = df_delayed2, aes(x = tmp, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Temperature (tmp)", x = "tmp", 
+       y = "Probability of Delayed Regeneration") +
+  theme_minimal()
+
+# Plot for 'spei12'
+plot_spei12 <- ggplot(predicted_spei12, aes(x = x, y = predicted)) +
+  geom_line(color = "green", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "green") +
+  geom_point(data = df_delayed2, aes(x = spei12, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "spei12", x = "spei12", y = "Probability of Delayed Regeneration") +
+  theme_minimal()
+
+# Plot for 'disturbance_severity'
+plot_disturbance_severity <- ggplot(predicted_disturbance_severity, aes(x = x, y = predicted)) +
+  geom_line(color = "purple", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "purple") +
+  geom_point(data = df_delayed2, aes(x = disturbance_severity, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Disturbance Severity", x = "Disturbance Severity", 
+       y = "Predicted of Delayed Regeneration") +
+  theme_minimal()
+
+# Plot for the interaction between 'prcp' and 'tmp'
+plot_interaction <- ggplot(predicted_interaction, aes(x = x, y = predicted, color = group)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
+  labs(title = "Interaction prcp and tmp", x = "prcp", 
+       y = "Probability of Delayed Regeneration", color = "tmp", fill = "tmp") +
+  theme_minimal()
+
+
+# Combine the individual plots into one figure
+combined_plot <- ggarrange(plot_prcp, plot_tmp, plot_spei12, plot_disturbance_severity, 
+                           plot_interaction, 
+                           ncol = 2, nrow = 3)
+
+combined_plot
+ggsave('outFigs/fig_delayed_drivers.png', plot = combined_plot, width =5,height = 7, bg = 'white')
+
+sjPlot::tab_model(interaction_model_2, file = "outTable/full_drivers_delayed.doc")
+
+
+
+# CHeck drivers advanced regen ---------------------------------------------------------
+
+# Check the structure of the data
+str(df_advanced2)
+
+# Check for missing values
+sum(is.na(df_advanced2))
+
+# Inspect the distribution of each predictor
+hist(df_advanced2$prcp, main="Histogram of Precipitation (prcp)", xlab="prcp")
+hist(df_advanced2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
+
+# Check collinearity using the VIF
+vif_check <- performance::check_collinearity(df_advanced2)
+print(vif_check)
+
+
+
+library(corrplot)
+numeric_vars <- df_advanced2[, sapply(df_advanced2, is.numeric)]
+cor_matrix <- cor(na.omit(numeric_vars))
+corrplot(cor_matrix)
+
+ggplot(df_advanced2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ advanced)
+
+basic_gam <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+                   s(distance_edge) +
+                   s(depth_extract) +
+                   s(disturbance_severity) +
+                   s(sand_extract) +
+                   s(av.nitro) +
+                   s(management_intensity, k = 5) +
+                   s(country_pooled, bs = 're') # + clim_grid + clim_class
+                 , 
+                 family = binomial(link = "logit"), data = df_advanced2, method = "REML")
+summary(basic_gam)
+gam.check(basic_gam)
+appraise(basic_gam)
+windows()
+plot.gam(basic_gam, page = 1)
+
+
+# Model 1: Add interaction between prcp and tmp
+interaction_model_1 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+                             s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
+                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
+                             s(country_pooled, bs = "re") +
+                             ti(prcp, tmp, k = 5), # Add interaction
+                           family = binomial(link = "logit"), 
+                           data = df_advanced2, 
+                           method = "REML")
+
+# Model 2: Add interaction between prcp and spei12
+interaction_model_2 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+                             s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
+                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
+                             s(country_pooled, bs = "re") +
+                             ti(prcp, spei12, k = 5), # Add interaction
+                           family = binomial(link = "logit"), 
+                           data = df_advanced2, 
+                           method = "REML")
+
+# Model 3: Add interaction between tmp and spei12
+interaction_model_3 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+                             s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
+                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
+                             s(country_pooled, bs = "re") +
+                             ti(tmp, spei12, k = 5) , # Add interaction
+                           family = binomial(link = "logit"), 
+                           data = df_advanced2, 
+                           method = "REML")
+
+# Model 4: Add interaction between management_intensity and disturbance_severity
+interaction_model_4 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+                             s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
+                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
+                             s(country_pooled, bs = "re") +
+                             ti(management_intensity, disturbance_severity, k = 5), # Add interaction
+                           family = binomial(link = "logit"), 
+                           data = df_advanced2, 
+                           method = "REML")
+
+AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4)
+
+predicted_interaction <- ggpredict(interaction_model_1, terms = c("tmp", "prcp[600,800,1000]"))
+plot(predicted_interaction)
+
+windows()
+plot.gam(interaction_model_3, page = 1)
+appraise(interaction_model_3)
+summary(interaction_model_3)
+gam.check(interaction_model_3)
+k.check(interaction_model_3)
+
+hist(df_advanced2$distance_edge)
+
+# see influential points:
+influence_data <- influence.gam(interaction_model_3)
+summary(influence_data)
+
+# identify observations with high influence
+high_influence <- which(influence_data > 0.1)  # Adjust the threshold as needed
+df_advanced2[high_influence, ]
+
+
+draw(interaction_model_3)
+
+
+# Generate predictions for each significant predictor using ggpredict
+predicted_prcp   <- ggpredict(interaction_model_3, terms = "prcp")
+predicted_tmp    <- ggpredict(interaction_model_3, terms = "tmp")
+predicted_spei12 <- ggpredict(interaction_model_3, terms = "spei12")
+predicted_disturbance_severity <- ggpredict(interaction_model_3, terms = "disturbance_severity")
+predicted_distance_edge         <- ggpredict(interaction_model_3, terms = "distance_edge[0:600]")
+predicted_management_intensity  <- ggpredict(interaction_model_3, terms = "management_intensity")
+predicted_interaction    <- ggpredict(interaction_model_3, terms = c("spei12", "tmp[8,9,10]"))
+
+y_lab = "Probability Advanced [%]"
+
+# Plot for 'prcp'
+plot_prcp <- ggplot(predicted_prcp, aes(x = x, y = predicted)) +
+  geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "blue") +
+  geom_point(data = df_advanced2, aes(x = prcp, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Precipitation (prcp)", x = "prcp", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'tmp'
+plot_tmp <- ggplot(predicted_tmp, aes(x = x, y = predicted)) +
+  geom_line(color = "red", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "red") +
+  geom_point(data = df_advanced2, aes(x = tmp, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Temperature (tmp)", x = "tmp", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'spei12'
+plot_spei12 <- ggplot(predicted_spei12, aes(x = x, y = predicted)) +
+  geom_line(color = "green", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "green") +
+  geom_point(data = df_advanced2, aes(x = spei12, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "spei12", x = "spei12", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'disturbance_severity'
+plot_disturbance_severity <- ggplot(predicted_disturbance_severity, aes(x = x, y = predicted)) +
+  geom_line(color = "purple", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "purple") +
+  geom_point(data = df_advanced2, aes(x = disturbance_severity, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Disturbance Severity", x = "Disturbance Severity", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'disturbance_severity'
+plot_distance_edge <- ggplot(predicted_distance_edge, aes(x = x, y = predicted)) +
+  geom_line(color = "grey", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
+  geom_point(data = df_advanced2, aes(x = distance_edge, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Distance edge", x = "Distance edge", 
+       y = y_lab) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, 600))  # Set the x-axis limits
+
+
+# Plot for 'disturbance_severity'
+plot_management_intensity <- ggplot(predicted_management_intensity, aes(x = x, y = predicted)) +
+  geom_line(color = "grey", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
+  geom_point(data = df_advanced2, aes(x = management_intensity, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
+  labs(title = "Management_intensity", x = "Management_intensity", 
+       y = y_lab) +
+  theme_minimal()
+
+
+# Plot for the interaction between 'prcp' and 'tmp'
+plot_interaction <- ggplot(predicted_interaction, aes(x = x, y = predicted, color = group)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
+  labs(title = "Interaction tmp spei", x = "spei12", 
+       y = y_lab, color = "tmp", fill = "tmp") +
+  theme_minimal()
+
+
+# Combine the individual plots into one figure
+combined_plot <- ggarrange(plot_prcp, plot_tmp, plot_spei12, plot_disturbance_severity, 
+                           plot_distance_edge,plot_management_intensity,
+                           plot_interaction, 
+                           ncol = 3, nrow = 3,
+                           widths = c(rep(1,6), 1.5))
+
+combined_plot
+ggsave('outFigs/fig_advanced_drivers.png', plot = combined_plot, width =7,height = 7,bg = 'white')
+
+sjPlot::tab_model(interaction_model_3, file = "outTable/full_drivers_advanced.doc")
+
+
+
+
+
+# DRivers regeneration pooled ---------------------------------------------
+
+
+# Check the structure of the data
+str(df_stem_regeneration2)
+
+# Check for missing values
+sum(is.na(df_stem_regeneration2))
+
+# Inspect the distribution of each predictor
+hist(df_stem_regeneration2$prcp, main="Histogram of Precipitation (prcp)", xlab="prcp")
+hist(df_stem_regeneration2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
+
+# Check collinearity using the VIF
+vif_check <- performance::check_collinearity(df_stem_regeneration2)
+print(vif_check)
+
+
+
+library(corrplot)
+numeric_vars <- df_stem_regeneration2[, sapply(df_stem_regeneration2, is.numeric)]
+cor_matrix <- cor(na.omit(numeric_vars))
+corrplot(cor_matrix)
+
+ggplot(df_stem_regeneration2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ stem_regeneration    )
+
+basic_gam <- gam(stem_regeneration     ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
+                   s(distance_edge) +
+                   s(depth_extract, k = 15) +
+                   s(disturbance_severity) +
+                   s(sand_extract) +
+                   s(av.nitro, k =20) +
+                   s(management_intensity, k = 10) +
+                   s(country_pooled, bs = 're') # + clim_grid + clim_class
+                 , 
+                 family = Tweedie(p=1.5), data = df_stem_regeneration2, method = "REML")
+summary(basic_gam)
+gam.check(basic_gam)
+appraise(basic_gam)
+windows()
+plot.gam(basic_gam, page = 1)
+
+
+# Model 1: Adding interaction between prcp and tmp
+interaction_model_1 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
+                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
+                             s(disturbance_severity) + s(sand_extract) + 
+                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
+                             s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10),
+                           family = tw(), method = "REML", data = df_stem_regeneration2)
+
+summary(interaction_model_1)
+
+# Model 2: Adding interaction between spei12 and tmp
+interaction_model_2 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
+                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
+                             s(disturbance_severity) + s(sand_extract) + 
+                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
+                             s(country_pooled, bs = "re") + ti(spei12, tmp, k = 10),
+                           family = tw(), method = "REML", data = df_stem_regeneration2)
+
+summary(interaction_model_2)
+
+# Model 3: Adding interaction between prcp and management_intensity
+interaction_model_3 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
+                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
+                             s(disturbance_severity) + s(sand_extract) + 
+                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
+                             s(country_pooled, bs = "re") + ti(prcp, management_intensity, k = 10),
+                           family = tw(), method = "REML", data = df_stem_regeneration2)
+
+summary(interaction_model_3)
+
+# Model 4: Multiple interactions
+interaction_model_4 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
+                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
+                             s(disturbance_severity) + s(sand_extract) + 
+                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
+                             s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10) + 
+                             ti(spei12, tmp, k = 10) + ti(prcp, management_intensity, k = 10),
+                           family = tw(), method = "REML", data = df_stem_regeneration2)
+
+summary(interaction_model_4)
+
+# Compare models
+AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4)
+
+# Display model summaries to understand which terms are significant
+summary(basic_gam)
+summary(interaction_model_1)
+summary(interaction_model_2)
+summary(interaction_model_3)
+summary(interaction_model_4)
+
+
+# END ----------------
+
 
 # make median +IQR plots of variables for quick view
 df_fin <- df_fin %>% 
@@ -2237,7 +2752,7 @@ predict3 <- ggpredict(delayed_clim_model, term = 'spei12')
 predict4 <- ggpredict(delayed_clim_model, term = 'management_intensity')
 predicted_int <- ggpredict(delayed_clim_model, terms = c("tmp [all]", "prcp [600,900,1200]"))
 plot(predicted_int) + ggtitle('rIVI vs prcp p = 0.07')
-# !!!
+
 
 p1<-plot(predict1) + ggtitle("*") + theme_classic2()
 p2<-plot(predict2) + ggtitle("***") + theme_classic2()
@@ -2254,7 +2769,7 @@ ggsave('outFigs/drivers_delayed.png', p_out, width = 7, height = 2.5,
 
 
 
-# The best for delayed regeneration!! including spei during drought, neither during the whole period did not improve model
+# base model!! including spei during drought, neither during the whole period did not improve model
 final_model_filtered <- gam(delayed ~ s(rIVI, k =15) + s(prcp, k = 15) + s(spei12, k = 15)  + s(tmp, k = 15)+
                               ti(spei12, prcp, k =5), 
                             family = binomial(link = "logit"),
