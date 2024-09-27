@@ -2500,13 +2500,15 @@ interaction_model_3 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) 
 
 summary(interaction_model_3)
 
-# Model 4: Multiple interactions
+# Model 4: Multiple interactions & account for clim_grid to avoid spatial autocorrelation
 interaction_model_4 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
                              s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
                              s(disturbance_severity) + s(sand_extract) + 
-                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
+                             s(av.nitro, k = 20) + s(management_intensity,by = country_pooled, k = 10) + 
                              s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10) + 
                              ti(spei12, tmp, k = 10) +
+                             s(x,y) +
+                             s(clim_grid, bs = "re") +
                              country_pooled
                              #ti(prcp, management_intensity, k = 10)
                              ,
@@ -2514,8 +2516,32 @@ interaction_model_4 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) 
 
 summary(interaction_model_4)
 
+
+# test for autocorrelation
+
+# Extract model residuals
+model_residuals <- residuals(interaction_model_4, type = "pearson")
+
+# Load necessary libraries
+library(spdep)
+
+# Create coordinates matrix
+coords <- cbind(df_stem_regeneration2$x, df_stem_regeneration2$y)
+
+# Create a spatial neighbors object (e.g., using k-nearest neighbors)
+# Adjust k based on the density and distribution of your data points
+nb <- knn2nb(knearneigh(coords, k = 5))
+
+# Convert neighbors list to a weights list
+listw <- nb2listw(nb, style = "W")
+# Perform Moran's I test
+moran_test <- moran.test(model_residuals, listw)
+print(moran_test)
+
+
 # Compare models
-AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4)
+AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4,
+    interaction_model_random_smooth,interaction_model_updated)
 
 # Display model summaries to understand which terms are significant
 summary(basic_gam)
@@ -2523,6 +2549,35 @@ summary(interaction_model_1)
 summary(interaction_model_2)
 summary(interaction_model_3)
 summary(interaction_model_4)
+
+
+# Update model to include interaction between management_intensity and country_pooled
+interaction_model_updated <- gam(stem_regeneration ~ 
+                                   s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
+                                   s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) + 
+                                   s(sand_extract) + s(av.nitro, k = 20) + 
+                                   ti(management_intensity, country_pooled, bs = "fs") + 
+                                   ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) + 
+                                   s(x,y) +
+                                   country_pooled, 
+                                 family = tw(), method = "REML", data = df_stem_regeneration2)
+summary(interaction_model_updated)
+
+
+# Adding random smooth effect for country
+interaction_model_random_smooth <- gam(stem_regeneration ~ 
+                                         s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
+                                         s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) + 
+                                         s(sand_extract) + s(av.nitro, k = 20) + 
+                                         s(management_intensity, by = country_pooled) + 
+                                         ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) + 
+                                         s(x,y) +
+                                         s(country_pooled, bs = "re"),
+                                       family = tw(), method = "REML", data = df_stem_regeneration2)
+summary(interaction_model_random_smooth)
+
+
+
 
 
 # PLot 
@@ -2537,6 +2592,16 @@ predicted_management_intensity  <- ggpredict(interaction_model_4, terms = "manag
 predicted_interaction1    <- ggpredict(interaction_model_4, terms = c("prcp", "tmp[8,9,10]"))
 predicted_interaction2    <- ggpredict(interaction_model_4, terms = c("spei12", "tmp[8,9,10]"))
 
+# Generate predictions for stem regeneration across different countries
+predicted_countries <- ggpredict(interaction_model_4, terms = "country_pooled")
+# !!!!  continue from here: add effects for countries, ad management within countries
+# Plot predicted effects
+plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, position = position_dodge(width = 0.9)) +
+  labs(title = "Predicted Stem Regeneration by Country", x = "Country", y = "Predicted Stem Regeneration") +
+  theme_minimal() +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
 
 y_lab = "Regeneration density"
 
