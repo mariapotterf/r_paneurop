@@ -2506,7 +2506,10 @@ interaction_model_4 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) 
                              s(disturbance_severity) + s(sand_extract) + 
                              s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
                              s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10) + 
-                             ti(spei12, tmp, k = 10) + ti(prcp, management_intensity, k = 10),
+                             ti(spei12, tmp, k = 10) +
+                             country_pooled
+                             #ti(prcp, management_intensity, k = 10)
+                             ,
                            family = tw(), method = "REML", data = df_stem_regeneration2)
 
 summary(interaction_model_4)
@@ -2520,6 +2523,119 @@ summary(interaction_model_1)
 summary(interaction_model_2)
 summary(interaction_model_3)
 summary(interaction_model_4)
+
+
+# PLot 
+
+# Generate predictions for each significant predictor using ggpredict
+predicted_prcp   <- ggpredict(interaction_model_4, terms = "prcp")
+predicted_tmp    <- ggpredict(interaction_model_4, terms = "tmp")
+predicted_spei12 <- ggpredict(interaction_model_4, terms = "spei12")
+predicted_disturbance_severity <- ggpredict(interaction_model_4, terms = "disturbance_severity")
+predicted_distance_edge         <- ggpredict(interaction_model_4, terms = "distance_edge[0:600]")
+predicted_management_intensity  <- ggpredict(interaction_model_4, terms = "management_intensity")
+predicted_interaction1    <- ggpredict(interaction_model_4, terms = c("prcp", "tmp[8,9,10]"))
+predicted_interaction2    <- ggpredict(interaction_model_4, terms = c("spei12", "tmp[8,9,10]"))
+
+
+y_lab = "Regeneration density"
+
+# Plot for 'prcp'
+plot_prcp <- ggplot(predicted_prcp, aes(x = x, y = predicted)) +
+   geom_point(data = df_stem_regeneration2, aes(x = prcp, y = stem_regeneration    ),
+              color = "black", alpha = 0.4, size = 0.5) +
+geom_line(color = "blue", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "blue") +
+   labs(title = "Precipitation (prcp)", x = "prcp", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'tmp'
+plot_tmp <- ggplot(predicted_tmp, aes(x = x, y = predicted)) +
+   geom_point(data = df_stem_regeneration2, aes(x = tmp, y = stem_regeneration    ), 
+             color = "black", alpha = 0.4, size =0.5) +
+geom_line(color = "red", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "red") +
+   labs(title = "Temperature (tmp)", x = "tmp", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'spei12'
+plot_spei12 <- ggplot(predicted_spei12, aes(x = x, y = predicted)) +
+   geom_point(data = df_stem_regeneration2, aes(x = spei12, y = stem_regeneration    ), 
+             color = "black", alpha = 0.4, size = 0.5) +
+ geom_line(color = "green", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "green") +
+  labs(title = "spei12", x = "spei12", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'disturbance_severity'
+plot_disturbance_severity <- ggplot(predicted_disturbance_severity, aes(x = x, y = predicted)) +
+  geom_line(color = "purple", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "purple") +
+  geom_point(data = df_stem_regeneration2, aes(x = disturbance_severity, y = stem_regeneration    ), 
+             color = "black", alpha = 0.4, size = 0.5) +
+  labs(title = "Disturbance Severity", x = "Disturbance Severity", 
+       y = y_lab) +
+  theme_minimal()
+
+# Plot for 'disturbance_severity'
+plot_distance_edge <- ggplot(predicted_distance_edge, aes(x = x, y = predicted)) +
+  geom_point(data = df_stem_regeneration2, aes(x = distance_edge, y = stem_regeneration    ), 
+             color = "black", alpha = 0.4, size = 0.5) +
+  geom_line(color = "grey", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
+  labs(title = "Distance edge", x = "Distance edge", 
+       y = y_lab) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, 600))  # Set the x-axis limits
+
+
+# Plot for 'disturbance_severity'
+plot_management_intensity <- ggplot(predicted_management_intensity, aes(x = x, y = predicted)) +
+   geom_point(data = df_stem_regeneration2, aes(x = management_intensity, y = stem_regeneration    ), 
+              color = "black", alpha = 0.4, size = 0.5) +
+geom_line(color = "grey", size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
+   labs(title = "Management_intensity", x = "Management_intensity", 
+       y = y_lab) +
+  theme_minimal()
+
+
+# Plot for the interaction between 'prcp' and 'tmp'
+plot_interaction1 <- ggplot(predicted_interaction1, aes(x = x, y = predicted, color = group)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
+  labs(title = "Interaction tmp spei", x = "prcp", 
+       y = y_lab, color = "tmp", fill = "tmp") +
+  theme_minimal()
+
+
+plot_interaction2 <- ggplot(predicted_interaction2, aes(x = x, y = predicted, color = group)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
+  labs(title = "Interaction tmp spei", x = "spei12", 
+       y = y_lab, color = "tmp", fill = "tmp") +
+  theme_minimal()
+
+
+# Combine the individual plots into one figure
+combined_plot <- ggarrange(plot_prcp, plot_tmp, plot_spei12, plot_disturbance_severity, 
+                           plot_distance_edge,plot_management_intensity,
+                           plot_interaction1,plot_interaction2, 
+                           ncol = 3, nrow = 3,
+                           widths = c(rep(1,6), 1.5,1.5))
+
+combined_plot
+ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, width =7,height = 7,bg = 'white')
+
+sjPlot::tab_model(interaction_model_3, file = "outTable/full_drivers_regeneration_pool.doc")
+
+
+
 
 
 # END ----------------
