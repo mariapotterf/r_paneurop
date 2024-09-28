@@ -2696,19 +2696,13 @@ library(cowplot)
 comb_upper  <- plot_grid(plot_interaction1, plot_interaction2,ncol = 2)
 comb_lower <- plot_grid(plot_countries,plot_prcp, plot_tmp, ncol = 3)
 # Combine the individual plots into one figure
-combined_plot <- plot_grid(comb_upper, #plot_interaction1, plot_interaction2, #combined_interactions,
-                           #combined_countries,
-                           comb_lower,
-                           #plot_countries,NULL,
+combined_plot <- plot_grid(plot_interaction1, plot_interaction2, #combined_interactions,
                            
-                          #plot_prcp, plot_tmp,
-                          
-                           #plot_spei12, 
-                           #plot_disturbance_severity, 
-                           #plot_distance_edge,             
-                           #plot_management_intensity,
-                           ncol = 1,
-                           rel_heights = c(1, 1,1.5))
+                           plot_countries,plot_spei12,
+                           
+                          plot_prcp, plot_tmp,
+                           ncol = 2, nrow = 3,
+                           rel_heights = c(1, 1,1))
 
 combined_plot
 
