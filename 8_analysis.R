@@ -2395,8 +2395,49 @@ combined_plot <- plot_grid(plot_interaction1, plot_interaction2, #combined_inter
 combined_plot
 
 ggsave('outFigs/fig_delayed_drivers.png', plot = combined_plot, width =6,height = 7, bg = 'white')
+# Compute explained deviance
+explained_deviance <- round(100 * summary(fin.m.delayed)$dev.expl, 2)  # Calculate explained deviance in percentage
 
-sjPlot::tab_model(fin.m.delayed, file = "outTable/full_drivers_delayed.doc")
+sjPlot::tab_model(fin.m.delayed, 
+                  file = "outTable/full_drivers_delayed.doc",
+                  dv.labels = paste0("Explained Deviance: ", explained_deviance, "%"),
+                  show.re.var = TRUE, # show random effects
+                  show.dev = F)    # show deviance explained
+
+
+# test
+# Fit your model
+model <- delayed_interaction_model_2_upd2
+
+# Identify random effects using the model's "smooth" component
+smooth_terms <- summary(model)$s.table
+
+# Extract the smooth terms labels and check which ones are random effects
+random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
+
+# Create a function to automatically label the terms in the summary output
+create_labels <- function(term) {
+  if (term %in% random_effects_labels) {
+    return(paste(term, "(Random Effect)"))
+  } else {
+    return(term)
+  }
+}
+
+# Apply the labeling function
+pred_labels <- sapply(rownames(smooth_terms), create_labels)
+
+# Display the tab_model with automatic labeling
+sjPlot::tab_model(model,
+          show.re.var = TRUE,        # Show the variance components
+          #show.icc = TRUE,           # Show Intraclass Correlation Coefficient
+          #show.dev = TRUE,           # Show deviance
+          pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
+          dv.labels = paste0("Explained Deviance: ", round(100 * summary(model)$dev.expl, 2), "%"), 
+          file = "outTable/full_drivers_delayed.doc")
+
+
+# end
 
 
 
@@ -2425,7 +2466,7 @@ corrplot(cor_matrix)
 
 ggplot(df_advanced2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ advanced)
 
-basic_gam <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+adv_basic_gam <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
                    s(distance_edge) +
                    s(depth_extract) +
                    s(disturbance_severity) +
@@ -2435,15 +2476,15 @@ basic_gam <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10)
                    s(country_pooled, bs = 're') # + clim_grid + clim_class
                  , 
                  family = binomial(link = "logit"), data = df_advanced2, method = "REML")
-summary(basic_gam)
-gam.check(basic_gam)
-appraise(basic_gam)
+summary(adv_basic_gam)
+gam.check(adv_basic_gam)
+appraise(adv_basic_gam)
 windows()
-plot.gam(basic_gam, page = 1)
+plot.gam(adv_basic_gam, page = 1)
 
 
 # Model 1: Add interaction between prcp and tmp
-interaction_model_1 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+adv_interaction_model_1 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
                              s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
                              s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
                              s(country_pooled, bs = "re") +
@@ -2453,7 +2494,7 @@ interaction_model_1 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei1
                            method = "REML")
 
 # Model 2: Add interaction between prcp and spei12
-interaction_model_2 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+adv_interaction_model_2 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
                              s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
                              s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
                              s(country_pooled, bs = "re") +
@@ -2463,7 +2504,7 @@ interaction_model_2 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei1
                            method = "REML")
 
 # Model 3: Add interaction between tmp and spei12
-interaction_model_3 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+adv_interaction_model_3 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
                              s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
                              s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
                              s(country_pooled, bs = "re") +
@@ -2471,6 +2512,68 @@ interaction_model_3 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei1
                            family = binomial(link = "logit"), 
                            data = df_advanced2, 
                            method = "REML")
+
+
+# include the management vary by country (random slopes), add clim_grid and s(x,y)
+adv_interaction_model_3_upd <- gam(advanced ~ s(prcp, k = 10) + 
+                                     s(tmp, k = 10) + 
+                                     s(spei12, k = 10) + 
+                                   s(distance_edge) + 
+                                   s(depth_extract) + 
+                                     s(disturbance_severity) + 
+                                 s(sand_extract) + 
+                                   s(av.nitro) +
+                                   s(management_intensity, by = country_pooled, bs = "re") +
+                                   #s(management_intensity, k = 5) + 
+                                   s(clim_grid, bs = "re") +
+                                   s(x, y) +
+                                 s(country_pooled, bs = "re") +
+                                 ti(tmp, spei12, k = 5) , # Add interaction
+                               family = binomial(link = "logit"), 
+                               data = df_advanced2, 
+                               method = "REML")
+
+adv_interaction_model_3_upd2 <- gam(advanced ~ s(prcp, k = 10) + 
+                                     s(tmp, k = 10) + 
+                                     s(spei12, k = 10) + 
+                                     s(distance_edge) + 
+                                     s(depth_extract) + 
+                                     s(disturbance_severity) + 
+                                     s(sand_extract) + 
+                                     s(av.nitro) +
+                                     s(management_intensity, by = country_pooled, bs = "re") +
+                                     #s(management_intensity, k = 5) + 
+                                     s(clim_grid, bs = "re") +
+                                     s(x, y) +
+                                     s(country_pooled, bs = "re") +
+                                      ti(tmp, spei12, k = 5) + #, # Add interaction
+                                      ti(tmp, prcp, k = 5),
+                                   family = binomial(link = "logit"), 
+                                   data = df_advanced2, 
+                                   method = "REML")
+
+
+adv_interaction_model_3_upd3 <- gam(advanced ~ s(prcp, k = 10) + 
+                                      s(tmp, k = 10) + 
+                                      s(spei12, k = 10) + 
+                                      s(distance_edge) + 
+                                      s(depth_extract) + 
+                                      s(disturbance_severity) + 
+                                      s(sand_extract) + 
+                                      s(av.nitro) +
+                                      s(management_intensity, by = country_pooled, bs = "re") +
+                                      #s(management_intensity, k = 5) + 
+                                      s(clim_grid, bs = "re") +
+                                      s(x, y) +
+                                      s(country_pooled, bs = "re") +
+                                      ti(management_intensity, disturbance_severity) +
+                                      #ti(tmp, spei12, k = 5) + #, # Add interaction
+                                      ti(tmp, prcp, k = 5),
+                                    family = binomial(link = "logit"), 
+                                    data = df_advanced2, 
+                                    method = "REML")
+AIC( adv_interaction_model_3_upd3,adv_interaction_model_3_upd2,adv_interaction_model_3_upd, adv_interaction_model_3)
+
 
 # Model 4: Add interaction between management_intensity and disturbance_severity
 interaction_model_4 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
@@ -2507,99 +2610,136 @@ df_advanced2[high_influence, ]
 
 draw(interaction_model_3)
 
+fin.m.advanced <- adv_interaction_model_3_upd3
+y_lab = "Probability Advanced"
 
-# Generate predictions for each significant predictor using ggpredict
-predicted_prcp   <- ggpredict(interaction_model_3, terms = "prcp")
-predicted_tmp    <- ggpredict(interaction_model_3, terms = "tmp")
-predicted_spei12 <- ggpredict(interaction_model_3, terms = "spei12")
-predicted_disturbance_severity <- ggpredict(interaction_model_3, terms = "disturbance_severity")
-predicted_distance_edge         <- ggpredict(interaction_model_3, terms = "distance_edge[0:600]")
-predicted_management_intensity  <- ggpredict(interaction_model_3, terms = "management_intensity")
-predicted_interaction    <- ggpredict(interaction_model_3, terms = c("spei12", "tmp[8,9,10]"))
+# Test for spatial autocorrelation
+model_residuals <- residuals(fin.m.advanced, type = "pearson")
 
-y_lab = "Probability Advanced [%]"
+# Load necessary libraries
+#library(spdep)
 
-# Plot for 'prcp'
-plot_prcp <- ggplot(predicted_prcp, aes(x = x, y = predicted)) +
-  geom_line(color = "blue", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "blue") +
-  geom_point(data = df_advanced2, aes(x = prcp, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Precipitation (prcp)", x = "prcp", 
-       y = y_lab) +
-  theme_minimal()
+# Create coordinates matrix
+coords <- cbind(df_advanced2$x, df_advanced2$y)
 
-# Plot for 'tmp'
-plot_tmp <- ggplot(predicted_tmp, aes(x = x, y = predicted)) +
-  geom_line(color = "red", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "red") +
-  geom_point(data = df_advanced2, aes(x = tmp, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Temperature (tmp)", x = "tmp", 
-       y = y_lab) +
-  theme_minimal()
+# Create a spatial neighbors object (e.g., using k-nearest neighbors)
+# Adjust k based on the density and distribution of your data points
+nb <- knn2nb(knearneigh(coords, k = 5))
 
-# Plot for 'spei12'
-plot_spei12 <- ggplot(predicted_spei12, aes(x = x, y = predicted)) +
-  geom_line(color = "green", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "green") +
-  geom_point(data = df_advanced2, aes(x = spei12, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "spei12", x = "spei12", 
-       y = y_lab) +
-  theme_minimal()
+# Convert neighbors list to a weights list
+listw <- nb2listw(nb, style = "W")
+# Perform Moran's I test
+moran_test <- moran.test(model_residuals, listw)
+print(moran_test)
+# 0.57
 
-# Plot for 'disturbance_severity'
-plot_disturbance_severity <- ggplot(predicted_disturbance_severity, aes(x = x, y = predicted)) +
-  geom_line(color = "purple", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "purple") +
-  geom_point(data = df_advanced2, aes(x = disturbance_severity, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Disturbance Severity", x = "Disturbance Severity", 
-       y = y_lab) +
-  theme_minimal()
 
-# Plot for 'disturbance_severity'
-plot_distance_edge <- ggplot(predicted_distance_edge, aes(x = x, y = predicted)) +
-  geom_line(color = "grey", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
-  geom_point(data = df_advanced2, aes(x = distance_edge, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Distance edge", x = "Distance edge", 
-       y = y_lab) +
+
+#### Plots advanced----------------------------
+summary(fin.m.advanced)
+y_lab = 'Prob adv'
+
+# Predict management intensity effects by country
+predicted_mgmt_intensity <- ggpredict(fin.m.advanced, terms = c("management_intensity", "country_pooled"))
+# Generate predictions for stem regeneration across different countries
+predicted_countries <- ggpredict(fin.m.advanced, terms = "country_pooled")
+
+# Create plots for individual variables
+plot_prcp   <- create_plot(fin.m.advanced, "prcp", df_advanced2 , "Prcp **", scatter_y = "advanced",line_color = "blue", fill_color = "blue")
+plot_tmp    <- create_plot(fin.m.advanced, "tmp", df_advanced2, "Tmp ***", scatter_y = "advanced",line_color = "red", fill_color = "red")
+plot_spei12 <- create_plot(fin.m.advanced, "spei12", df_advanced2, "spei12*", scatter_y = "advanced",line_color = "green", fill_color = "green")
+#plot_disturbance_severity <- create_plot(fin.m.delayed, "disturbance_severity", df_delayed2, "Dist Sev", scatter_y = "delayed", line_color = "purple", fill_color = "purple")
+#plot_distance_edge <- create_plot(fin.m.delayed, "distance_edge", df_delayed2, "Distance edge", x_limit = c(0, 600), scatter_y = "delayed", line_color = "grey", fill_color = "grey")
+#plot_management_intensity <- create_plot(fin.m.delayed, "management_intensity", df_delayed2, "Mng intend",scatter_y = "delayed", line_color = "grey", fill_color = "grey")
+
+
+# Create interaction plots
+plot_interaction1 <- create_interaction_plot(fin.m.advanced, 
+                                             c("prcp", "tmp[8,9,10]"), "prcp & tmp ns", df_advanced2) +
+  guides(color = guide_legend(title = "tmp"), fill = guide_legend(title = "tmp")) + # Rename legend to 'tmp'
+  theme(legend.position.inside = c(0.7, 0.7),
+        #legend.position.inside = "top right", # Place the legend in the upper right corner inside the plot
+        legend.background = element_rect(fill = "white", color = NA), # Add a white background
+        legend.title = element_text(size = 10), # Adjust the title size
+        legend.text = element_text(size = 8))   # Adjust the text size
+
+plot_interaction2 <- create_interaction_plot(fin.m.advanced, c("management_intensity", "disturbance_severity[0.5,0.9]"), "manag & dist severity *", 
+                                             df_advanced2) +
+  guides(color = guide_legend(title = "tmp"), fill = guide_legend(title = "tmp")) + # Rename legend to 'tmp'
+  theme(legend.position.inside =  c(0.7, 0.7), # Place the legend in the upper right corner inside the plot
+        legend.background = element_rect(fill = "white", color = NA), # Add a white background
+        legend.title = element_text(size = 10), # Adjust the title size
+        legend.text = element_text(size = 8))   # Adjust the text size
+
+# Plot predicted effects by country
+plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, position = position_dodge(width = 0.9)) +
+  labs(title = "", x = "Country", y = y_lab) +
   theme_minimal() +
-  scale_x_continuous(limits = c(0, 600))  # Set the x-axis limits
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
 
-
-# Plot for 'disturbance_severity'
-plot_management_intensity <- ggplot(predicted_management_intensity, aes(x = x, y = predicted)) +
-  geom_line(color = "grey", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
-  geom_point(data = df_advanced2, aes(x = management_intensity, y = advanced), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Management_intensity", x = "Management_intensity", 
-       y = y_lab) +
-  theme_minimal()
-
-
-# Plot for the interaction between 'prcp' and 'tmp'
-plot_interaction <- ggplot(predicted_interaction, aes(x = x, y = predicted, color = group)) +
-  geom_line(size = 1) +
+# Plot the effect of management intensity on stem regeneration by country
+plot_mgmt_intensity <- ggplot(predicted_mgmt_intensity, aes(x = x, y = predicted, group = group)) +
+  geom_line(aes(color = group), size = 1) +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
-  labs(title = "Interaction tmp spei", x = "spei12", 
-       y = y_lab, color = "tmp", fill = "tmp") +
-  theme_minimal()
+  labs(title = "", 
+       x = "Management Intensity", y = y_lab, color = "Country", fill = "Country") +
+  theme_minimal() +
+  facet_wrap(~group) +
+  theme(legend.position = "none")
 
+
+# !!!
+library(cowplot)
+#plot_grid(p1, p2, labels = "auto", label_size = 12)
 
 # Combine the individual plots into one figure
-combined_plot <- ggarrange(plot_prcp, plot_tmp, plot_spei12, plot_disturbance_severity, 
-                           plot_distance_edge,plot_management_intensity,
-                           plot_interaction, 
-                           ncol = 3, nrow = 3,
-                           widths = c(rep(1,6), 1.5))
+combined_plot <- plot_grid(plot_interaction1, plot_interaction2, #combined_interactions,
+                           #combined_countries,
+                           plot_countries,NULL,
+                           plot_prcp, plot_tmp,
+                           #plot_spei12, 
+                           #plot_disturbance_severity, 
+                           #plot_distance_edge,             
+                           #plot_management_intensity,
+                           ncol = 2,
+                           rel_heights = c(1, 1,1.5))
 
 combined_plot
-ggsave('outFigs/fig_advanced_drivers.png', plot = combined_plot, width =7,height = 7,bg = 'white')
-
-sjPlot::tab_model(interaction_model_3, file = "outTable/full_drivers_advanced.doc")
 
 
+combined_plot
+ggsave('outFigs/fig_advanced_drivers.png', plot = combined_plot, width =5,height = 5,bg = 'white')
 
+
+
+# Identify random effects using the model's "smooth" component
+smooth_terms <- summary(fin.m.advanced)$s.table
+
+# Extract the smooth terms labels and check which ones are random effects
+random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
+
+# Create a function to automatically label the terms in the summary output
+create_labels <- function(term) {
+  if (term %in% random_effects_labels) {
+    return(paste(term, "(Random Effect)"))
+  } else {
+    return(term)
+  }
+}
+
+# Apply the labeling function
+pred_labels <- sapply(rownames(smooth_terms), create_labels)
+
+# Display the tab_model with automatic labeling
+sjPlot::tab_model(fin.m.advanced,
+                  show.re.var = TRUE,        # Show the variance components
+                  #show.icc = TRUE,           # Show Intraclass Correlation Coefficient
+                  #show.dev = TRUE,           # Show deviance
+                  pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
+                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(model)$dev.expl, 2), "%"), 
+                  file = "outTable/full_drivers_advanced.doc")
 
 
 ## Drivers regeneration density pooled ---------------------------------------------
