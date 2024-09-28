@@ -2031,7 +2031,7 @@ table(df_fin$advanced)
 
 
 # Drivers: ---------------------------------------------------------------------
-# Drivers delayed  -------
+##  Drivers delayed  ---------------------------
 
 # Check the structure of the data
 str(df_delayed2)
@@ -2047,11 +2047,11 @@ hist(df_delayed2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
 vif_check <- performance::check_collinearity(df_delayed2)
 print(vif_check)
 
-# END
-# Adding a small constant to handle zero-inflation
-df_delayed2$richness_adj <- df_delayed2$richness + 0.01
-df_delayed2$n_vertical_adj <- df_delayed2$n_vertical + 0.01
-df_delayed2$sum_stems_mature_adj <- df_delayed2$sum_stems_mature + 0.01
+# # END
+# # Adding a small constant to handle zero-inflation
+# df_delayed2$richness_adj <- df_delayed2$richness + 0.01
+# df_delayed2$n_vertical_adj <- df_delayed2$n_vertical + 0.01
+# df_delayed2$sum_stems_mature_adj <- df_delayed2$sum_stems_mature + 0.01
 
 
 library(corrplot)
@@ -2118,8 +2118,132 @@ delayed_interaction_model_2 <- gam(delayed ~
                            data = df_delayed2, 
                            method = "REML")
 
-summary(interaction_model_2)
-appraise(interaction_model_2)
+delayed_interaction_model_2_upd <- gam(delayed ~ 
+                                     s(prcp, k = 15) + 
+                                     s(tmp, k = 10) + 
+                                     s(spei12, k = 10) +
+                                     s(distance_edge) + 
+                                     s(depth_extract) +
+                                     s(disturbance_severity) +
+                                     s(sand_extract) + 
+                                     s(av.nitro, k = 15) +
+                                       s(management_intensity, by = country_pooled, bs = "re") +
+                                     #s(management_intensity, k = 5) +
+                                     s(country_pooled, bs = "re") +
+                                     s(clim_grid, bs = "re") +
+                                     ti(management_intensity, disturbance_severity) +
+                                     #ti(tmp, spei12, k = 5) +
+                                     ti(prcp, tmp, k = 5) +
+                                       s(x, y)  , 
+                                   family = binomial(link = "logit"), 
+                                   data = df_delayed2, 
+                                   method = "REML")
+
+# remove interaction between management and disturbance intensity - difficult to explain
+delayed_interaction_model_2_upd2 <- gam(delayed ~ 
+                                         s(prcp, k = 15) + 
+                                         s(tmp, k = 10) + 
+                                         s(spei12, k = 10) +
+                                         s(distance_edge) + 
+                                         s(depth_extract) +
+                                         s(disturbance_severity) +
+                                         s(sand_extract) + 
+                                         s(av.nitro, k = 15) +
+                                         s(management_intensity, by = country_pooled, bs = "re") +
+                                         #s(management_intensity, k = 5) +
+                                         s(country_pooled, bs = "re") +
+                                         s(clim_grid, bs = "re") +
+                                         #ti(management_intensity, disturbance_severity) +
+                                         #ti(tmp, spei12, k = 5) +
+                                         ti(prcp, tmp, k = 5) +
+                                         s(x, y)  , 
+                                       family = binomial(link = "logit"), 
+                                       data = df_delayed2, 
+                                       method = "REML")
+
+
+# disturbance severity and spei seems intersting: add one more term!
+# remove interaction between management and disturbance intensity - difficult to explain
+delayed_interaction_model_2_upd3 <- gam(delayed ~ 
+                                          s(prcp, k = 15) + 
+                                          s(tmp, k = 10) + 
+                                          s(spei12, k = 10) +
+                                          s(distance_edge) + 
+                                          s(depth_extract) +
+                                          s(disturbance_severity) +
+                                          s(sand_extract) + 
+                                          s(av.nitro, k = 15) +
+                                          s(management_intensity, by = country_pooled, bs = "re") +
+                                          #s(management_intensity, k = 5) +
+                                          s(country_pooled, bs = "re") +
+                                          s(clim_grid, bs = "re") +
+                                          #ti(management_intensity, disturbance_severity) +
+                                          ti(disturbance_severity, spei12, k = 5) +
+                                          ti(prcp, tmp, k = 5) +
+                                          s(x, y)  , 
+                                        family = binomial(link = "logit"), 
+                                        data = df_delayed2, 
+                                        method = "REML")
+
+
+
+
+# no xy
+delayed_interaction_model_2_upd_no_xy <- gam(delayed ~ 
+                                         s(prcp, k = 10) + 
+                                         s(tmp, k = 10) + 
+                                         s(spei12, k = 10) +
+                                         s(distance_edge) + 
+                                         s(depth_extract) +
+                                         s(disturbance_severity) +
+                                         s(sand_extract) + 
+                                         s(av.nitro, k = 15) +
+                                         s(management_intensity, by = country_pooled, bs = "re") +
+                                         #s(management_intensity, k = 5) +
+                                         s(country_pooled, bs = "re") +
+                                         s(clim_grid, bs = "re") +
+                                         ti(management_intensity, disturbance_severity) +
+                                         #ti(tmp, spei12, k = 5) +
+                                         ti(prcp, tmp, k = 5) #+
+                                         #s(x, y) 
+                                         , 
+                                       family = binomial(link = "logit"), 
+                                       data = df_delayed2, 
+                                       method = "REML")
+
+# no xy
+delayed_interaction_model_2_upd_no_xy_interct2 <- gam(delayed ~ 
+                                               s(prcp, k = 10) + 
+                                               s(tmp, k = 10) + 
+                                               s(spei12, k = 10) +
+                                               s(distance_edge) + 
+                                               s(depth_extract) +
+                                               s(disturbance_severity) +
+                                               s(sand_extract) + 
+                                               s(av.nitro, k = 15) +
+                                               s(management_intensity, by = country_pooled, bs = "re") +
+                                               #s(management_intensity, k = 5) +
+                                               s(country_pooled, bs = "re") +
+                                               s(clim_grid, bs = "re") +
+                                               ti(management_intensity, disturbance_severity) +
+                                               ti(tmp, spei12, k = 5) +
+                                               ti(prcp, tmp, k = 5) #+
+                                             #s(x, y) 
+                                             , 
+                                             family = binomial(link = "logit"), 
+                                             data = df_delayed2, 
+                                             method = "REML")
+
+
+
+AIC(delayed_interaction_model_2_upd, delayed_interaction_model_2,delayed_interaction_model_2_upd2,
+    delayed_interaction_model_2_upd3,
+    delayed_interaction_model_2_upd_no_xy,delayed_interaction_model_2_upd_no_xy_interct2)
+
+summary(delayed_interaction_model_2_upd3)
+summary(delayed_interaction_model_2)
+appraise(delayed_interaction_model_2)
+appraise(delayed_interaction_model_2_upd_no_xy)
 
 delayed_interaction_model_3 <- gam(delayed ~ 
                              s(prcp, k = 10) + 
@@ -2145,9 +2269,9 @@ predicted_interaction <- ggpredict(delayed_interaction_model_2, terms = c("prcp"
 plot(predicted_interaction)
 
 windows()
-plot.gam(delayed_interaction_model_2, page = 1)
+plot.gam(fin.m.delayed, page = 1)
 appraise(delayed_interaction_model_2)
-summary(interaction_model_2)
+summary(delayed_interaction_model_2)
 gam.check(delayed_interaction_model_2)
 k.check(delayed_interaction_model_2)
 
@@ -2163,71 +2287,116 @@ df_delayed2[high_influence, ]
 draw(interaction_model_2)
 summary(interaction_model_2)
 
+# get morans stats to test spatial autocorrelation
 
-# Generate predictions for each significant predictor using ggpredict
-predicted_prcp <- ggpredict(interaction_model_2, terms = "prcp")
-predicted_tmp <- ggpredict(interaction_model_2, terms = "tmp")
-predicted_spei12 <- ggpredict(interaction_model_2, terms = "spei12")
-predicted_disturbance_severity <- ggpredict(interaction_model_2, terms = "disturbance_severity")
-#predicted_disturbance_severity <- ggpredict(interaction_model_2, terms = "disturbance_severity")
-predicted_interaction <- ggpredict(interaction_model_2, terms = c("prcp", "tmp[8,9,10]"))
-
+summary(delayed_interaction_model_2_upd)
+gam.check(delayed_interaction_model_2_upd)
+k.check(delayed_interaction_model_2_upd)
+appraise(delayed_interaction_model_2_upd)
+appraise(delayed_interaction_model_2)
 
 
-# Plot for 'prcp'
-plot_prcp <- ggplot(predicted_prcp, aes(x = x, y = predicted)) +
-  geom_line(color = "blue", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "blue") +
-  geom_point(data = df_delayed2, aes(x = prcp, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Precipitation (prcp)", x = "prcp", 
-       y = "Probability of Delayed Regeneration") +
-  theme_minimal()
+# save up teh best model
+fin.m.delayed <- delayed_interaction_model_2_upd
 
-# Plot for 'tmp'
-plot_tmp <- ggplot(predicted_tmp, aes(x = x, y = predicted)) +
-  geom_line(color = "red", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "red") +
-  geom_point(data = df_delayed2, aes(x = tmp, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Temperature (tmp)", x = "tmp", 
-       y = "Probability of Delayed Regeneration") +
-  theme_minimal()
+# Test for spatial autocorrelation
+model_residuals <- residuals(fin.m.delayed, type = "pearson")
 
-# Plot for 'spei12'
-plot_spei12 <- ggplot(predicted_spei12, aes(x = x, y = predicted)) +
-  geom_line(color = "green", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "green") +
-  geom_point(data = df_delayed2, aes(x = spei12, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "spei12", x = "spei12", y = "Probability of Delayed Regeneration") +
-  theme_minimal()
+# Load necessary libraries
+library(spdep)
 
-# Plot for 'disturbance_severity'
-plot_disturbance_severity <- ggplot(predicted_disturbance_severity, aes(x = x, y = predicted)) +
-  geom_line(color = "purple", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "purple") +
-  geom_point(data = df_delayed2, aes(x = disturbance_severity, y = delayed), color = "black", alpha = 0.4, size = 1.5) +
-  labs(title = "Disturbance Severity", x = "Disturbance Severity", 
-       y = "Predicted of Delayed Regeneration") +
-  theme_minimal()
+# Create coordinates matrix
+coords <- cbind(df_delayed2$x, df_delayed2$y)
 
-# Plot for the interaction between 'prcp' and 'tmp'
-plot_interaction <- ggplot(predicted_interaction, aes(x = x, y = predicted, color = group)) +
-  geom_line(size = 1) +
+# Create a spatial neighbors object (e.g., using k-nearest neighbors)
+# Adjust k based on the density and distribution of your data points
+nb <- knn2nb(knearneigh(coords, k = 5))
+
+# Convert neighbors list to a weights list
+listw <- nb2listw(nb, style = "W")
+# Perform Moran's I test
+moran_test <- moran.test(model_residuals, listw)
+print(moran_test)
+
+
+
+### Plot: drivers delayed ---------------------------------------------------
+summary(fin.m.delayed)
+
+y_lab = 'Risk delayed'
+
+# Predict management intensity effects by country
+predicted_mgmt_intensity <- ggpredict(fin.m.delayed, terms = c("management_intensity", "country_pooled"))
+# Generate predictions for stem regeneration across different countries
+predicted_countries <- ggpredict(fin.m.delayed, terms = "country_pooled")
+
+# Create plots for individual variables
+plot_prcp   <- create_plot(fin.m.delayed, term = "prcp", df_delayed2 , "Prcp *", scatter_y = "delayed",line_color = "blue", fill_color = "blue")
+plot_tmp    <- create_plot(fin.m.delayed, "tmp", df_delayed2, "Tmp **", scatter_y = "delayed",line_color = "red", fill_color = "red")
+#plot_spei12 <- create_plot(fin.m.delayed, "spei12", df_delayed2, "spei12", scatter_y = "delayed",line_color = "green", fill_color = "green")
+#plot_disturbance_severity <- create_plot(fin.m.delayed, "disturbance_severity", df_delayed2, "Dist Sev", scatter_y = "delayed", line_color = "purple", fill_color = "purple")
+#plot_distance_edge <- create_plot(fin.m.delayed, "distance_edge", df_delayed2, "Distance edge", x_limit = c(0, 600), scatter_y = "delayed", line_color = "grey", fill_color = "grey")
+#plot_management_intensity <- create_plot(fin.m.delayed, "management_intensity", df_delayed2, "Mng intend",scatter_y = "delayed", line_color = "grey", fill_color = "grey")
+
+
+# Create interaction plots
+plot_interaction1 <- create_interaction_plot(fin.m.delayed, 
+                                             c("prcp", "tmp[8,9,10]"), "prcp & tmp *", df_delayed2) +
+  guides(color = guide_legend(title = "tmp"), fill = guide_legend(title = "tmp")) + # Rename legend to 'tmp'
+  theme(legend.position.inside = c(0.7, 0.7),
+    #legend.position.inside = "top right", # Place the legend in the upper right corner inside the plot
+        legend.background = element_rect(fill = "white", color = NA), # Add a white background
+        legend.title = element_text(size = 10), # Adjust the title size
+        legend.text = element_text(size = 8))   # Adjust the text size
+
+plot_interaction2 <- create_interaction_plot(fin.m.delayed, c("management_intensity", "disturbance_severity[0.5,0.9]"), "manag & dist severity *", 
+                                             df_delayed2) +
+  guides(color = guide_legend(title = "tmp"), fill = guide_legend(title = "tmp")) + # Rename legend to 'tmp'
+  theme(legend.position.inside =  c(0.7, 0.7), # Place the legend in the upper right corner inside the plot
+        legend.background = element_rect(fill = "white", color = NA), # Add a white background
+        legend.title = element_text(size = 10), # Adjust the title size
+        legend.text = element_text(size = 8))   # Adjust the text size
+
+# Plot predicted effects by country
+plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, position = position_dodge(width = 0.9)) +
+  labs(title = "", x = "Country", y = y_lab) +
+  theme_minimal() +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot the effect of management intensity on stem regeneration by country
+plot_mgmt_intensity <- ggplot(predicted_mgmt_intensity, aes(x = x, y = predicted, group = group)) +
+  geom_line(aes(color = group), size = 1) +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
-  labs(title = "Interaction prcp and tmp", x = "prcp", 
-       y = "Probability of Delayed Regeneration", color = "tmp", fill = "tmp") +
-  theme_minimal()
+  labs(title = "", 
+       x = "Management Intensity", y = y_lab, color = "Country", fill = "Country") +
+  theme_minimal() +
+  facet_wrap(~group) +
+  theme(legend.position = "none")
 
+
+# !!!
+library(cowplot)
+#plot_grid(p1, p2, labels = "auto", label_size = 12)
 
 # Combine the individual plots into one figure
-combined_plot <- ggarrange(plot_prcp, plot_tmp, plot_spei12, plot_disturbance_severity, 
-                           plot_interaction, 
-                           ncol = 2, nrow = 3)
+combined_plot <- plot_grid(plot_interaction1, plot_interaction2, #combined_interactions,
+                           #combined_countries,
+                           plot_countries,NULL,
+                            plot_prcp, plot_tmp,
+                          #plot_spei12, 
+                          #plot_disturbance_severity, 
+                          #plot_distance_edge,             
+                          #plot_management_intensity,
+                           ncol = 2,
+                          rel_heights = c(1, 1,1.5))
 
 combined_plot
-ggsave('outFigs/fig_delayed_drivers.png', plot = combined_plot, width =5,height = 7, bg = 'white')
 
-sjPlot::tab_model(interaction_model_2, file = "outTable/full_drivers_delayed.doc")
+ggsave('outFigs/fig_delayed_drivers.png', plot = combined_plot, width =6,height = 7, bg = 'white')
+
+sjPlot::tab_model(fin.m.delayed, file = "outTable/full_drivers_delayed.doc")
 
 
 
@@ -2243,10 +2412,10 @@ sum(is.na(df_advanced2))
 hist(df_advanced2$prcp, main="Histogram of Precipitation (prcp)", xlab="prcp")
 hist(df_advanced2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
 
-# Check collinearity using the VIF
-vif_check <- performance::check_collinearity(df_advanced2)
-print(vif_check)
-
+# # Check collinearity using the VIF
+# vif_check <- performance::check_collinearity(df_advanced2)
+# print(vif_check)
+# 
 
 
 library(corrplot)
@@ -2433,7 +2602,7 @@ sjPlot::tab_model(interaction_model_3, file = "outTable/full_drivers_advanced.do
 
 
 
-## DRivers regeneration pooled ---------------------------------------------
+## Drivers regeneration density pooled ---------------------------------------------
 
 
 # Check the structure of the data
@@ -2536,20 +2705,19 @@ interaction_model_5 <- gam(
   family = tw(), method = "REML", data = df_stem_regeneration2
 )
 
-# !!!!
-
 
 # View the summary of the updated model
 summary(interaction_model_5)
 summary(interaction_model_4)
 appraise(interaction_model_5)
 
-fin.reg.density <- interaction_model_5 
+# store the best model for regeneration density
+fin.m.reg.density <- interaction_model_5 
 
 # test for autocorrelation
 
 # Extract model residuals
-model_residuals <- residuals(fin.reg.density, type = "pearson")
+model_residuals <- residuals(fin.m.reg.density, type = "pearson")
 
 # Load necessary libraries
 library(spdep)
@@ -2615,7 +2783,7 @@ summary(interaction_model_random_smooth)
 
 # SIMPLIFY PLOTTING TEST
 # Function to generate predictions and plots
-create_plot <- function(model, term, data, title, x_label = term, y_label = y_lab, line_color = "blue", fill_color = "blue", scatter = TRUE, x_limit = NULL) {
+create_plot <- function(model, term, data, title, x_label = term, y_label = y_lab, line_color = "blue", fill_color = "blue", scatter = TRUE, x_limit = NULL, scatter_y = "stem_regeneration") {
   
   # Generate predictions
   predicted <- ggpredict(model, terms = term)
@@ -2629,7 +2797,7 @@ create_plot <- function(model, term, data, title, x_label = term, y_label = y_la
   
   # Add scatter points if required
   if (scatter) {
-    plot <- plot + geom_point(data = data, aes_string(x = term, y = "stem_regeneration"), 
+    plot <- plot + geom_point(data = data, aes_string(x = term, y = scatter_y), 
                               color = "black", alpha = 0.4, size = 0.5)
   }
   
@@ -2640,6 +2808,7 @@ create_plot <- function(model, term, data, title, x_label = term, y_label = y_la
   
   return(plot)
 }
+
 
 # Function to create interaction plots
 create_interaction_plot <- function(model, terms, title, data, x_label = terms[1], y_label = y_lab) {
@@ -2654,28 +2823,24 @@ create_interaction_plot <- function(model, terms, title, data, x_label = terms[1
   return(plot)
 }
 
-# Create plots for individual variables
-plot_prcp <- create_plot(fin.reg.density, "prcp", df_stem_regeneration2, "Precipitation", line_color = "blue", fill_color = "blue")
-plot_tmp <- create_plot(fin.reg.density, "tmp", df_stem_regeneration2, "Temperature", line_color = "red", fill_color = "red")
-plot_spei12 <- create_plot(fin.reg.density, "spei12", df_stem_regeneration2, "spei12", line_color = "green", fill_color = "green")
-plot_disturbance_severity <- create_plot(fin.reg.density, "disturbance_severity", df_stem_regeneration2, "Dist Severity", line_color = "purple", fill_color = "purple")
-plot_distance_edge <- create_plot(fin.reg.density, "distance_edge", df_stem_regeneration2, "Distance edge", x_limit = c(0, 600), line_color = "grey", fill_color = "grey")
-plot_management_intensity <- create_plot(fin.reg.density, "management_intensity", df_stem_regeneration2, "Management_intensity", line_color = "grey", fill_color = "grey")
-
-
-
 # Predict management intensity effects by country
-predicted_mgmt_intensity <- ggpredict(fin.reg.density, terms = c("management_intensity", "country_pooled"))
+predicted_mgmt_intensity <- ggpredict(fin.m.reg.density, terms = c("management_intensity", "country_pooled"))
 # Generate predictions for stem regeneration across different countries
-predicted_countries <- ggpredict(fin.reg.density, terms = "country_pooled")
+predicted_countries <- ggpredict(fin.m.reg.density, terms = "country_pooled")
 
 
+# Create plots for individual variables
+plot_prcp <- create_plot(fin.m.reg.density, "prcp", df_stem_regeneration2, "Precipitation", line_color = "blue", fill_color = "blue")
+plot_tmp <- create_plot(fin.m.reg.density, "tmp", df_stem_regeneration2, "Temperature", line_color = "red", fill_color = "red")
+plot_spei12 <- create_plot(fin.m.reg.density, "spei12", df_stem_regeneration2, "spei12", line_color = "green", fill_color = "green")
+plot_disturbance_severity <- create_plot(fin.m.reg.density, "disturbance_severity", df_stem_regeneration2, "Dist Severity", line_color = "purple", fill_color = "purple")
+plot_distance_edge <- create_plot(fin.m.reg.density, "distance_edge", df_stem_regeneration2, "Distance edge", x_limit = c(0, 600), line_color = "grey", fill_color = "grey")
+plot_management_intensity <- create_plot(fin.m.reg.density, "management_intensity", df_stem_regeneration2, "Management_intensity", line_color = "grey", fill_color = "grey")
 
 
 # Create interaction plots
-plot_interaction1 <- create_interaction_plot(fin.reg.density, c("prcp", "tmp[8,9,10]"), "Interaction: prcp & tmp", df_stem_regeneration2)
-plot_interaction2 <- create_interaction_plot(fin.reg.density, c("spei12", "tmp[8,9,10]"), "Interaction: spei12 & tmp", df_stem_regeneration2)
-
+plot_interaction1 <- create_interaction_plot(fin.m.reg.density, c("prcp", "tmp[8,9,10]"), "Interaction: prcp & tmp", df_stem_regeneration2)
+plot_interaction2 <- create_interaction_plot(fin.m.reg.density, c("spei12", "tmp[8,9,10]"), "Interaction: spei12 & tmp", df_stem_regeneration2)
 
 # Plot predicted effects by country
 plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
@@ -2712,17 +2877,14 @@ ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, width = 8, he
 
 
 
-# END ----------------
 
-
+#
 # make median +IQR plots of variables for quick view
 df_fin <- df_fin %>% 
   mutate(adv_delayed = ifelse(stem_regeneration < 50, "Delayed", 
                               ifelse(stem_regeneration > 1000, "Advanced", NA)))
 
-
-# Check sites differences -------------------------------------------------
-
+# PLOTS: sites differences: delayed vs advaced ----------------------------
 
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
