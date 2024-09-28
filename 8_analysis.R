@@ -2013,19 +2013,25 @@ df_stem_regeneration <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", p
 
 # test drivers: simplify the analysis:
 # Subset the data
-df_delayed2 <- df_fin %>% dplyr::select(all_of(c("delayed", predictor_vars_sub, "management_intensity",
+df_delayed2 <- df_fin %>% 
+  dplyr::select(all_of(c("delayed", predictor_vars_sub, "management_intensity",
                                                 "country_pooled", "clim_grid", "clim_class", "x", "y")))
-df_advanced2 <- df_fin %>% dplyr::select(all_of(c("advanced", predictor_vars_sub, "management_intensity",
+df_advanced2 <- df_fin %>% 
+  dplyr::select(all_of(c("advanced", predictor_vars_sub, "management_intensity",
                                                  "country_pooled", "clim_grid", "clim_class", "x", "y")))
-df_stem_regeneration2 <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,"management_intensity",
+df_stem_regeneration2 <- df_fin %>% 
+  dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,"management_intensity",
                                                           "country_pooled", "clim_grid", "clim_class", "x", "y")))
+
+
 table(df_fin$delayed)
 table(df_fin$advanced)
 
 
 
 
-# Check drivers: simpler! START -------
+# Drivers: ---------------------------------------------------------------------
+# Drivers delayed  -------
 
 # Check the structure of the data
 str(df_delayed2)
@@ -2055,7 +2061,7 @@ corrplot(cor_matrix)
 
 ggplot(df_delayed2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ delayed)
 
-basic_gam <- gam(delayed ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+delayed_basic_gam <- gam(delayed ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
                    s(distance_edge) +
                    s(depth_extract) +
                    s(disturbance_severity) +
@@ -2075,7 +2081,7 @@ windows()
 plot.gam(basic_gam, page = 1)
 
 
-interaction_model_1 <- gam(delayed ~ 
+delayed_interaction_model_1 <- gam(delayed ~ 
                              s(prcp, k = 10) + 
                              s(tmp, k = 10) + 
                              s(spei12, k = 10) +
@@ -2093,7 +2099,7 @@ interaction_model_1 <- gam(delayed ~
 
 summary(interaction_model_1)
 
-interaction_model_2 <- gam(delayed ~ 
+delayed_interaction_model_2 <- gam(delayed ~ 
                              s(prcp, k = 10) + 
                              s(tmp, k = 10) + 
                              s(spei12, k = 10) +
@@ -2115,7 +2121,7 @@ interaction_model_2 <- gam(delayed ~
 summary(interaction_model_2)
 appraise(interaction_model_2)
 
-interaction_model_3 <- gam(delayed ~ 
+delayed_interaction_model_3 <- gam(delayed ~ 
                              s(prcp, k = 10) + 
                              s(tmp, k = 10) + 
                              s(spei12, k = 10) +
@@ -2131,19 +2137,19 @@ interaction_model_3 <- gam(delayed ~
                            data = df_delayed2, 
                            method = "REML")
 
-summary(interaction_model_3)
-AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3)
-BIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3)
+summary(delayed_interaction_model_3)
+AIC(delayed_basic_gam, delayed_interaction_model_1, delayed_interaction_model_2, delayed_interaction_model_3)
+BIC(delayed_basic_gam, delayed_interaction_model_1, delayed_interaction_model_2, delayed_interaction_model_3)
 
-predicted_interaction <- ggpredict(interaction_model_2, terms = c("prcp", "spei12"))
+predicted_interaction <- ggpredict(delayed_interaction_model_2, terms = c("prcp", "spei12"))
 plot(predicted_interaction)
 
 windows()
-plot.gam(interaction_model_2, page = 1)
-appraise(interaction_model_2)
+plot.gam(delayed_interaction_model_2, page = 1)
+appraise(delayed_interaction_model_2)
 summary(interaction_model_2)
-gam.check(interaction_model_2)
-k.check(interaction_model_2)
+gam.check(delayed_interaction_model_2)
+k.check(delayed_interaction_model_2)
 
 # see influential points:
 influence_data <- influence.gam(interaction_model_2)
@@ -2225,7 +2231,7 @@ sjPlot::tab_model(interaction_model_2, file = "outTable/full_drivers_delayed.doc
 
 
 
-# CHeck drivers advanced regen ---------------------------------------------------------
+## drivers advanced regen ---------------------------------------------------------
 
 # Check the structure of the data
 str(df_advanced2)
@@ -2427,7 +2433,7 @@ sjPlot::tab_model(interaction_model_3, file = "outTable/full_drivers_advanced.do
 
 
 
-# DRivers regeneration pooled ---------------------------------------------
+## DRivers regeneration pooled ---------------------------------------------
 
 
 # Check the structure of the data
@@ -2517,10 +2523,33 @@ interaction_model_4 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) 
 summary(interaction_model_4)
 
 
+# Modify the model to use a random slope for management_intensity by country
+interaction_model_5 <- gam(
+  stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) +
+    s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) +
+    s(sand_extract) + s(av.nitro, k = 20) +
+    # Change from separate smooths to a random slope model for management_intensity by country
+    s(management_intensity, by = country_pooled, bs = "re") +
+    s(country_pooled, bs = "re") +  # Random intercept for country
+    ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) +
+    s(x, y) + s(clim_grid, bs = "re"), 
+  family = tw(), method = "REML", data = df_stem_regeneration2
+)
+
+# !!!!
+
+
+# View the summary of the updated model
+summary(interaction_model_5)
+summary(interaction_model_4)
+appraise(interaction_model_5)
+
+fin.reg.density <- interaction_model_5 
+
 # test for autocorrelation
 
 # Extract model residuals
-model_residuals <- residuals(interaction_model_4, type = "pearson")
+model_residuals <- residuals(fin.reg.density, type = "pearson")
 
 # Load necessary libraries
 library(spdep)
@@ -2541,6 +2570,7 @@ print(moran_test)
 
 # Compare models
 AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4,
+    interaction_model_5,
     interaction_model_random_smooth,interaction_model_updated)
 
 # Display model summaries to understand which terms are significant
@@ -2549,6 +2579,7 @@ summary(interaction_model_1)
 summary(interaction_model_2)
 summary(interaction_model_3)
 summary(interaction_model_4)
+summary(interaction_model_5)
 
 
 # Update model to include interaction between management_intensity and country_pooled
@@ -2582,122 +2613,100 @@ summary(interaction_model_random_smooth)
 
 # PLot 
 
-# Generate predictions for each significant predictor using ggpredict
-predicted_prcp   <- ggpredict(interaction_model_4, terms = "prcp")
-predicted_tmp    <- ggpredict(interaction_model_4, terms = "tmp")
-predicted_spei12 <- ggpredict(interaction_model_4, terms = "spei12")
-predicted_disturbance_severity <- ggpredict(interaction_model_4, terms = "disturbance_severity")
-predicted_distance_edge         <- ggpredict(interaction_model_4, terms = "distance_edge[0:600]")
-predicted_management_intensity  <- ggpredict(interaction_model_4, terms = "management_intensity")
-predicted_interaction1    <- ggpredict(interaction_model_4, terms = c("prcp", "tmp[8,9,10]"))
-predicted_interaction2    <- ggpredict(interaction_model_4, terms = c("spei12", "tmp[8,9,10]"))
+# SIMPLIFY PLOTTING TEST
+# Function to generate predictions and plots
+create_plot <- function(model, term, data, title, x_label = term, y_label = y_lab, line_color = "blue", fill_color = "blue", scatter = TRUE, x_limit = NULL) {
+  
+  # Generate predictions
+  predicted <- ggpredict(model, terms = term)
+  
+  # Create the base plot
+  plot <- ggplot(predicted, aes(x = x, y = predicted)) +
+    geom_line(color = line_color, size = 1) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = fill_color) +
+    labs(title = title, x = x_label, y = y_label) +
+    theme_classic2()
+  
+  # Add scatter points if required
+  if (scatter) {
+    plot <- plot + geom_point(data = data, aes_string(x = term, y = "stem_regeneration"), 
+                              color = "black", alpha = 0.4, size = 0.5)
+  }
+  
+  # Set x-axis limits if provided
+  if (!is.null(x_limit)) {
+    plot <- plot + scale_x_continuous(limits = x_limit)
+  }
+  
+  return(plot)
+}
 
+# Function to create interaction plots
+create_interaction_plot <- function(model, terms, title, data, x_label = terms[1], y_label = y_lab) {
+  predicted_interaction <- ggpredict(model, terms = terms)
+  
+  plot <- ggplot(predicted_interaction, aes(x = x, y = predicted )) +
+    geom_line(aes(color = group), size = 1) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+    labs(title = title, x = x_label, y = y_label, color = "Group", fill = "Group") +
+    theme_classic2()
+  
+  return(plot)
+}
+
+# Create plots for individual variables
+plot_prcp <- create_plot(fin.reg.density, "prcp", df_stem_regeneration2, "Precipitation", line_color = "blue", fill_color = "blue")
+plot_tmp <- create_plot(fin.reg.density, "tmp", df_stem_regeneration2, "Temperature", line_color = "red", fill_color = "red")
+plot_spei12 <- create_plot(fin.reg.density, "spei12", df_stem_regeneration2, "spei12", line_color = "green", fill_color = "green")
+plot_disturbance_severity <- create_plot(fin.reg.density, "disturbance_severity", df_stem_regeneration2, "Dist Severity", line_color = "purple", fill_color = "purple")
+plot_distance_edge <- create_plot(fin.reg.density, "distance_edge", df_stem_regeneration2, "Distance edge", x_limit = c(0, 600), line_color = "grey", fill_color = "grey")
+plot_management_intensity <- create_plot(fin.reg.density, "management_intensity", df_stem_regeneration2, "Management_intensity", line_color = "grey", fill_color = "grey")
+
+
+
+# Predict management intensity effects by country
+predicted_mgmt_intensity <- ggpredict(fin.reg.density, terms = c("management_intensity", "country_pooled"))
 # Generate predictions for stem regeneration across different countries
-predicted_countries <- ggpredict(interaction_model_4, terms = "country_pooled")
-# !!!!  continue from here: add effects for countries, ad management within countries
-# Plot predicted effects
+predicted_countries <- ggpredict(fin.reg.density, terms = "country_pooled")
+
+
+
+
+# Create interaction plots
+plot_interaction1 <- create_interaction_plot(fin.reg.density, c("prcp", "tmp[8,9,10]"), "Interaction: prcp & tmp", df_stem_regeneration2)
+plot_interaction2 <- create_interaction_plot(fin.reg.density, c("spei12", "tmp[8,9,10]"), "Interaction: spei12 & tmp", df_stem_regeneration2)
+
+
+# Plot predicted effects by country
 plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
   geom_bar(stat = "identity", position = "dodge", color = "black") +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, position = position_dodge(width = 0.9)) +
-  labs(title = "Predicted Stem Regeneration by Country", x = "Country", y = "Predicted Stem Regeneration") +
+  labs(title = "Predicted Stem Regeneration by Country", x = "Country", y = y_lab) +
   theme_minimal() +
   theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
 
-y_lab = "Regeneration density"
-
-# Plot for 'prcp'
-plot_prcp <- ggplot(predicted_prcp, aes(x = x, y = predicted)) +
-   geom_point(data = df_stem_regeneration2, aes(x = prcp, y = stem_regeneration    ),
-              color = "black", alpha = 0.4, size = 0.5) +
-geom_line(color = "blue", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "blue") +
-   labs(title = "Precipitation (prcp)", x = "prcp", 
-       y = y_lab) +
-  theme_minimal()
-
-# Plot for 'tmp'
-plot_tmp <- ggplot(predicted_tmp, aes(x = x, y = predicted)) +
-   geom_point(data = df_stem_regeneration2, aes(x = tmp, y = stem_regeneration    ), 
-             color = "black", alpha = 0.4, size =0.5) +
-geom_line(color = "red", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "red") +
-   labs(title = "Temperature (tmp)", x = "tmp", 
-       y = y_lab) +
-  theme_minimal()
-
-# Plot for 'spei12'
-plot_spei12 <- ggplot(predicted_spei12, aes(x = x, y = predicted)) +
-   geom_point(data = df_stem_regeneration2, aes(x = spei12, y = stem_regeneration    ), 
-             color = "black", alpha = 0.4, size = 0.5) +
- geom_line(color = "green", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "green") +
-  labs(title = "spei12", x = "spei12", 
-       y = y_lab) +
-  theme_minimal()
-
-# Plot for 'disturbance_severity'
-plot_disturbance_severity <- ggplot(predicted_disturbance_severity, aes(x = x, y = predicted)) +
-  geom_line(color = "purple", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "purple") +
-  geom_point(data = df_stem_regeneration2, aes(x = disturbance_severity, y = stem_regeneration    ), 
-             color = "black", alpha = 0.4, size = 0.5) +
-  labs(title = "Disturbance Severity", x = "Disturbance Severity", 
-       y = y_lab) +
-  theme_minimal()
-
-# Plot for 'disturbance_severity'
-plot_distance_edge <- ggplot(predicted_distance_edge, aes(x = x, y = predicted)) +
-  geom_point(data = df_stem_regeneration2, aes(x = distance_edge, y = stem_regeneration    ), 
-             color = "black", alpha = 0.4, size = 0.5) +
-  geom_line(color = "grey", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
-  labs(title = "Distance edge", x = "Distance edge", 
-       y = y_lab) +
+# Plot the effect of management intensity on stem regeneration by country
+plot_mgmt_intensity <- ggplot(predicted_mgmt_intensity, aes(x = x, y = predicted, group = group)) +
+  geom_line(aes(color = group), size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+  labs(title = "Effect of Management Intensity on Stem Regeneration by Country", 
+       x = "Management Intensity", y = y_lab, color = "Country", fill = "Country") +
   theme_minimal() +
-  scale_x_continuous(limits = c(0, 600))  # Set the x-axis limits
-
-
-# Plot for 'disturbance_severity'
-plot_management_intensity <- ggplot(predicted_management_intensity, aes(x = x, y = predicted)) +
-   geom_point(data = df_stem_regeneration2, aes(x = management_intensity, y = stem_regeneration    ), 
-              color = "black", alpha = 0.4, size = 0.5) +
-geom_line(color = "grey", size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "grey") +
-   labs(title = "Management_intensity", x = "Management_intensity", 
-       y = y_lab) +
-  theme_minimal()
-
-
-# Plot for the interaction between 'prcp' and 'tmp'
-plot_interaction1 <- ggplot(predicted_interaction1, aes(x = x, y = predicted, color = group)) +
-  geom_line(size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
-  labs(title = "Interaction tmp spei", x = "prcp", 
-       y = y_lab, color = "tmp", fill = "tmp") +
-  theme_minimal()
-
-
-plot_interaction2 <- ggplot(predicted_interaction2, aes(x = x, y = predicted, color = group)) +
-  geom_line(size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-  #geom_point(data = df_delayed2, aes(x = prcp, y = delayed, color = factor(tmp)), alpha = 0.4, size = 1.5) +
-  labs(title = "Interaction tmp spei", x = "spei12", 
-       y = y_lab, color = "tmp", fill = "tmp") +
-  theme_minimal()
+  facet_wrap(~group) +
+  theme(legend.position = "none")
 
 
 # Combine the individual plots into one figure
-combined_plot <- ggarrange(plot_prcp, plot_tmp, plot_spei12, plot_disturbance_severity, 
-                           plot_distance_edge,plot_management_intensity,
-                           plot_interaction1,plot_interaction2, 
-                           ncol = 3, nrow = 3,
-                           widths = c(rep(1,6), 1.5,1.5))
+combined_plot <- ggarrange(plot_mgmt_intensity, plot_countries,  plot_prcp, plot_tmp,
+                           plot_interaction1, plot_spei12, plot_disturbance_severity, plot_distance_edge, 
+                           plot_interaction2,  plot_management_intensity,
+                             
+                           ncol = 4, nrow = 3, widths = c(2, 1,1, 1))
 
 combined_plot
-ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, width =7,height = 7,bg = 'white')
 
-sjPlot::tab_model(interaction_model_3, file = "outTable/full_drivers_regeneration_pool.doc")
+# Save the combined plot
+ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, width = 8, height = 6, bg = 'white')
 
 
 
