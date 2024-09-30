@@ -2888,7 +2888,7 @@ sjPlot::tab_model(fin.m.advanced,
                   #show.icc = TRUE,           # Show Intraclass Correlation Coefficient
                   #show.dev = TRUE,           # Show deviance
                   pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
-                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(model)$dev.expl, 2), "%"), 
+                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.advanced)$dev.expl, 2), "%"), 
                   file = "outTable/full_drivers_advanced.doc")
 
 
@@ -3189,7 +3189,7 @@ sjPlot::tab_model(fin.m.advanced,
 
 
 
-# Wilcox PLOTS: sites differences: delayed vs advaced ----------------------------
+## Wilcox PLOTS: sites differences: delayed vs advaced ----------------------------
 
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
@@ -3197,8 +3197,8 @@ variables_to_plot <- c(
   "richness",
   "n_vertical",
  # "spei1", "drought_spei1",                      
-  "spei3", "drought_spei3",
-                      #  "spei12", "drought_spei12", 
+  "spei3", #"drought_spei3",
+                        "spei12", #"drought_spei12", 
                       
                       # "spei24", "drought_spei24" ,
                        "tmp", "av.nitro", "depth_extract", "management_intensity", 
@@ -3257,23 +3257,25 @@ df_long_summary <- df_long %>%
 label_y_positions <- setNames(df_long_summary$label_y, df_long_summary$Variable)
 
 # Plot using ggboxplot
+# Plot using ggboxplot
 p_boxplot_wilcox <- ggboxplot(df_long, x = "adv_delayed", y = "Value", 
-          color = "adv_delayed", palette = c("blue", "red"),
-          facet.by = "Variable", scales = "free_y", 
-          ylab = "Values", xlab = "Regeneration Status") +
+                              color = "adv_delayed", palette = c("blue", "red"),
+                              facet.by = "Variable", scales = "free_y", 
+                              ylab = "Values", xlab = "Regeneration Status") +
   stat_compare_means(aes(group = adv_delayed), method = "wilcox.test", 
                      label = "p.signif", 
                      label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
-                     size = 4) + 
+                     size = 4,
+                     label.x = 1.5) +  # Position labels between the two boxplots
   theme_minimal() +
-  labs(title = "Boxplots with Mann-Whitney Test for Delayed vs Advanced Regeneration",
-       x = "Regeneration Status", y = "Values")
-
+  theme(legend.position = 'bottom') +
+  labs(title = "",
+       x = "Reg. Status", y = "Vals")
 
 p_boxplot_wilcox
 
 # Save the combined plot (optional)
-ggsave("outFigs/p_boxplot_wilcox.png", p_boxplot_wilcox, width = 7, height = 7, 
+ggsave("outFigs/p_boxplot_wilcox.png", p_boxplot_wilcox, width = 6, height = 8, 
        dpi = 300,  bg = 'white')
 
 
@@ -3677,9 +3679,9 @@ ggarrange(p.country.density, p.country.richness)
 # Save models --------------------------------------------------
 
 # Save the model object and input data
-save(fin.m.delayed, df_delayed2, 
+save(#fin.m.delayed, df_delayed2, 
      fin.m.advanced, df_advanced2, 
-  #fin.m.advanced_juv, df_advanced_juv2,
-  fin.m.reg.density, df_stem_regeneration2,
-     file = "stem_density_models.RData")
+     #fin.m.advanced_juv, df_advanced_juv2,
+     #fin.m.reg.density, df_stem_regeneration2,
+     file = "outData/stem_density_models.RData")
 

@@ -101,7 +101,7 @@ df_indicators_sub <- df_indicators %>%
          clim_cluster_spei3 = factor(clim_cluster_spei3))  # add indication of the strutural cluster (1,2,3,4,5)
 
 
-# CHECK CLUSTER NAMING :-----------------------------------------------------------------------------
+# CHECK CLIM CLUSTER NAMING :-----------------------------------------------------------------------------
 
 # Fiel data :
 # Make boxplot to adjust naming of Kilians clusters:
