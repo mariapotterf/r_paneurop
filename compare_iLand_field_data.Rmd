@@ -1,0 +1,50 @@
+---
+title: "iLand vs field data"
+author: "Maria Potterf"
+date: "2024-09-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table) # Load data.table package
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+## R Markdown
+
+
+```{r read_data}
+# Read the CSV file using the relative path
+df_sim_class <- fread('outTable/fin_sim_data.csv')
+
+# Display the first few rows of the data
+head(df_sim_class)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r get_richness, echo=FALSE}
+###### Species richness ------------------------------------
+df_richness <- df_sim_class %>% 
+  group_by(year, clim_model,clim_cluster,ext_seed,landscape_run, unique_sim_run) %>%  #clim_modelclim_cluster, 
+  summarize(richness = n_distinct(species))
+
+df_richness %>% 
+ # dplyr::filter(run_nr == 1 & clim_model == 'NCC')  %>% 
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = richness,
+                color = ext_seed,
+                group = unique_sim_run), alpha = 0.3) +
+  theme(legend.position = 'bottom')
+  #facet_wrap(clim_scenario~ext_seed)
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
