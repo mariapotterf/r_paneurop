@@ -116,7 +116,7 @@ df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))
 print(df_fin_clim_clust_xy)
 
 # Step 3: Export the data as a GeoPackage (GPKG)
-st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
+#st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
 
 # get only a ataframe of teh climate clusters and sites for easy merging to detiailed veg data
 clim_cluster_indicator <- df_fin %>% 
@@ -1491,7 +1491,7 @@ correlation_matrix
 # split table in two: drivers for advanced (> 1000 stems/ha)
 #                     drivers for delayed regeneration (<50 stems/ha)  
 
-
+# Prep fnal table --------------
 
 df_fin <- df_fin %>% 
   mutate(country_full    = factor(country_full),
@@ -1506,6 +1506,22 @@ df_fin <- df_fin %>%
     tmp_c = tmp - mean(tmp, na.rm = TRUE),  # Centering temperature
     prcp_c = prcp - mean(prcp, na.rm = TRUE) # Centering precipitation
   )
+
+# account for climatic variables - aggregated on 9 km resolution:
+df_fin <- df_fin %>%
+  mutate(clim_grid = factor(paste(tmp, prcp, sep = "_")))  # Create a unique identifier for temp/precip combinations
+
+
+
+# Make sure df_fin has no missing values, if necessary
+df_fin <- na.omit(df_fin)
+
+# make two regeneration classes: advnaced vs advanced
+df_fin <- df_fin %>% 
+  mutate(adv_delayed = ifelse(stem_regeneration <= 50, "Delayed", 
+                              ifelse(sum_stems_juvenile >= 1000, "Advanced", NA))) %>% 
+  mutate(delayed = ifelse(stem_regeneration <= 50, 1, 0),
+         advanced = ifelse(sum_stems_juvenile >=  1000, 1, 0))
 
 
 
@@ -1677,7 +1693,7 @@ predictor_vars <- c("spei1", "spei3", "spei6",
                     "management_intensity",
                     "distance_edge", 
                     "disturbance_severity", 
-                    "sand_extract", 
+                    "clay_extract", 
                     "clay_extract", 
                     "depth_extract", 
                     "av.nitro")
@@ -1779,16 +1795,10 @@ df_fin$salvage_intensity        <- df_fin$salvage_intensity + 0.01 # increase a 
 # Create the binary outcome variable for regeneration status
 df_fin$delayed <- ifelse(df_fin$stem_regeneration < 50, 1,0)
 df_fin$advanced <- ifelse(df_fin$stem_regeneration > 1000, 1,0)
-
-
-# account for climatic variables - aggregated on 9 km resolution:
-df_fin <- df_fin %>%
-  mutate(clim_grid = factor(paste(tmp, prcp, sep = "_")))  # Create a unique identifier for temp/precip combinations
+df_fin$advanced_juv <- ifelse(df_fin$sum_stems_juvenile > 1000, 1,0)
 
 
 
-# Make sure df_fin has no missing values, if necessary
-df_fin <- na.omit(df_fin)
 
 
 hist(df_fin$log_depth_extract)
@@ -1824,7 +1834,7 @@ predictor_vars_sub <- c(#"spei1", "spei3",
                     "disturbance_severity",
                     
                     # soil
-                    "sand_extract", 
+                    #"sand_extract", 
                     "clay_extract", 
                     "depth_extract", 
                     
@@ -1958,16 +1968,22 @@ View(out_df_summary)
 
 ## Models: prepare fin tables ---------------------------------------------------------------------------------
 
+#
+# make median +IQR plots of variables for quick view
+
+
 # Subsetting the data for different models
 # Variables to be used for each dependent variable
 predictors_delayed <- c("rIVI", 
                         # "n_vertical",  # remove as it has only 1/0 outcome
                         # "richness",    # remove as it has only 1/0 outcome
-                        "sand_extract",
+                        "clay_extract",
                         "sum_stems_mature", 
                         "prcp",
                         "spei12",
-                        "drought_spei12",
+                        "disturbance_severity",
+                        "distance_edge",
+                        #"drought_spei12",
                         "tmp",
                         "av.nitro",
                         "depth_extract",
@@ -1980,15 +1996,16 @@ predictors_advanced <- c("richness",
                          "n_vertical", 
                          "sum_stems_mature", 
                          "spei12",
-                         "drought_spei12", 
+                        # "drought_spei12", 
                          "country_pooled",
                          "prcp",
                          "tmp",
-                         "sand_extract",
+                         "clay_extract",
                          "av.nitro",
                          "depth_extract",
                          "management_intensity",
                          "disturbance_severity",
+                        "distance_edge",
                          "clim_grid",  
                          "clim_class", 
                          "x", "y")
@@ -1996,12 +2013,15 @@ predictors_stem_regeneration <- c("richness",
                                   "n_vertical", 
                                   "rIVI", 
                                   "prcp", 
-                                  "drought_spei12",
+                                  #"drought_spei12",
                                   "spei12",
                                   "tmp",
                                   "av.nitro",
+                                  "clay_extract",
                                   "depth_extract",
                                   "management_intensity",
+                                  "disturbance_severity",
+                                  "distance_edge",
                                   "country_pooled", "clim_grid", "clim_class", "x", "y")
 
 # Subset the data
@@ -2015,10 +2035,15 @@ df_stem_regeneration <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", p
 # Subset the data
 df_delayed2 <- df_fin %>% 
   dplyr::select(all_of(c("delayed", predictor_vars_sub, "management_intensity",
-                                                "country_pooled", "clim_grid", "clim_class", "x", "y")))
+                                                "country_pooled", "clim_grid", "clim_class", "x", "y", "tmp_c", "prcp_c")))
 df_advanced2 <- df_fin %>% 
   dplyr::select(all_of(c("advanced", predictor_vars_sub, "management_intensity",
-                                                 "country_pooled", "clim_grid", "clim_class", "x", "y")))
+                                                 "country_pooled", "clim_grid", "clim_class", "x", "y", "tmp_c", "prcp_c")))
+
+#df_advanced_juv2 <- df_fin %>% 
+#  dplyr::select(all_of(c("advanced_juv", predictor_vars_sub, "management_intensity",
+ #                        "country_pooled", "clim_grid", "clim_class", "x", "y")))
+
 df_stem_regeneration2 <- df_fin %>% 
   dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,"management_intensity",
                                                           "country_pooled", "clim_grid", "clim_class", "x", "y")))
@@ -2031,6 +2056,54 @@ table(df_fin$advanced)
 
 
 # Drivers: ---------------------------------------------------------------------
+
+
+# SIMPLIFY PLOTTING TEST
+# Function to generate predictions and plots
+create_plot <- function(model, term, data, title, x_label = term, y_label = y_lab, line_color = "blue", fill_color = "blue", scatter = TRUE, x_limit = NULL, scatter_y = "stem_regeneration") {
+  
+  # Generate predictions
+  predicted <- ggpredict(model, terms = term)
+  
+  # Create the base plot
+  plot <- ggplot(predicted, aes(x = x, y = predicted)) +
+    geom_line(color = line_color, size = 1) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = fill_color) +
+    labs(title = title, x = x_label, y = y_label) +
+    theme_classic2()
+  
+  # Add scatter points if required
+  if (scatter) {
+    plot <- plot + geom_point(data = data, aes_string(x = term, y = scatter_y), 
+                              color = "black", alpha = 0.4, size = 0.5)
+  }
+  
+  # Set x-axis limits if provided
+  if (!is.null(x_limit)) {
+    plot <- plot + scale_x_continuous(limits = x_limit)
+  }
+  
+  return(plot)
+}
+
+
+# Function to create interaction plots
+create_interaction_plot <- function(model, terms, title, data, x_label = terms[1], y_label = y_lab) {
+  predicted_interaction <- ggpredict(model, terms = terms)
+  
+  plot <- ggplot(predicted_interaction, aes(x = x, y = predicted )) +
+    geom_line(aes(color = group), size = 1) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+    labs(title = title, x = x_label, y = y_label, color = "Group", fill = "Group") +
+    theme_classic2()
+  
+  return(plot)
+}
+
+
+
+
+
 ##  Drivers delayed  ---------------------------
 
 # Check the structure of the data
@@ -2065,7 +2138,7 @@ delayed_basic_gam <- gam(delayed ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, 
                    s(distance_edge) +
                    s(depth_extract) +
                    s(disturbance_severity) +
-                   s(sand_extract) +
+                   s(clay_extract) +
                    s(av.nitro) +
                    #s(richness_adj, k = 3) + 
                    #s(n_vertical_adj, k = 3) + 
@@ -2088,7 +2161,7 @@ delayed_interaction_model_1 <- gam(delayed ~
                              s(distance_edge) + 
                              s(depth_extract) +
                              s(disturbance_severity) +
-                             s(sand_extract) + 
+                             s(clay_extract) + 
                              s(av.nitro) +
                              s(management_intensity, k = 5) +
                              s(country_pooled, bs = "re") +
@@ -2106,7 +2179,7 @@ delayed_interaction_model_2 <- gam(delayed ~
                              s(distance_edge) + 
                              s(depth_extract) +
                              s(disturbance_severity) +
-                             s(sand_extract) + 
+                             s(clay_extract) + 
                              s(av.nitro, k = 15) +
                              s(management_intensity, k = 5) +
                              s(country_pooled, bs = "re") +
@@ -2125,7 +2198,7 @@ delayed_interaction_model_2_upd <- gam(delayed ~
                                      s(distance_edge) + 
                                      s(depth_extract) +
                                      s(disturbance_severity) +
-                                     s(sand_extract) + 
+                                     s(clay_extract) + 
                                      s(av.nitro, k = 15) +
                                        s(management_intensity, by = country_pooled, bs = "re") +
                                      #s(management_intensity, k = 5) +
@@ -2147,7 +2220,7 @@ delayed_interaction_model_2_upd2 <- gam(delayed ~
                                          s(distance_edge) + 
                                          s(depth_extract) +
                                          s(disturbance_severity) +
-                                         s(sand_extract) + 
+                                         s(clay_extract) + 
                                          s(av.nitro, k = 15) +
                                          s(management_intensity, by = country_pooled, bs = "re") +
                                          #s(management_intensity, k = 5) +
@@ -2171,7 +2244,7 @@ delayed_interaction_model_2_upd3 <- gam(delayed ~
                                           s(distance_edge) + 
                                           s(depth_extract) +
                                           s(disturbance_severity) +
-                                          s(sand_extract) + 
+                                          s(clay_extract) + 
                                           s(av.nitro, k = 15) +
                                           s(management_intensity, by = country_pooled, bs = "re") +
                                           #s(management_intensity, k = 5) +
@@ -2196,7 +2269,7 @@ delayed_interaction_model_2_upd_no_xy <- gam(delayed ~
                                          s(distance_edge) + 
                                          s(depth_extract) +
                                          s(disturbance_severity) +
-                                         s(sand_extract) + 
+                                         s(clay_extract) + 
                                          s(av.nitro, k = 15) +
                                          s(management_intensity, by = country_pooled, bs = "re") +
                                          #s(management_intensity, k = 5) +
@@ -2219,7 +2292,7 @@ delayed_interaction_model_2_upd_no_xy_interct2 <- gam(delayed ~
                                                s(distance_edge) + 
                                                s(depth_extract) +
                                                s(disturbance_severity) +
-                                               s(sand_extract) + 
+                                               s(clay_extract) + 
                                                s(av.nitro, k = 15) +
                                                s(management_intensity, by = country_pooled, bs = "re") +
                                                #s(management_intensity, k = 5) +
@@ -2252,7 +2325,7 @@ delayed_interaction_model_3 <- gam(delayed ~
                              s(distance_edge) + 
                              s(depth_extract) +
                              s(disturbance_severity) +
-                             s(sand_extract) + 
+                             s(clay_extract) + 
                              s(av.nitro) +
                              s(management_intensity, k = 5) +
                              s(country_pooled, bs = "re") +
@@ -2389,12 +2462,12 @@ combined_plot <- plot_grid(plot_interaction1, plot_interaction2, #combined_inter
                           #plot_disturbance_severity, 
                           #plot_distance_edge,             
                           #plot_management_intensity,
-                           ncol = 2,
-                          rel_heights = c(1, 1,1.5))
+                           ncol = 2, nrow = 3,
+                          rel_heights = c(1, 1,1))
 
 combined_plot
 
-ggsave('outFigs/fig_delayed_drivers.png', plot = combined_plot, width =6,height = 7, bg = 'white')
+ggsave('outFigs/fig_delayed_drivers.png', plot = combined_plot, width =5,height = 5, bg = 'white')
 # Compute explained deviance
 explained_deviance <- round(100 * summary(fin.m.delayed)$dev.expl, 2)  # Calculate explained deviance in percentage
 
@@ -2466,13 +2539,14 @@ corrplot(cor_matrix)
 
 ggplot(df_advanced2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ advanced)
 
-adv_basic_gam <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
-                   s(distance_edge) +
-                   s(depth_extract) +
+# all predictors, no interactions
+adv_basic_gam <- gam(advanced ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
+                   s(distance_edge, k = 15) +
+                   s(depth_extract, k =15) +
                    s(disturbance_severity) +
-                   s(sand_extract) +
-                   s(av.nitro) +
-                   s(management_intensity, k = 5) +
+                   s(clay_extract) +
+                   s(av.nitro, k =15) +
+                   s(management_intensity, k = 10) +
                    s(country_pooled, bs = 're') # + clim_grid + clim_class
                  , 
                  family = binomial(link = "logit"), data = df_advanced2, method = "REML")
@@ -2484,29 +2558,36 @@ plot.gam(adv_basic_gam, page = 1)
 
 
 # Model 1: Add interaction between prcp and tmp
-adv_interaction_model_1 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+adv_interaction_model_1 <- gam(advanced ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
                              s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
-                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
+                             s(clay_extract) + s(av.nitro) +
+                               s(management_intensity, by = country_pooled, bs = "re") +
                              s(country_pooled, bs = "re") +
-                             ti(prcp, tmp, k = 5), # Add interaction
+                             ti(prcp, tmp, k = 15) +# Add interaction
+                               s(x,y) +
+                               s(clim_grid, bs = "re"), 
                            family = binomial(link = "logit"), 
                            data = df_advanced2, 
                            method = "REML")
 
 # Model 2: Add interaction between prcp and spei12
-adv_interaction_model_2 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+adv_interaction_model_2 <- gam(advanced ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
                              s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
-                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
-                             s(country_pooled, bs = "re") +
+                             s(clay_extract) + s(av.nitro) +
+                               #s(management_intensity, k = 5) + 
+                               s(management_intensity, by = country_pooled, bs = "re") +
+                               s(country_pooled, bs = "re") +
                              ti(prcp, spei12, k = 5), # Add interaction
                            family = binomial(link = "logit"), 
                            data = df_advanced2, 
                            method = "REML")
 
 # Model 3: Add interaction between tmp and spei12
-adv_interaction_model_3 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+adv_interaction_model_3 <- gam(advanced ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
                              s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
-                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
+                             s(clay_extract) + s(av.nitro) + 
+                               s(management_intensity, by = country_pooled, bs = "re") +
+                               #s(management_intensity, k = 5) + 
                              s(country_pooled, bs = "re") +
                              ti(tmp, spei12, k = 5) , # Add interaction
                            family = binomial(link = "logit"), 
@@ -2515,13 +2596,13 @@ adv_interaction_model_3 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(s
 
 
 # include the management vary by country (random slopes), add clim_grid and s(x,y)
-adv_interaction_model_3_upd <- gam(advanced ~ s(prcp, k = 10) + 
-                                     s(tmp, k = 10) + 
-                                     s(spei12, k = 10) + 
+adv_interaction_model_3_upd <- gam(advanced ~ s(prcp, k = 15) + 
+                                     s(tmp, k = 15) + 
+                                     s(spei12, k = 15) + 
                                    s(distance_edge) + 
                                    s(depth_extract) + 
                                      s(disturbance_severity) + 
-                                 s(sand_extract) + 
+                                 s(clay_extract) + 
                                    s(av.nitro) +
                                    s(management_intensity, by = country_pooled, bs = "re") +
                                    #s(management_intensity, k = 5) + 
@@ -2533,13 +2614,13 @@ adv_interaction_model_3_upd <- gam(advanced ~ s(prcp, k = 10) +
                                data = df_advanced2, 
                                method = "REML")
 
-adv_interaction_model_3_upd2 <- gam(advanced ~ s(prcp, k = 10) + 
-                                     s(tmp, k = 10) + 
-                                     s(spei12, k = 10) + 
+adv_interaction_model_3_upd2 <- gam(advanced ~ s(prcp, k = 15) + 
+                                     s(tmp, k = 15) + 
+                                     s(spei12, k = 15) + 
                                      s(distance_edge) + 
                                      s(depth_extract) + 
                                      s(disturbance_severity) + 
-                                     s(sand_extract) + 
+                                     s(clay_extract) + 
                                      s(av.nitro) +
                                      s(management_intensity, by = country_pooled, bs = "re") +
                                      #s(management_intensity, k = 5) + 
@@ -2553,48 +2634,121 @@ adv_interaction_model_3_upd2 <- gam(advanced ~ s(prcp, k = 10) +
                                    method = "REML")
 
 
-adv_interaction_model_3_upd3 <- gam(advanced ~ s(prcp, k = 10) + 
-                                      s(tmp, k = 10) + 
-                                      s(spei12, k = 10) + 
-                                      s(distance_edge) + 
+adv_interaction_model_3_upd3 <- gam(advanced ~ s(prcp_c, k = 15) + 
+                                      s(tmp_c, k = 15) + 
+                                      s(spei12, k = 15) + 
+                                      s(distance_edge, k = 20) + 
                                       s(depth_extract) + 
                                       s(disturbance_severity) + 
-                                      s(sand_extract) + 
+                                      s(clay_extract) + 
                                       s(av.nitro) +
-                                      s(management_intensity, by = country_pooled, bs = "re") +
+                                      s(management_intensity, by = country_pooled, bs = "re", k = 20) +
                                       #s(management_intensity, k = 5) + 
                                       s(clim_grid, bs = "re") +
                                       s(x, y) +
                                       s(country_pooled, bs = "re") +
-                                      ti(management_intensity, disturbance_severity) +
-                                      #ti(tmp, spei12, k = 5) + #, # Add interaction
-                                      ti(tmp, prcp, k = 5),
+                                      #ti(management_intensity, disturbance_severity) +
+                                      #ti(tmp_c, spei12, k = 15) + #, # Add interaction
+                                      ti(tmp_c, prcp_c, k = 15),
                                     family = binomial(link = "logit"), 
                                     data = df_advanced2, 
                                     method = "REML")
-AIC( adv_interaction_model_3_upd3,adv_interaction_model_3_upd2,adv_interaction_model_3_upd, adv_interaction_model_3)
 
 
-# Model 4: Add interaction between management_intensity and disturbance_severity
-interaction_model_4 <- gam(advanced ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
-                             s(distance_edge) + s(depth_extract) + s(disturbance_severity) + 
-                             s(sand_extract) + s(av.nitro) + s(management_intensity, k = 5) + 
-                             s(country_pooled, bs = "re") +
-                             ti(management_intensity, disturbance_severity, k = 5), # Add interaction
-                           family = binomial(link = "logit"), 
-                           data = df_advanced2, 
-                           method = "REML")
+adv_interaction_model_3_upd4 <- gam(advanced ~ s(prcp, k = 15) + 
+                                      s(tmp, k = 15) + 
+                                      s(spei12, k = 15) + 
+                                      s(distance_edge, k = 20) + 
+                                      s(depth_extract) + 
+                                      s(disturbance_severity) + 
+                                      s(clay_extract) + 
+                                      s(av.nitro) +
+                                      s(management_intensity, by = country_pooled, bs = "re", k = 20) +
+                                      #s(management_intensity, k = 5) + 
+                                      s(clim_grid, bs = "re") +
+                                      s(x, y) +
+                                      s(country_pooled, bs = "re")# +
+                                      #ti(management_intensity, disturbance_severity) +
+                                      #ti(tmp, spei12, k = 5) + #, # Add interaction
+                                      #ti(tmp, prcp, k = 5)
+                                      ,
+                                    family = binomial(link = "logit"), 
+                                    data = df_advanced2, 
+                                    method = "REML")
 
-AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4)
 
-predicted_interaction <- ggpredict(interaction_model_1, terms = c("tmp", "prcp[600,800,1000]"))
+# remove clim_grid
+adv_interaction_model_3_upd5 <- gam(advanced ~ s(prcp, k = 15) + 
+                                      s(tmp, k = 15) + 
+                                      s(spei12, k = 15) + 
+                                      s(distance_edge, k = 20) + 
+                                      s(depth_extract) + 
+                                      s(disturbance_severity) + 
+                                      s(clay_extract) + 
+                                      s(av.nitro) +
+                                      s(management_intensity, by = country_pooled, bs = "re", k = 20) +
+                                      #s(management_intensity, k = 5) + 
+                                      #s(clim_grid, bs = "re") +
+                                      s(x, y) +
+                                      s(country_pooled, bs = "re")# +
+                                    #ti(management_intensity, disturbance_severity) +
+                                    #ti(tmp, spei12, k = 5) + #, # Add interaction
+                                    #ti(tmp, prcp, k = 5)
+                                    ,
+                                    family = binomial(link = "logit"), 
+                                    data = df_advanced2, 
+                                    method = "REML")
+
+
+
+
+AIC(adv_interaction_model_3_upd5,
+  adv_interaction_model_3_upd4, 
+  adv_interaction_model_3_upd3,
+     adv_interaction_model_3_upd2,
+     adv_interaction_model_3_upd, 
+     adv_interaction_model_3,
+     adv_interaction_model_2,
+     adv_interaction_model_1)
+
+BIC( adv_interaction_model_3_upd5,
+  adv_interaction_model_3_upd4,
+  adv_interaction_model_3_upd3,
+     adv_interaction_model_3_upd2,
+     adv_interaction_model_3_upd, 
+     adv_interaction_model_3,
+     adv_interaction_model_2,
+     adv_interaction_model_1)
+
+
+predicted_interaction <- ggpredict(adv_interaction_model_3_upd3, terms = c("tmp_c", "prcp_c"))
 plot(predicted_interaction)
 
+# ANOVA to see if tmp differs by clim_grid
+anova_tmp <- aov(tmp ~ clim_grid, data = df_advanced2)
+summary(anova_tmp)
+
+# ANOVA to see if prcp differs by clim_grid
+anova_prcp <- aov(prcp ~ clim_grid, data = df_advanced2)
+summary(anova_prcp)
+
+# Boxplot for tmp across clim_grid levels
+ggplot(df_advanced2, aes(x = clim_grid, y = tmp)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Temperature Variation Across Clim Grid Levels", x = "Clim Grid", y = "Temperature (tmp)")
+
+# Boxplot for prcp across clim_grid levels
+ggplot(df_advanced2, aes(x = clim_grid, y = prcp)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Precipitation Variation Across Clim Grid Levels", x = "Clim Grid", y = "Precipitation ")
+
 windows()
-plot.gam(interaction_model_3, page = 1)
-appraise(interaction_model_3)
-summary(interaction_model_3)
-gam.check(interaction_model_3)
+plot.gam(adv_interaction_model_3_upd3, page = 1)
+appraise(adv_interaction_model_3_upd3)
+summary(adv_interaction_model_3_upd3)
+gam.check(adv_interaction_model_3_upd3)
 k.check(interaction_model_3)
 
 hist(df_advanced2$distance_edge)
@@ -2707,7 +2861,8 @@ combined_plot <- plot_grid(plot_interaction1, plot_interaction2, #combined_inter
 combined_plot
 
 
-ggsave('outFigs/fig_advanced_drivers.png', plot = combined_plot, width =5,height = 5,bg = 'white')
+ggsave('outFigs/fig_advanced_drivers.png', plot = combined_plot, width =5,
+       height = 5,bg = 'white')
 
 
 
@@ -2737,6 +2892,223 @@ sjPlot::tab_model(fin.m.advanced,
                   pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
                   dv.labels = paste0("Explained Deviance: ", round(100 * summary(model)$dev.expl, 2), "%"), 
                   file = "outTable/full_drivers_advanced.doc")
+
+
+
+# Drivers advanced juveniles ----------------------------------------------
+
+# START
+
+## drivers advanced JUV regen ---------------------------------------------------------
+
+# Check the structure of the data
+str(df_advanced_juv2)
+
+# Check for missing values
+sum(is.na(df_advanced_juv2))
+
+# Inspect the distribution of each predictor
+hist(df_advanced_juv2$prcp, main="Histogram of Precipitation (prcp)", xlab="prcp")
+hist(df_advanced_juv2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
+
+# # Check collinearity using the VIF
+# vif_check <- performance::check_collinearity(df_advanced2)
+# print(vif_check)
+# 
+
+
+library(corrplot)
+numeric_vars <- df_advanced_juv2[, sapply(df_advanced_juv2, is.numeric)]
+cor_matrix <- cor(na.omit(numeric_vars))
+corrplot(cor_matrix)
+
+ggplot(df_advanced_juv2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ advanced_juv)
+
+adv_j_basic_gam <- gam(advanced_juv ~ s(prcp, k = 10) + s(tmp, k = 10) + s(spei12, k = 10) + 
+                       s(distance_edge) +
+                       s(depth_extract) +
+                       s(disturbance_severity) +
+                       s(clay_extract) +
+                       s(av.nitro) +
+                       #s(management_intensity, k = 5) +
+                       s(country_pooled, bs = 're') + 
+                       s(management_intensity, by = country_pooled, bs = "re") +
+                         #s(management_intensity, k = 5) + 
+                         s(clim_grid, bs = "re") +
+                         s(x, y),                       
+                     family = binomial(link = "logit"), data = df_advanced_juv2, method = "REML")
+# !!!
+summary(adv_j_basic_gam)
+gam.check(adv_j_basic_gam)
+appraise(adv_j_basic_gam)
+windows()
+plot.gam(adv_j_basic_gam, page = 1)
+
+
+adv_interaction_model_3_upd3 <- gam(advanced_juv ~ s(prcp, k = 15) + 
+                                      s(tmp, k = 15) + 
+                                      s(spei12, k = 5) + 
+                                      s(distance_edge, k =3) + 
+                                      s(depth_extract, k = 3) + 
+                                      s(disturbance_severity, k = 5) + 
+                                      s(clay_extract, k = 5) + 
+                                      s(av.nitro) +
+                                      s(management_intensity, by = country_pooled, bs = "re") +
+                                      #s(management_intensity, k = 5) + 
+                                      s(clim_grid, bs = "re") +
+                                      s(x, y) +
+                                      s(country_pooled, bs = "re") +
+                                      ti(management_intensity, disturbance_severity) +
+                                      ti(tmp, spei12, k = 5) + #, # Add interaction
+                                      ti(tmp, prcp, k = 5),
+                                    family = binomial(link = "logit"), 
+                                    data = df_advanced_juv2, 
+                                    method = "REML")
+AIC( adv_interaction_model_3_upd3, adv_j_basic_gam)
+summary(adv_interaction_model_3_upd3)
+
+# check for data gaps
+cor(df_advanced_juv2$tmp, df_advanced_juv2$prcp)
+
+ggplot(df_advanced_juv2, aes(x = tmp, y = prcp)) +
+  geom_bin2d(bins = 30) +  # Adjust bins to control resolution
+  scale_fill_gradient(low = "white", high = "blue") +
+  labs(title = "Data Density across tmp and prcp",
+       x = "Temperature (tmp)",
+       y = "Precipitation (prcp)",
+       fill = "Count") +
+  theme_minimal()
+
+
+
+predicted_interaction <- ggpredict(adv_interaction_model_3_upd3, terms = c("tmp[8.5:11.5]", "prcp[700,800,900]"))
+plot(predicted_interaction)
+
+windows()
+plot.gam(adv_interaction_model_3_upd3, page = 1)
+appraise(adv_interaction_model_3_upd3)
+summary(adv_interaction_model_3_upd3)
+gam.check(adv_interaction_model_3_upd3)
+k.check(adv_interaction_model_3_upd3)
+
+hist(df_advanced_juv2$distance_edge)
+
+# see influential points:
+influence_data <- influence.gam(adv_interaction_model_3_upd3)
+summary(influence_data)
+
+# identify observations with high influence
+high_influence <- which(influence_data > 0.1)  # Adjust the threshold as needed
+df_advanced2[high_influence, ]
+
+
+draw(interaction_model_3)
+
+fin.m.advanced_juv <- adv_interaction_model_3_upd3
+y_lab = "Probability Advanced"
+
+# Test for spatial autocorrelation
+model_residuals <- residuals(fin.m.advanced, type = "pearson")
+
+#library(spdep)
+
+# Create coordinates matrix
+coords <- cbind(df_advanced_juv2$x, df_advanced_juv2$y)
+
+# Create a spatial neighbors object (e.g., using k-nearest neighbors)
+# Adjust k based on the density and distribution of your data points
+nb <- knn2nb(knearneigh(coords, k = 5))
+
+# Convert neighbors list to a weights list
+listw <- nb2listw(nb, style = "W")
+# Perform Moran's I test
+moran_test <- moran.test(model_residuals, listw)
+print(moran_test)
+# 0.59
+
+
+
+#### Plots advanced----------------------------
+summary(fin.m.advanced_juv)
+y_lab = 'Prob adv'
+
+# Predict management intensity effects by country
+predicted_mgmt_intensity <- ggpredict(fin.m.advanced_juv, terms = c("management_intensity", "country_pooled"))
+# Generate predictions for stem regeneration across different countries
+predicted_countries <- ggpredict(fin.m.advanced_juv, terms = "country_pooled")
+
+# Create plots for individual variables
+plot_prcp   <- create_plot(fin.m.advanced_juv, "prcp", df_advanced2 , "Prcp **", scatter_y = "advanced",line_color = "blue", fill_color = "blue")
+plot_tmp    <- create_plot(fin.m.advanced_juv, "tmp", df_advanced2, "Tmp ***", scatter_y = "advanced",line_color = "red", fill_color = "red")
+plot_spei12 <- create_plot(fin.m.advanced_juv, "spei12", df_advanced2, "spei12*", scatter_y = "advanced",line_color = "green", fill_color = "green")
+#plot_disturbance_severity <- create_plot(fin.m.delayed, "disturbance_severity", df_delayed2, "Dist Sev", scatter_y = "delayed", line_color = "purple", fill_color = "purple")
+#plot_distance_edge <- create_plot(fin.m.delayed, "distance_edge", df_delayed2, "Distance edge", x_limit = c(0, 600), scatter_y = "delayed", line_color = "grey", fill_color = "grey")
+#plot_management_intensity <- create_plot(fin.m.delayed, "management_intensity", df_delayed2, "Mng intend",scatter_y = "delayed", line_color = "grey", fill_color = "grey")
+
+
+# Create interaction plots
+plot_interaction1 <- create_interaction_plot(fin.m.advanced_juv, 
+                                             c("prcp", "tmp[8,9,10]"), "prcp & tmp ns", df_advanced2) +
+  guides(color = guide_legend(title = "tmp"), fill = guide_legend(title = "tmp")) + # Rename legend to 'tmp'
+  theme(legend.position.inside = c(0.7, 0.7),
+        #legend.position.inside = "top right", # Place the legend in the upper right corner inside the plot
+        legend.background = element_rect(fill = "white", color = NA), # Add a white background
+        legend.title = element_text(size = 10), # Adjust the title size
+        legend.text = element_text(size = 8))   # Adjust the text size
+
+plot_interaction2 <- create_interaction_plot(fin.m.advanced, c("management_intensity", "disturbance_severity[0.5,0.9]"), "manag & dist severity *", 
+                                             df_advanced2) +
+  guides(color = guide_legend(title = "tmp"), fill = guide_legend(title = "tmp")) + # Rename legend to 'tmp'
+  theme(legend.position.inside =  c(0.7, 0.7), # Place the legend in the upper right corner inside the plot
+        legend.background = element_rect(fill = "white", color = NA), # Add a white background
+        legend.title = element_text(size = 10), # Adjust the title size
+        legend.text = element_text(size = 8))   # Adjust the text size
+
+# Plot predicted effects by country
+plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, position = position_dodge(width = 0.9)) +
+  labs(title = "", x = "Country", y = y_lab) +
+  theme_minimal() +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot the effect of management intensity on stem regeneration by country
+plot_mgmt_intensity <- ggplot(predicted_mgmt_intensity, aes(x = x, y = predicted, group = group)) +
+  geom_line(aes(color = group), size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+  labs(title = "", 
+       x = "Management Intensity", y = y_lab, color = "Country", fill = "Country") +
+  theme_minimal() +
+  facet_wrap(~group) +
+  theme(legend.position = "none")
+
+
+# !!!
+library(cowplot)
+#plot_grid(p1, p2, labels = "auto", label_size = 12)
+comb_upper  <- plot_grid(plot_interaction1, plot_interaction2,ncol = 2)
+comb_lower <- plot_grid(plot_countries,plot_prcp, plot_tmp, ncol = 3)
+# Combine the individual plots into one figure
+combined_plot <- plot_grid(plot_interaction1, plot_interaction2, #combined_interactions,
+                           
+                           plot_countries,plot_spei12,
+                           
+                           plot_prcp, plot_tmp,
+                           ncol = 2, nrow = 3,
+                           rel_heights = c(1, 1,1))
+
+combined_plot
+
+
+ggsave('outFigs/fig_advanced_drivers.png', plot = combined_plot, width =5,
+       height = 5,bg = 'white')
+
+
+# STOP
+
+
+
+
 
 
 ## Drivers regeneration density pooled ---------------------------------------------
@@ -2769,7 +3141,7 @@ basic_gam <- gam(stem_regeneration     ~ s(prcp, k = 15) + s(tmp, k = 15) + s(sp
                    s(distance_edge) +
                    s(depth_extract, k = 15) +
                    s(disturbance_severity) +
-                   s(sand_extract) +
+                   s(clay_extract) +
                    s(av.nitro, k =20) +
                    s(management_intensity, k = 10) +
                    s(country_pooled, bs = 're') # + clim_grid + clim_class
@@ -2785,7 +3157,7 @@ plot.gam(basic_gam, page = 1)
 # Model 1: Adding interaction between prcp and tmp
 interaction_model_1 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
                              s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(sand_extract) + 
+                             s(disturbance_severity) + s(clay_extract) + 
                              s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
                              s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10),
                            family = tw(), method = "REML", data = df_stem_regeneration2)
@@ -2795,7 +3167,7 @@ summary(interaction_model_1)
 # Model 2: Adding interaction between spei12 and tmp
 interaction_model_2 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
                              s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(sand_extract) + 
+                             s(disturbance_severity) + s(clay_extract) + 
                              s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
                              s(country_pooled, bs = "re") + ti(spei12, tmp, k = 10),
                            family = tw(), method = "REML", data = df_stem_regeneration2)
@@ -2805,7 +3177,7 @@ summary(interaction_model_2)
 # Model 3: Adding interaction between prcp and management_intensity
 interaction_model_3 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
                              s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(sand_extract) + 
+                             s(disturbance_severity) + s(clay_extract) + 
                              s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
                              s(country_pooled, bs = "re") + ti(prcp, management_intensity, k = 10),
                            family = tw(), method = "REML", data = df_stem_regeneration2)
@@ -2815,7 +3187,7 @@ summary(interaction_model_3)
 # Model 4: Multiple interactions & account for clim_grid to avoid spatial autocorrelation
 interaction_model_4 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
                              s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(sand_extract) + 
+                             s(disturbance_severity) + s(clay_extract) + 
                              s(av.nitro, k = 20) + s(management_intensity,by = country_pooled, k = 10) + 
                              s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10) + 
                              ti(spei12, tmp, k = 10) +
@@ -2833,7 +3205,7 @@ summary(interaction_model_4)
 interaction_model_5 <- gam(
   stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) +
     s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) +
-    s(sand_extract) + s(av.nitro, k = 20) +
+    s(clay_extract) + s(av.nitro, k = 20) +
     # Change from separate smooths to a random slope model for management_intensity by country
     s(management_intensity, by = country_pooled, bs = "re") +
     s(country_pooled, bs = "re") +  # Random intercept for country
@@ -2891,7 +3263,7 @@ summary(interaction_model_5)
 interaction_model_updated <- gam(stem_regeneration ~ 
                                    s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
                                    s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) + 
-                                   s(sand_extract) + s(av.nitro, k = 20) + 
+                                   s(clay_extract) + s(av.nitro, k = 20) + 
                                    ti(management_intensity, country_pooled, bs = "fs") + 
                                    ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) + 
                                    s(x,y) +
@@ -2904,7 +3276,7 @@ summary(interaction_model_updated)
 interaction_model_random_smooth <- gam(stem_regeneration ~ 
                                          s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
                                          s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) + 
-                                         s(sand_extract) + s(av.nitro, k = 20) + 
+                                         s(clay_extract) + s(av.nitro, k = 20) + 
                                          s(management_intensity, by = country_pooled) + 
                                          ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) + 
                                          s(x,y) +
@@ -2917,49 +3289,9 @@ summary(interaction_model_random_smooth)
 
 
 # PLot 
+y_lab = 'Stem dens [#/ha]'
 
-# SIMPLIFY PLOTTING TEST
-# Function to generate predictions and plots
-create_plot <- function(model, term, data, title, x_label = term, y_label = y_lab, line_color = "blue", fill_color = "blue", scatter = TRUE, x_limit = NULL, scatter_y = "stem_regeneration") {
-  
-  # Generate predictions
-  predicted <- ggpredict(model, terms = term)
-  
-  # Create the base plot
-  plot <- ggplot(predicted, aes(x = x, y = predicted)) +
-    geom_line(color = line_color, size = 1) +
-    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = fill_color) +
-    labs(title = title, x = x_label, y = y_label) +
-    theme_classic2()
-  
-  # Add scatter points if required
-  if (scatter) {
-    plot <- plot + geom_point(data = data, aes_string(x = term, y = scatter_y), 
-                              color = "black", alpha = 0.4, size = 0.5)
-  }
-  
-  # Set x-axis limits if provided
-  if (!is.null(x_limit)) {
-    plot <- plot + scale_x_continuous(limits = x_limit)
-  }
-  
-  return(plot)
-}
-
-
-# Function to create interaction plots
-create_interaction_plot <- function(model, terms, title, data, x_label = terms[1], y_label = y_lab) {
-  predicted_interaction <- ggpredict(model, terms = terms)
-  
-  plot <- ggplot(predicted_interaction, aes(x = x, y = predicted )) +
-    geom_line(aes(color = group), size = 1) +
-    geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-    labs(title = title, x = x_label, y = y_label, color = "Group", fill = "Group") +
-    theme_classic2()
-  
-  return(plot)
-}
-
+summary(fin.m.reg.density)
 # Predict management intensity effects by country
 predicted_mgmt_intensity <- ggpredict(fin.m.reg.density, terms = c("management_intensity", "country_pooled"))
 # Generate predictions for stem regeneration across different countries
@@ -2967,23 +3299,27 @@ predicted_countries <- ggpredict(fin.m.reg.density, terms = "country_pooled")
 
 
 # Create plots for individual variables
-plot_prcp <- create_plot(fin.m.reg.density, "prcp", df_stem_regeneration2, "Precipitation", line_color = "blue", fill_color = "blue")
-plot_tmp <- create_plot(fin.m.reg.density, "tmp", df_stem_regeneration2, "Temperature", line_color = "red", fill_color = "red")
-plot_spei12 <- create_plot(fin.m.reg.density, "spei12", df_stem_regeneration2, "spei12", line_color = "green", fill_color = "green")
-plot_disturbance_severity <- create_plot(fin.m.reg.density, "disturbance_severity", df_stem_regeneration2, "Dist Severity", line_color = "purple", fill_color = "purple")
-plot_distance_edge <- create_plot(fin.m.reg.density, "distance_edge", df_stem_regeneration2, "Distance edge", x_limit = c(0, 600), line_color = "grey", fill_color = "grey")
+plot_prcp <- create_plot(fin.m.reg.density, "prcp", df_stem_regeneration2, "prcp**", line_color = "blue", fill_color = "blue")
+plot_tmp <- create_plot(fin.m.reg.density, "tmp", df_stem_regeneration2, "tmp**", line_color = "red", fill_color = "red")
+plot_spei12 <- create_plot(fin.m.reg.density, "spei12", df_stem_regeneration2, "spei12 0.9", line_color = "darkgreen", fill_color = "green")
+plot_disturbance_severity <- create_plot(fin.m.reg.density, "disturbance_severity", df_stem_regeneration2, "Dist Severity*", line_color = "purple", fill_color = "purple")
+plot_distance_edge <- create_plot(fin.m.reg.density, "distance_edge", df_stem_regeneration2, "Dist edge 0.12", x_limit = c(0, 600), line_color = "grey", fill_color = "grey")
 plot_management_intensity <- create_plot(fin.m.reg.density, "management_intensity", df_stem_regeneration2, "Management_intensity", line_color = "grey", fill_color = "grey")
 
 
 # Create interaction plots
-plot_interaction1 <- create_interaction_plot(fin.m.reg.density, c("prcp", "tmp[8,9,10]"), "Interaction: prcp & tmp", df_stem_regeneration2)
-plot_interaction2 <- create_interaction_plot(fin.m.reg.density, c("spei12", "tmp[8,9,10]"), "Interaction: spei12 & tmp", df_stem_regeneration2)
+plot_interaction1 <- create_interaction_plot(fin.m.reg.density, 
+                                             c("prcp", "tmp[8,9,10]"), "prcp & tmp 0.05", df_stem_regeneration2) +
+  labs(color = "tmp", fill = "tmp") 
+plot_interaction2 <- create_interaction_plot(fin.m.reg.density, 
+                                             c("spei12", "tmp[8,9,10]"), "spei12 & tmp 0.5",
+                                             df_stem_regeneration2) +labs(color = "tmp", fill = "tmp") 
 
 # Plot predicted effects by country
 plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
   geom_bar(stat = "identity", position = "dodge", color = "black") +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, position = position_dodge(width = 0.9)) +
-  labs(title = "Predicted Stem Regeneration by Country", x = "Country", y = y_lab) +
+  labs(title = "", x = "Country", y = y_lab) +
   theme_minimal() +
   theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -2991,37 +3327,79 @@ plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x
 plot_mgmt_intensity <- ggplot(predicted_mgmt_intensity, aes(x = x, y = predicted, group = group)) +
   geom_line(aes(color = group), size = 1) +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-  labs(title = "Effect of Management Intensity on Stem Regeneration by Country", 
-       x = "Management Intensity", y = y_lab, color = "Country", fill = "Country") +
+  labs(title = "", 
+       x = "Manag Intensity", y = y_lab, color = "Country", fill = "Country") +
   theme_minimal() +
   facet_wrap(~group) +
   theme(legend.position = "none")
 
 
 # Combine the individual plots into one figure
-combined_plot <- ggarrange(plot_mgmt_intensity, plot_countries,  plot_prcp, plot_tmp,
-                           plot_interaction1, plot_spei12, plot_disturbance_severity, plot_distance_edge, 
-                           plot_interaction2,  plot_management_intensity,
-                             
-                           ncol = 4, nrow = 3, widths = c(2, 1,1, 1))
+
+
+
+
+library(cowplot)
+#plot_grid(p1, p2, labels = "auto", label_size = 12)
+comb_upper  <- plot_grid(plot_interaction1, plot_interaction2,ncol = 2, labels = c("[a]","[b]"))
+comb_middle <- plot_grid(plot_mgmt_intensity, plot_countries,ncol = 2,labels = c("[c]","[d]"))
+comb_lower <- plot_grid(plot_prcp, plot_tmp,
+                            plot_spei12, plot_disturbance_severity, plot_distance_edge, 
+                            plot_management_intensity, ncol = 3,
+                        labels = c("[e]","[f]","[g]","[h]","[i]","[j]"))
+# Combine the individual plots into one figure
+combined_plot <- plot_grid(comb_upper,
+                           comb_middle, 
+                           comb_lower,
+                           ncol = 1, nrow = 3,
+                           rel_heights = c(1.5, 2,3))
 
 combined_plot
 
+
 # Save the combined plot
-ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, width = 8, height = 6, bg = 'white')
+ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, width = 7, height = 9.5, bg = 'white')
+
+
+
+# Identify random effects using the model's "smooth" component
+smooth_terms <- summary(fin.m.advanced)$s.table
+
+# Extract the smooth terms labels and check which ones are random effects
+random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
+
+# Create a function to automatically label the terms in the summary output
+create_labels <- function(term) {
+  if (term %in% random_effects_labels) {
+    return(paste(term, "(Random Effect)"))
+  } else {
+    return(term)
+  }
+}
+
+# Apply the labeling function
+pred_labels <- sapply(rownames(smooth_terms), create_labels)
+
+# Display the tab_model with automatic labeling
+sjPlot::tab_model(fin.m.advanced,
+                  show.re.var = TRUE,        # Show the variance components
+                  #show.icc = TRUE,           # Show Intraclass Correlation Coefficient
+                  #show.dev = TRUE,           # Show deviance
+                  pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
+                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(model)$dev.expl, 2), "%"), 
+                  file = "outTable/full_drivers_advanced.doc")
 
 
 
 
 
 
-#
-# make median +IQR plots of variables for quick view
-df_fin <- df_fin %>% 
-  mutate(adv_delayed = ifelse(stem_regeneration < 50, "Delayed", 
-                              ifelse(stem_regeneration > 1000, "Advanced", NA)))
 
-# PLOTS: sites differences: delayed vs advaced ----------------------------
+
+
+
+
+# Wilcox PLOTS: sites differences: delayed vs advaced ----------------------------
 
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
@@ -3037,12 +3415,12 @@ variables_to_plot <- c(
  "distance_edge" ,
  "salvage_intensity",
  "clay_extract",
- "sand_extract",
+ "clay_extract",
  "disturbance_severity",
                        "adv_delayed"
                        )
 
-#                       "country_pooled", "clim_grid",, "clim_class"
+#                       "country_pooled", "clim_grid", "clim_class"
 
 # Step 2: Calculate median and IQR for each variable by regeneration status
 summary_stats <- 
@@ -3345,7 +3723,7 @@ global_model_juv <- gam(sum_stems_juvenile ~ #s(drought_spei6, k = 8) +
                           #s(drought_spei24, k = 10) +
                           s(distance_edge, k = 10) +  # did not improved the mode
                           disturbance_severity +
-                          sand_extract  +
+                          clay_extract  +
                           s(clay_extract, k = 10) +
                           s(depth_extract, k = 10) +
                           s(av.nitro, k = 15) +
@@ -3365,7 +3743,7 @@ model_nb <- gam(sum_stems_juvenile ~  s(tmp_z, k = 7) +
                   #s(drought_spei24, k = 10) +
                   s(distance_edge, k = 10) +  # did not improved the mode
                   disturbance_severity +
-                  sand_extract  +
+                  clay_extract  +
                   s(clay_extract, k = 10) +
                   s(depth_extract, k = 10) +
                   s(av.nitro, k = 15) +
@@ -3389,7 +3767,7 @@ for (p_val in p_values) {
   model <- gam(sum_stems_juvenile ~ s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
                  #s(drought_spei12, k = 10) +
                  s(distance_edge, k = 10) +
-                 disturbance_severity + sand_extract + s(clay_extract, k = 10) +
+                 disturbance_severity + clay_extract + s(clay_extract, k = 10) +
                  s(depth_extract, k = 10) + s(av.nitro, k = 15) +
                  s(country_abbr, bs = "re") + 
                  ti(x,y), 
@@ -3504,4 +3882,14 @@ ggarrange(p.country.density, p.country.richness)
 
 
 #### Stem density vs IVI -----------------------------------------------------
+
+
+# Save models --------------------------------------------------
+
+# Save the model object and input data
+save(fin.m.delayed, df_delayed2, 
+     fin.m.advanced, df_advanced2, 
+  #fin.m.advanced_juv, df_advanced_juv2,
+  fin.m.reg.density, df_stem_regeneration2,
+     file = "stem_density_models.RData")
 
