@@ -3,20 +3,16 @@
 .Rhistory
 .RData
 .Ruserdata
-
 # Ignore input data and raw data directories
 rawData/
-
 # Ignore output data directories
 outData/
 outFigs/
 outTable/
-
 # Ignore overview directory
 overview/
-
-# ignore all html files 
+# ignore all html files
 process_iLand/*.html
-
 # Ignore temporary commit message (appears to be a typo from a previous command)
 #et --soft HEAD~1
+compare_iLand_field_data.html
