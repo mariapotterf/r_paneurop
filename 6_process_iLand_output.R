@@ -20,6 +20,13 @@
 # --	Cluster 2 – hot, dry
 # --	Cluster 3 – in between 1-2
 
+# simulated data:
+# clim_model: 3
+# clim_scenario: 4 
+# seeds present/not: 2
+# repetition: 5
+# landscapes: 12
+
 
 
 
@@ -42,9 +49,9 @@ library(tidyr)
 df_sim <- fread('outTable/df_simulated.csv')
 head(df_sim)
 
-# get field data to compare with simulated ones
+# get field data to compare with simulated ones - stem density
 df_field     <- fread('outData/veg_density_DBH.csv')
-df_indicators <- fread('outData/indicators_for_cluster_analysis.csv')
+df_indicators <- fread('outData/indicators_for_cluster_analysis.csv') # summarized on plot level
 
 
 # List average field data as input for the landscape level simulation
@@ -71,16 +78,35 @@ df_sites_clusters <- data.frame(
 )
 
 
+# name the clusters from Kilian: if cluster analysis is run separately, the numbers do not fit! therefore,
+# check the naming from plots (boxplot) an rename them to fit
+df_sim_class <- df_sim %>%
+  rename(landscape = cluster) %>% 
+  mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
+         str_cluster = str_sub(landscape, -1, -1))  %>% # add indication of the strutural cluster (1,2,3,4,5) 
+  mutate(clim_class = case_when(
+    clim_cluster == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+    clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+    clim_cluster == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+  ))  %>% 
+  mutate(landscape_run = paste(landscape, run_nr))  # yunique run per lanscape scenario
 
-# filter field data for selected clusters (simulated landscapes) --------------
-df_field_sub <- df_field %>% 
-  rename(site = cluster) %>% 
-  right_join(df_sites_clusters) %>% 
-  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
+str(df_sim_class)
+head(df_sim_class)
+
+df_sim_class <- df_sim_class %>% 
+  mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, landscape_run, sep = "_"))  # yunique run per lanscape scenario
 
 
-# get plot for all of locations:
+## filter field data for selected clusters (simulated landscapes) --------------
+# df_field_sub <- df_field %>% 
+#   rename(site = cluster) %>% 
+#   right_join(df_sites_clusters) %>% 
+#   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
+#          str_cluster = str_sub(cluster, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
+# 
+
+# get Landsscape indicators for all of locations:
 df_indicators <- df_indicators %>% 
  # rename(site = cluster) %>% 
   left_join(df_sites_clusters) %>%
@@ -101,7 +127,7 @@ df_indicators_sub <- df_indicators %>%
          clim_cluster_spei3 = factor(clim_cluster_spei3))  # add indication of the strutural cluster (1,2,3,4,5)
 
 
-# CHECK CLIM CLUSTER NAMING :-----------------------------------------------------------------------------
+### Check clim clustering naming :-----------------------------------------------------------------------------
 
 # Fiel data :
 # Make boxplot to adjust naming of Kilians clusters:
@@ -169,23 +195,10 @@ windows()
 ggarrange(p1,p2,p3, p4, p5)
 
 
-# name the clusters from Kilian: if cluster analysis is run separately, the numbers do not fit! therefore,
-# check the naming from plots (boxplot) an rename them to fit
-df_sim_class <- df_sim %>%
-  rename(landscape = cluster) %>% 
-  mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(landscape, -1, -1))  %>% # add indication of the strutural cluster (1,2,3,4,5) 
-  mutate(clim_class = case_when(
-    clim_cluster == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-    clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
-    clim_cluster == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-  ))  %>% 
-  mutate(landscape_run = paste(landscape, run_nr))  # yunique run per lanscape scenario
 
-str(df_sim_class)
-head(df_sim_class)
 
-# filter teh data for teh baseic scenario: one lansca, one clim scenarions, ... --------------------
+# Process simulated data --------------------------------------------------------
+## filter teh data for teh baseic scenario: one lansca, one clim scenarions, ... --------------------
 # the most basic example:
 
 df_sim %>% 
@@ -203,7 +216,7 @@ df_sim %>%
 
 
 
-### Inspect clim drivers: For all sites  -------------------
+## Inspect clim drivers: For all sites  -------------------
 # to understand which cluster is what:
 # Create an empty list to store the plots
 plot_list_all <- list()
@@ -276,8 +289,7 @@ df_indicators_sub %>%
 # 
 # head(df_sub1)
 
-# Process simulated data --------------------------------------------------------
-### Inspect simulated data: ------------------------------------------------------
+## Inspect simulated data: ------------------------------------------------------
 # 12 clusters, 
 # 3 climatic models
 # 4 climate scenarios
@@ -429,10 +441,10 @@ head(df_sim_indicators)
 
 
 ##### OLD: SKIP Investigate betwee model, and seeds scenarios -------------------------
-
+fwrite(df_sim_class, 'outTable/fin_sim_data.csv')
 ###### Species richness ------------------------------------
-df_richness <- df_sim %>% 
-  group_by(year, cluster,  clim_scenario, ext_seed) %>%  #clim_modelclim_cluster, 
+df_richness <- df_sim_class %>% 
+  group_by(year, clim_model,clim_cluster,ext_seed,landscape_run, unique_sim_run) %>%  #clim_modelclim_cluster, 
   summarize(richness = n_distinct(species))
 
 df_richness %>% 
@@ -440,9 +452,10 @@ df_richness %>%
   ggplot() + 
   geom_line(aes(x = year,
                 y = richness,
-                color = cluster,
-                group = cluster)) + 
-  facet_wrap(clim_scenario~ext_seed)
+                color = ext_seed,
+                group = unique_sim_run), alpha = 0.3) +
+  theme(legend.position = 'bottom')
+  #facet_wrap(clim_scenario~ext_seed)
 
 
 ###### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
