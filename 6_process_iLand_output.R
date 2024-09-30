@@ -98,6 +98,10 @@ df_sim_class <- df_sim_class %>%
   mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, landscape_run, sep = "_"))  # yunique run per lanscape scenario
 
 
+# write field for RMarkdown
+fwrite(df_sim_class, 'outTable/fin_sim_data.csv')
+
+
 ## filter field data for selected clusters (simulated landscapes) --------------
 # df_field_sub <- df_field %>% 
 #   rename(site = cluster) %>% 
@@ -208,10 +212,13 @@ df_sim %>%
                   ext_seed  == 'noseed' &
                   count_ha > 0
                 ) %>% 
-  #View()
+  #View()#
   ggplot(aes(x = year,
-             y = count_ha )) +
-  geom_line()
+             y = count_ha,
+             color = interaction(species, category  ),
+             group = interaction(species, category  ))) +
+  geom_line() +
+    facet_wrap(species~category)
 
 
 
@@ -441,10 +448,19 @@ head(df_sim_indicators)
 
 
 ##### OLD: SKIP Investigate betwee model, and seeds scenarios -------------------------
-fwrite(df_sim_class, 'outTable/fin_sim_data.csv')
 ###### Species richness ------------------------------------
-df_richness <- df_sim_class %>% 
-  group_by(year, clim_model,clim_cluster,ext_seed,landscape_run, unique_sim_run) %>%  #clim_modelclim_cluster, 
+
+# Get grouping table : 1380 unique simulations combination
+df_simulations_groups <- df_sim_class %>% 
+  dplyr::select(year, clim_model,clim_cluster,ext_seed,landscape_run, unique_sim_run) %>% 
+  distinct()  # remove duplicated rows
+# nrows with years: 42720
+
+
+df_richness <- 
+  df_sim_class %>% 
+  dplyr::filter(count_ha >0) %>% 
+  group_by(year,  unique_sim_run) %>%  #clim_modelclim_cluster, 
   summarize(richness = n_distinct(species))
 
 df_richness %>% 
@@ -461,36 +477,43 @@ df_richness %>%
 ###### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
 # get species importance value: from relative density, relative BA
 # first calculate the total values per ha, then add it to original table to calculate teh rIVI based on relative dominance
-df_sum_cluster <- df_sim %>% 
-  group_by(year,  cluster, clim_scenario, ext_seed) %>%# clim_cluster clim_model ,,
+df_sum_cluster <- df_sim_class %>% 
+  group_by(year, unique_sim_run) %>%  #clim_modelclim_cluster, 
   summarize(sum_stems = sum(count_ha, na.rm = T),
-            sum_BA = sum(basal_area_m2, na.rm = T)) %>% 
+            sum_BA    = sum(basal_area_m2, na.rm = T)) %>% 
   ungroup()
 
 
-df_IVI <- df_sim %>% 
+df_IVI <- 
+  df_sim_class %>% 
   # group by spei3es across the levels
-  group_by(year, species, cluster, clim_scenario, ext_seed) %>% #clim_cluster,clim_model , 
+  group_by(year, species, unique_sim_run) %>%  #clim_modelclim_cluster, 
   summarize(sp_dens = sum(count_ha),
-            sp_BA   = sum(basal_area_m2)) %>% 
+            sp_BA   = sum(basal_area_m2)) %>%
+  #nrow()
   ungroup(.) %>% 
     left_join(df_sum_cluster) %>% # merge sums per whole cluster
   mutate(rel_dens  = sp_dens/sum_stems,
          rel_BA  = sp_BA/sum_BA,
          rIVI = ( rel_dens +rel_BA)/2) %>% # relative species importance value
+  #nrow()
+  dplyr::select(-sp_dens, -sp_BA,-sum_stems,-sum_BA,-rel_dens, -rel_BA) %>%  # remove unnecessary cols
+    
   # filter teh dominant species - highest rIVI
-  group_by(year, cluster,  clim_scenario, ext_seed) %>% #clim_model ,
+  group_by(year,  unique_sim_run) %>% #clim_model ,
   dplyr::filter(rIVI == max(rIVI)) %>%
   sample_n(1) %>%  # Select a random row if there are ties
-  rename(dominant_species      = species)
-  
-  
+  rename(dominant_species      = species) 
 
+  
+  
+  
 
 ##### Structure: Vertical classes & stem density -------------------------------------------------------------
 # inspeact vertical classes
-df_structure <- df_sim %>% 
-  group_by(year, cluster, clim_scenario, ext_seed) %>% #clim_model , 
+df_structure <- df_sim_class %>% 
+  dplyr::filter(count_ha >0) %>% 
+  group_by(year, unique_sim_run) %>%  #clim_modelclim_cluster, 
   summarize(n_vertical = n_distinct(category),
             stem_density = sum(count_ha)) 
 
@@ -499,9 +522,9 @@ df_structure <- df_sim %>%
 ggplot(df_structure) + 
   geom_line(aes(x = year,
                 y = n_vertical,
-                color = cluster,
-                group = cluster)) + 
-  facet_wrap(clim_scenario~ext_seed)
+                color = ext_seed,
+                group = unique_sim_run), alpha = 0.3) + 
+  facet_wrap(.~ext_seed)
 
 
 
@@ -509,17 +532,52 @@ ggplot(df_structure) +
 ggplot(df_structure) + 
   geom_line(aes(x = year,
                 y = stem_density,
-                color = cluster,
-                group = cluster)) + 
-  facet_wrap(clim_scenario~ext_seed)
+                color = ext_seed,
+                group = unique_sim_run), alpha = 0.2) + 
+  facet_wrap(.~ext_seed)
+
+
+# check lengths
+nrow(df_richness)
+nrow(df_IVI)  # two rows are missing!
+nrow(df_structure)
+
+head(df_richness)
+head(df_IVI)
+head(df_structure)
+
+length(unique(df_richness$unique_sim_run))
+length(unique(df_IVI$unique_sim_run))
+length(unique(df_structure$unique_sim_run))
+
+
+# seems that ICHEC_HISTO_seed_3_2 has not noseed alternative?
 
 
 # merge df indicators 
-df_sim_indicators <- df_richness %>% 
-  left_join(df_IVI, by = join_by(year, cluster, clim_scenario, ext_seed)) %>%
-  left_join(df_structure, by = join_by(year, cluster, clim_scenario, ext_seed)) %>% 
-  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1)) 
+df_sim_indicators <- 
+  df_simulations_groups %>% # keep all simulations
+  left_join(df_richness) %>% 
+  left_join(df_IVI) %>%
+  left_join(df_structure) #%>% 
+  #mutate(clim_cluster_kilian = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
+   #      str_cluster_Kilian = str_sub(cluster, -1, -1)) 
+
+# landscaepe 3_2 has only 'seed' scenario: no seed would lead to no tree regeneration
+# replace NA values by 0 
+df_sim_indicators <- df_sim_indicators %>%
+  mutate(
+    richness = ifelse(is.na(richness), 0, richness),
+    stem_density = ifelse(is.na(stem_density), 0, stem_density),
+    rIVI = ifelse(is.na(rIVI), 0, rIVI),
+    n_vertical = ifelse(is.na(n_vertical), 0, n_vertical)
+  )
+
+# 
+
+# write field for RMarkdown
+fwrite(df_sim_indicators, 'outTable/df_simulated_indicators.csv')
+
 #### ENND OLD SKIP individual see scenarios END 
   
 ##### evaluate initial state with my sites (only 12 sites! )   -------------------------
