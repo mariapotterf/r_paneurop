@@ -117,87 +117,23 @@ df_indicators <- df_indicators %>%
  # mutate()
   mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
          str_cluster = str_sub(cluster, -1, -1),
-         clim_cluster_spei3 = factor(clim_cluster_spei3))   # add indication of the strutural cluster (1,2,3,4,5)
-
+         clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%   # add indication of the strutural cluster (1,2,3,4,5)
+  mutate(clim_class = case_when(
+    clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+  ))  #%
 # make sure to interpret Kilinas clusters properly - if they fit with mine! 
 # instect on field ata, using the tmp, prcp and clay content
 df_field_ind_sub <- df_indicators %>% 
   dplyr::select(site,  rIVI, richness, stem_density, n_vertical, tmp, prcp, spei3, clay_extract, sand_extract,
-                clim_cluster_spei3) %>% 
+                clim_cluster_spei3, clim_class) %>% 
 #  rename(site = cluster) %>% 
   right_join(df_sites_clusters) %>% 
   mutate(clim_cluster_Kilian = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
          str_cluster_Kilian = str_sub(cluster, -1, -1),
-         clim_cluster_spei3 = factor(clim_cluster_spei3))  # add indication of the strutural cluster (1,2,3,4,5)
-
-
-
-### Check clim clustering naming :-----------------------------------------------------------------------------
-
-# Fiel data :
-# Make boxplot to adjust naming of Kilians clusters:
-p1 <- df_indicators %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = tmp)) +
-  geom_boxplot() + 
-  ggtitle("clim_clusters Maya (full)")
-
-p2 <- df_indicators %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = prcp)) +
-  geom_boxplot()
-
-p3 <- df_indicators %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = spei3)) +
-  geom_boxplot()
-
-p4 <- df_indicators %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = clay_extract)) +
-  geom_boxplot()
-
-p5 <- df_indicators %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = sand_extract)) +
-  geom_boxplot()
-
-windows()
-ggarrange(p1,p2,p3, p4, p5)
-
-
-
-
-
-# Make boxplot to adjust naming of Kilians clusters:
-p1 <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_Kilian,
-             y = tmp)) +
-  geom_boxplot() +
-  ggtitle("clim_clusters kilian (subset)")
-
-p2 <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_Kilian,
-             y = prcp)) +
-  geom_boxplot()
-
-p3 <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_Kilian,
-             y = spei3)) +
-  geom_boxplot()
-
-p4 <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_Kilian,
-             y = clay_extract)) +
-  geom_boxplot()
-
-p5 <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_Kilian,
-             y = sand_extract)) +
-  geom_boxplot()
-
-windows()
-ggarrange(p1,p2,p3, p4, p5)
+         clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%  # add indication of the strutural cluster (1,2,3,4,5)
+rename(landscape = cluster)
 
 
 
@@ -224,78 +160,6 @@ df_sim %>%
 
 
 
-## Inspect clim drivers: For all sites  -------------------
-# to understand which cluster is what:
-# Create an empty list to store the plots
-plot_list_all <- list()
-
-# Loop through combinations and create plots
-for (combination in plot_combinations) {
-  p <- ggplot(df_indicators, aes_string(x = combination$x, y = combination$y)) +
-    geom_point(color = 'grey', alpha = 0.3) + 
-   # geom_point(data = df_field_ind_sub, aes_string(x = combination$x, y = combination$y, color = clim_cluster), size = 4) +
-   # geom_smooth(method = "loess", se = FALSE) +
-   # geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey") +
-    labs(title = paste(combination$x, "vs", combination$y),
-         x = combination$x,
-         y = combination$y) +
-    theme_bw() +
-    theme(aspect.ratio = 1)  # Ensure the plot is square
-  
-  plot_list_all[[paste(combination$x, combination$y, sep = "_vs_")]] <- p
-}
-# Arrange and print all plots using ggarrange
-ggarrange(plotlist = plot_list_all, ncol = 2, nrow = 3, common.legend = TRUE) # 
- 
-
-# make a plot manually: tmp spei3
-p1 <- ggplot(df_indicators, aes(x = tmp, y = spei33)) +
-  geom_point(color = 'grey', alpha = 0.3) + 
-  geom_text(data = df_field_ind_sub, aes(x = tmp, y = spei3, label = cluster, color = clim_cluster), 
-            vjust = -0.1, size = 6) +
-  geom_point(data = df_field_ind_sub, aes(x = tmp, y = spei3, color = clim_cluster), size = 3) +
-  # labs(#title = paste(combination$x, "vs", combination$y),
-  #   x = "tmp",
-  #   y = "spei3") +
-  theme_bw() +
-  theme(aspect.ratio = 1)  # Ensure the plot is square
-
-
-p2 <- ggplot(df_indicators, aes(x = tmp_z, y = spei3)) +
-  geom_point(color = 'grey', alpha = 0.3) + 
-  geom_text(data = df_field_ind_sub, aes(x = tmp_z, y = spei3, label = cluster, color = clim_cluster), 
-            vjust = -0.1, size = 6) +
-  geom_point(data = df_field_ind_sub, aes(x = tmp_z, y = spei3, color = clim_cluster), size = 3) +
-   theme_bw() +
-  theme(aspect.ratio = 1)  # Ensure the plot is square
-
-
-p3 <- ggplot(df_indicators, aes(x = tmp_z, y = prcp_z)) +
-  geom_point(color = 'grey', alpha = 0.3) + 
-  geom_text(data = df_field_ind_sub, aes(x = tmp_z, y = prcp_z, label = cluster, color = clim_cluster), 
-            vjust = -0.1, size = 6) +
-  geom_point(data = df_field_ind_sub, aes(x = tmp_z, y = prcp_z, color = clim_cluster), size = 3) +
-  theme_bw() +
-  theme(aspect.ratio = 1)  # Ensure the plot is square
-
-ggarrange(p1,p2,p3, common.legend = T, ncol = 3, nrow = 1)
-
-# plot only subset: climatic clusters (12 points)
-df_field_ind_sub %>% 
-  ggplot(aes(x = spei3,
-                 y = tmp_z)) +
-  geom_point(aes(color = clim_cluster)) + 
-  geom_smooth()
-
-
-# the clim cluster 2_1  seems a bit strange: get the characteristic of clusters 
-
-# # inspect single example
-# df_sub1 <- df_sim %>% 
-#   dplyr::filter(cluster == "1_1") %>% 
-#   dplyr::filter(clim_model == "NCC" & clim_scenario == "HISTO" & ext_seed == "noseed")
-# 
-# head(df_sub1)
 
 ## Inspect simulated data: ------------------------------------------------------
 # 12 clusters, 
@@ -460,7 +324,7 @@ df_sim_indicators <- df_sim_indicators %>%
 
 
 
-##### All simulations run  -------------------------
+##### Indicators from all simulation runs  -------------------------
 ###### Species richness ------------------------------------
 
 # Get grouping table : 1380 unique simulations combination
@@ -469,8 +333,15 @@ df_simulations_groups <- df_sim_class %>%
   distinct() %>%  # remove duplicated rows
   mutate(landscape = paste(clim_cluster,str_cluster, sep = "_"))
 # nrows with years: 42720
+  
+  
+df_simulations_groups_simple <- df_sim_class %>% 
+    dplyr::select(clim_model,clim_cluster,str_cluster, ext_seed,landscape_run, unique_sim_run) %>% 
+    distinct() %>%  # remove duplicated rows
+    mutate(landscape = paste(clim_cluster,str_cluster, sep = "_"))
+  
 
-
+# Richness
 df_richness <- 
   df_sim_class %>% 
   dplyr::filter(count_ha >0) %>% 
@@ -569,24 +440,23 @@ df_sim_indicators <- df_sim_indicators %>%
 df_sim_indicators0 <- df_sim_indicators %>% 
   ungroup() %>% 
   dplyr::filter(year == 0 ) %>% #& clim_scenario == "HISTO" %>% 
-  dplyr::select(landscape_run,  rIVI, richness, stem_density, n_vertical, landscape) #%>% 
+  dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
   
 # variation at the end of simulation run
 df_sim_indicators_end <- df_sim_indicators %>% 
   ungroup() %>% 
-  dplyr::filter(year %in% 25:30 ) %>% #& clim_scenario == "HISTO" %>% 
-  dplyr::select(landscape_run,  rIVI, richness, stem_density, n_vertical, landscape) #%>% 
+  dplyr::filter(year == 25:30 ) %>% #& clim_scenario == "HISTO" %>% 
+  dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
 
 
 
 ###### merge field data with simulated data in year 0 
 df_compare0 <- 
   df_field_ind_sub %>% 
-  left_join(df_sim_indicators0, by = c( "cluster" = "landscape"), suffix = c("_field", "_simul")) %>% 
-  dplyr::select(cluster, site, ends_with("_field"), ends_with("_simul")) %>% 
- # mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
- #        str_cluster = str_sub(cluster, -1, -1))  %>% # add indication of the strutural cluster (1,2,3,4)
- na.omit() # remove empty one
+  left_join(df_sim_indicators0, by = c("landscape"), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
+  dplyr::select(landscape, site, ends_with("_field"), ends_with("_simul")) %>% 
+ na.omit() #%>% # remove empty one
+
 
 table(df_compare0$richness_field)
 table(df_compare0$richness_simul)
@@ -597,27 +467,28 @@ plot(df_compare0$richness_field, df_compare0$richness_simul)
 ## merge field data with simulaton at the end -------------------
 df_compare_end <- 
   df_field_ind_sub %>% 
-  left_join(df_sim_indicators_end, by = c( "cluster" = "landscape"), suffix = c("_field", "_simul")) %>% 
-  dplyr::select(cluster, site, ends_with("_field"), ends_with("_simul")) %>% 
-   na.omit() # remove empty one
+  left_join(df_sim_indicators0, by = c("landscape"), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
+  dplyr::select(landscape, site, ends_with("_field"), ends_with("_simul")) %>% 
+  na.omit() #%>% # remove empty one
 
 
   
 create_scatter_plot <- function(data, x_var, y_var, x_label, y_label, title) {
   # Get unique clusters and assign colors
-  unique_clusters <- unique(data$cluster)
+  unique_clusters <- unique(data$landscape)
   
   # Create a color palette with enough colors for each cluster
   colors <- rainbow(length(unique_clusters))  # or any other palette function
   
   # Create the scatter plot using aes with .data[[var]]
-  ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]], color = factor(cluster))) +
+  ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]], color = factor(landscape))) +
     geom_jitter(alpha = 0.2) +  # Apply alpha to jittered points
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
     labs(title = title, x = x_label, y = y_label) +
     theme_classic() +
     scale_color_manual(values = colors, 
-                       guide = guide_legend(override.aes = list(size = 4, alpha = 1)))
+                       guide = guide_legend(override.aes = list(size = 4, alpha = 1))) #+
+    #facet_wrap(.~ext_seed)
 }
 
 print(df_compare0)
@@ -689,7 +560,10 @@ p4 <- create_scatter_plot(df_compare_end,
 
 # Arrange the plots in a 2x2 grid
 windows()
-ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2, common.legend = TRUE)
+ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2, common.legend = TRUE,
+          align = 'hv')
+
+
 
 
 # understand structural clusters :  ------------------
@@ -1194,7 +1068,9 @@ kruskal_test_results <- filtered_data_end %>%
 # Save results and tables -------------------------------------------------
 
 # write field for RMarkdown
-fwrite(df_field_ind_sub, 'outTable/df_field_indicators_landscapes.csv')
+fwrite(df_field_ind_sub,  'outTable/df_field_indicators_landscapes.csv')
 fwrite(df_sim_indicators, 'outTable/df_simulated_indicators.csv')
-fwrite(df_sim_class, 'outTable/fin_sim_data.csv')
+fwrite(df_sim_class,      'outTable/fin_sim_data.csv')
+fwrite(df_compare_end,    'outTable/compare_field_sim_12_lands_end.csv')
+fwrite(df_compare0,       'outTable/compare_field_sim_12_lands_start.csv')
 
