@@ -11,40 +11,222 @@ library(data.table) # Load data.table package
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(ggpubr)
+
+# Set theme_classic2 as the default theme for all plots
+theme_set(theme_classic2())
 ```
 
 ## R Markdown
 
 
-```{r read_data}
+```{r read_data, include=FALSE}
 # Read the CSV file using the relative path
 df_sim_class <- fread('outTable/fin_sim_data.csv')
+df_sim_indicators <- fread('outTable/df_simulated_indicators.csv')
+
+
+df_field_ind_sub <- fread('outTable/df_field_indicators_landscapes.csv')
+
+# write field for RMarkdown
+fwrite(df_field_ind_sub, 'outTable/df_filed_indicators_landscapes.csv')
+
+df_field_ind_sub <- df_field_ind_sub %>% 
+  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3))
 
 # Display the first few rows of the data
 head(df_sim_class)
+head(df_sim_indicators)
+
 ```
 
-## Including Plots
+# Understand simulated data
 
-You can also embed plots, for example:
+ - 12 simulated landscapes (3 climatic cluters, 4+5+4 structural clusters)
+- 3 climatic models = "ICHEC" "MPI"   "NCC"  
+- 4 climate scenarios = "HISTO" "RCP26" "RCP45" "RCP85"
+- 2 seed added/no = extrernal seeds present or not? TRUE/FALSE
+- 5 repetitions
 
-```{r get_richness, echo=FALSE}
+landscape 3_2 does not have no seed scenario! (no regeneration present, so oterwise tehre would be no trees)
+
+
+
+```{r inspect_simulated, include=FALSE}
+
+unique(df_sim_class$landscape)  # 12, 3 climatic, 3-5 structural in each climate cluster
+#[1] "1_1" "1_2" "1_3" "1_4" "2_1" "2_2" "2_3" "2_4" "2_5" "3_1" "3_2" "3_3"
+
+unique(df_sim_class$species) # 24
+#[1] "acps" "cabe" "potr" "saca" "quro" "acca" "frex" "ulgl" "lade" "tico" "piab" "fasy" "psme"
+#[14] "soau" "pisy" "bepe" "abal" "alin" "algl" "soar" "coav" "acpl" "rops" "casa"
+
+
+unique(df_sim_class$clim_model)
+# [1] "ICHEC" "MPI"   "NCC"  
+
+unique(df_sim_class$clim_scenario)
+# [1] "HISTO" "RCP26" "RCP45" "RCP85"
+
+# external seed: external seed present or not?? TRUE/FALSE
+# years: 1-30
+unique(df_sim_class$run_nr)  # 5 repetitions
+
+```
+
+
+## Interpret simulated clusters = landscapes
+
+```{r clim_clusters_diff, include=FALSE}
+
+# explain climate and soil
+p.tmp <- df_field_ind_sub %>% 
+  ggplot(aes(x = clim_cluster_spei3,
+             y = tmp)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
+
+p.prcp <- df_field_ind_sub %>% 
+  ggplot(aes(x = clim_cluster_spei3,
+             y = prcp)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
+
+p.spei <- df_field_ind_sub %>% 
+  ggplot(aes(x = clim_cluster_spei3,
+             y = spei3)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
+
+p.clay <- df_field_ind_sub %>% 
+  ggplot(aes(x = clim_cluster_spei3,
+             y = clay_extract)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
+
+
+ggarrange(p.tmp, p.prcp, p.spei,p.clay, common.legend = T)
+
+
+
+
+
+```
+
+
+```{r structural_clusters_diff}
+# understand structural clusters :  ------------------
+p1 <- df_field_ind_sub %>% 
+  ggplot(aes(x = cluster,
+             y = rIVI,
+             fill = clim_cluster_spei3)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p2 <- df_field_ind_sub %>% 
+  ggplot(aes(x = cluster,
+             y = richness,
+             fill = clim_cluster_spei3)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p3 <-df_field_ind_sub %>% 
+  ggplot(aes(x = cluster,
+             y = stem_density,
+             fill = clim_cluster_spei3)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p4<-df_field_ind_sub %>% 
+  ggplot(aes(x = cluster,
+             y = n_vertical,
+             fill = clim_cluster_spei3)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggarrange(p1,p2,p3,p4, common.legend = T)
+
+
+```
+## Temporal development of indicators
+
+
+```{r plot_richness, echo=FALSE, fig.width = 6, fig.height = 4}
 ###### Species richness ------------------------------------
-df_richness <- df_sim_class %>% 
-  group_by(year, clim_model,clim_cluster,ext_seed,landscape_run, unique_sim_run) %>%  #clim_modelclim_cluster, 
-  summarize(richness = n_distinct(species))
-
-df_richness %>% 
- # dplyr::filter(run_nr == 1 & clim_model == 'NCC')  %>% 
+df_sim_indicators %>% 
   ggplot() + 
   geom_line(aes(x = year,
                 y = richness,
-                color = ext_seed,
-                group = unique_sim_run), alpha = 0.3) +
-  theme(legend.position = 'bottom')
-  #facet_wrap(clim_scenario~ext_seed)
+                color = landscape,
+                group = unique_sim_run), alpha = 0.1) +
+  theme(legend.position = 'bottom')+
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = richness, group = landscape, color = landscape), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(. ~ext_seed)
+
 
 
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r plot_rIVI, echo=FALSE,fig.width = 6, fig.height = 4}
+###### Species richness ------------------------------------
+df_sim_indicators %>% 
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = rIVI,
+                color = landscape,
+                group = unique_sim_run), alpha = 0.1) +
+  theme(legend.position = 'bottom')+
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = rIVI, group = landscape, color = landscape), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(. ~ext_seed)
+
+
+
+```
+```{r plot_vertical, echo=FALSE, fig.width = 6, fig.height = 4}
+###### NUmber of vertical classes ------------------------------------
+df_sim_indicators %>% 
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = n_vertical,
+                color = landscape,
+                group = unique_sim_run), alpha = 0.1) +
+  theme(legend.position = 'bottom') +
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = n_vertical, group = landscape, color = landscape), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(. ~ext_seed)
+
+```
+
+```{r plot_stem_density, echo=FALSE,fig.width = 6, fig.height = 4}
+###### NUmber of vertical classes ------------------------------------
+df_sim_indicators %>% 
+ # change in stem density
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = stem_density,
+                color = landscape,
+                group = unique_sim_run), alpha = 0.1) + 
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = stem_density, group = landscape, color = landscape), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(.~ext_seed)
+
+
+
+
+```
