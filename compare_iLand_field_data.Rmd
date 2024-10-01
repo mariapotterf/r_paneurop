@@ -1,5 +1,5 @@
 ---
-title: "iLand vs field data"
+title: "Can current state of regeneration predict future stand development?"
 author: "Maria Potterf"
 date: "2024-09-30"
 output: 
@@ -21,22 +21,36 @@ library(ggpubr)
 theme_set(theme_classic2())
 ```
 
-## R Markdown
+## Overview
+
+In this overview, we focus on understanding of how how indicative the observation of the post-disturbance tree regeneration can be for future forest development. E.g., how will the structure and composition change in tehe future?
+
+Simulation:
+
+12 landscapes (teh most indicative in terms of climate, environment, structure and compositio)
+development 0-30 years
+
 
 
 ```{r read_data, include=FALSE}
-# Read the CSV file using the relative path
+
+# Simulated data:
+# raw simulated data 
 df_sim_class <- fread('outTable/fin_sim_data.csv')
+
+# read simulated indicators
 df_sim_indicators <- fread('outTable/df_simulated_indicators.csv')
 
-
+# subset of field data: 12 landscapes
 df_field_ind_sub <- fread('outTable/df_field_indicators_landscapes.csv')
 
-# write field for RMarkdown
-fwrite(df_field_ind_sub, 'outTable/df_filed_indicators_landscapes.csv')
 
-df_field_ind_sub <- df_field_ind_sub %>% 
-  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) 
+# compare 12 clusters: beginning (year 0) and end (year 25:30)
+df_compare_end <- fread('outTable/compare_field_sim_12_lands_end.csv')
+
+df_compare0 <- fread(      'outTable/compare_field_sim_12_lands_start.csv')
+
+
 
 # Display the first few rows of the data
 head(df_sim_class)
@@ -44,7 +58,30 @@ head(df_sim_indicators)
 
 ```
 
-# Understand simulated data
+
+```{r functions}
+create_scatter_plot <- function(data, x_var, y_var, x_label, y_label, title) {
+  # Get unique clusters and assign colors
+  unique_clusters <- unique(data$landscape)
+  
+  # Create a color palette with enough colors for each cluster
+  colors <- rainbow(length(unique_clusters))  # or any other palette function
+  
+  # Create the scatter plot using aes with .data[[var]]
+  ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]], color = factor(landscape))) +
+    geom_jitter(alpha = 0.2) +  # Apply alpha to jittered points
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(title = title, x = x_label, y = y_label) +
+    theme_classic() +
+    scale_color_manual(values = colors, 
+                       guide = guide_legend(override.aes = list(size = 4, alpha = 1))) #+
+    #facet_wrap(.~ext_seed)
+}
+
+
+```
+
+# Simulated data
 
  - 12 simulated landscapes (3 climatic clusters, 4+5+3 structural clusters)
 - 3 climatic models = "ICHEC" "MPI"   "NCC"  
@@ -52,7 +89,7 @@ head(df_sim_indicators)
 - 2 seed added/no = extrernal seeds present or not? TRUE/FALSE
 - 5 repetitions
 
-landscape 3_2 does not have no seed scenario! (no regeneration present, so oterwise tehre would be no trees)
+landscape 3_2 does not have no seed scenario! (no regeneration present, so otherwise there would be no trees)
 
 
 
@@ -126,7 +163,7 @@ ggarrange(p.tmp, p.prcp, p.spei,p.clay, common.legend = T, ncol = 2, nrow = 2)
 - high density, high vertical layers, high richness, low rIVI,
 
 ```{r structural_clusters_diff}
-# understand structural clusters :  ------------------
+# undetsrtand structural clusters
 p1 <- df_field_ind_sub %>% 
   ggplot(aes(x = cluster,
              y = rIVI,
@@ -156,6 +193,92 @@ p4<-df_field_ind_sub %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ggarrange(p1,p2,p3,p4, common.legend = T)
+
+
+```
+
+
+# how does simulated data fit to field data?
+
+check first on 12 landscapes: fit 1:1
+- check at year 0
+- check at the end of simulation: year 25:30
+
+
+```{r compare_field_begin_simulation, echo = F}
+# Create individual plots using the function
+p0.1 <- create_scatter_plot(df_compare0, 
+                          x_var = "rIVI_simul", 
+                          y_var = "rIVI_field", 
+                          x_label = "Simulated rIVI", 
+                          y_label = "Field rIVI", 
+                          title = "rIVI")
+
+p0.2 <- create_scatter_plot(df_compare0, 
+                          x_var = "richness_simul", 
+                          y_var = "richness_field", 
+                          x_label = "Simulated Richness", 
+                          y_label = "Field Richness", 
+                          title = "Richness")
+
+p0.3 <- create_scatter_plot(df_compare0, 
+                          x_var = "stem_density_simul", 
+                          y_var = "stem_density_field", 
+                          x_label = "Simulated Stem Density", 
+                          y_label = "Field Stem Density", 
+                          title = "Stem Density")
+
+p0.4 <- create_scatter_plot(df_compare0, 
+                          x_var = "n_vertical_simul", 
+                          y_var = "n_vertical_field", 
+                          x_label = "Simulated ", 
+                          y_label = "Field ", 
+                          title = "n Vertical")
+
+# Arrange the plots in a 2x2 grid
+ggarrange(p0.1, p0.2, p0.3, p0.4, ncol = 2, nrow = 2, common.legend = T, align = 'hv')
+
+
+
+
+```
+
+```{r compare_field_end_simulation}
+# Create individual plots using the function
+p1 <- create_scatter_plot(df_compare_end, 
+                          x_var = "rIVI_simul", 
+                          y_var = "rIVI_field", 
+                          x_label = "Simulated rIVI", 
+                          y_label = "Field rIVI", 
+                          title = "rIVI: Simulated vs Field")
+
+p2 <- create_scatter_plot(df_compare_end, 
+                          x_var = "richness_simul", 
+                          y_var = "richness_field", 
+                          x_label = "Simulated Richness", 
+                          y_label = "Field Richness", 
+                          title = "Richness: Simulated vs Field")
+
+p3 <- create_scatter_plot(df_compare_end, 
+                          x_var = "stem_density_simul", 
+                          y_var = "stem_density_field", 
+                          x_label = "Simulated Stem Density", 
+                          y_label = "Field Stem Density", 
+                          title = "Stem Density: Simulated vs Field")
+
+p4 <- create_scatter_plot(df_compare_end, 
+                          x_var = "n_vertical_simul", 
+                          y_var = "n_vertical_field", 
+                          x_label = "Simulated n Vertical", 
+                          y_label = "Field n Vertical", 
+                          title = "n Vertical: Simulated vs Field")
+
+# Arrange the plots in a 2x2 grid
+
+ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2, common.legend = TRUE,
+          align = 'hv')
+
+
 
 
 ```
