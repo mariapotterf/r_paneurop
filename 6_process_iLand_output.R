@@ -53,7 +53,7 @@ head(df_sim)
 df_field     <- fread('outData/veg_density_DBH.csv')
 df_indicators <- fread('outData/indicators_for_cluster_analysis.csv') # summarized on plot level
 
-
+df_str_compos_clusters_full <- fread('rawData/iLand/Cluster_Plots.csv')  # structural and clusters indications for analysis from Kilian
 # List average field data as input for the landscape level simulation
 # "23_132" - "1_1"
 # "26_134" - "1_2"
@@ -99,9 +99,6 @@ df_sim_class <- df_sim_class %>%
 
 
 
-
-
-
 ## filter field data for selected clusters (simulated landscapes) --------------
 df_field_sub <- df_field %>%
   rename(landscape = cluster) %>%
@@ -115,25 +112,59 @@ df_indicators <- df_indicators %>%
  # rename(site = cluster) %>% 
   left_join(df_sites_clusters) %>%
  # mutate()
-  mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(cluster, -1, -1),
-         clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%   # add indication of the strutural cluster (1,2,3,4,5)
+  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%   # add indication of the strutural cluster (1,2,3,4,5)
   mutate(clim_class = case_when(
     clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
     clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
     clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-  ))  #%
-# make sure to interpret Kilinas clusters properly - if they fit with mine! 
-# instect on field ata, using the tmp, prcp and clay content
+  ))  %>%
+mutate(
+  scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
+  scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
+  scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
+  scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
+) %>%
+  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
+  mutate(
+    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)#,
+    # cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
+  ) %>% 
+  mutate(composite_class = factor(composite_score)) %>% 
+  left_join(df_str_compos_clusters_full, by = c('site' = 'plot'))
+
+# select only 12 landscapes form field data
 df_field_ind_sub <- df_indicators %>% 
   dplyr::select(site,  rIVI, richness, stem_density, n_vertical, tmp, prcp, spei3, clay_extract, sand_extract,
-                clim_cluster_spei3, clim_class) %>% 
+                clim_cluster_spei3, clim_class, env_stnd_clust, env_cluster, stnd_cluster) %>% 
 #  rename(site = cluster) %>% 
   right_join(df_sites_clusters) %>% 
-  mutate(clim_cluster_Kilian = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster_Kilian = str_sub(cluster, -1, -1),
+  mutate(#clim_cluster_Kilian = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
+         #str_cluster_Kilian = str_sub(cluster, -1, -1), # not needed anymore as teh structural clusters do not represent the same condistions
          clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%  # add indication of the strutural cluster (1,2,3,4,5)
-rename(landscape = cluster)
+  rename(landscape = cluster)
+
+# chcek composite score: try to order variables ----
+
+# Standardize the variables
+df_field_ind_sub <- df_field_ind_sub %>%
+  mutate(
+    scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
+    scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
+    scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
+    scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
+  ) %>%
+  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
+  mutate(
+    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)#,
+   # cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
+  ) %>% 
+  mutate(composite_class = factor(composite_score)) %>% 
+  mutate(clim_class = case_when(
+    clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+  ))  #%>% 
+
 
 
 
@@ -194,131 +225,6 @@ unique(df_sim2$run_nr)  # 5 repetitions
 # vertical classes
 # summarize across simulation repetition and across the clim model
 
-##### Investigate on average seed scenario -----------------------------------------------
-
-# Calculate averages grouped by year, seed strategy, clim_cluster, species, run_nr, and vertical category
-df_avg <- df_sim_class %>%
-  group_by(year, landscape_run, clim_cluster, clim_class, species, category) %>%
-  summarise(mean_count_ha = mean(count_ha, na.rm = TRUE),
-            mean_basal_area = mean(basal_area_m2, na.rm = TRUE))
-
-
-# START - average seed scenarios 
-
-###### Species richness ------------------------------------
-df_richness <- 
-  df_avg %>% 
-  group_by(year, landscape_run, clim_cluster, clim_class) %>%  #clim_modelclim_cluster, 
-  dplyr::filter(mean_count_ha>0) %>% 
-  summarize(richness = n_distinct(species))# %>% 
-  #View()
-
-
-df_richness %>% 
-   dplyr::filter(landscape_run == "1_1 5" )  %>%
-  #View()
-  ggplot() + 
-  geom_line(aes(x = year,
-                y = richness,
-                color = landscape_run,
-                group = landscape_run)) + 
-  facet_grid(.~ clim_cluster)
-
-
-###### Species importance value (relative, from rel_density and rel_BA) ------------------------------------
-# get species importance value: from relative density, relative BA
-# first calculate the total values per ha/landscape/run, then add it to original table to calculate teh rIVI based on relative dominance
-df_sum_landscape <- df_avg %>% 
-  group_by(year,  landscape_run, clim_cluster, clim_class) %>%# clim_cluster clim_model ,, clim_scenario, ext_seed,
-  summarize(sum_stems = sum(mean_count_ha, na.rm = T),
-            sum_BA = sum(mean_basal_area , na.rm = T)) %>% 
-  ungroup()
-
-
-df_IVI <- df_avg %>% 
-  # group by speies across the levels
-  group_by(year, species, landscape_run, clim_cluster, clim_class) %>% #clim_cluster,clim_model , landscape, clim_scenario, ext_seed
-  summarize(sp_dens = sum(mean_count_ha),
-            sp_BA   = sum(mean_basal_area)) %>% 
-  ungroup(.) %>% 
-  left_join(df_sum_landscape) %>% # merge sums per whole cluster
-  mutate(rel_dens  = sp_dens/sum_stems,
-         rel_BA  = sp_BA/sum_BA,
-         rIVI = ( rel_dens +rel_BA)/2) %>% # relative species importance value
-  # filter teh dominant species - highest rIVI
-  group_by(year, landscape_run) %>% #clim_model ,,  clim_scenario, ext_seed
-  dplyr::filter(rIVI == max(rIVI)) %>%
-  sample_n(1) %>%  # Select a random row if there are ties
-  rename(dominant_species      = species)
-
-
-
-
-##### Structure: Vertical classes & stem density -------------------------------------------------------------
-# inspeact vertical classes
-df_structure <- df_avg %>% 
-  group_by(year, landscape_run, clim_cluster, clim_class ) %>% #clim_model , , clim_scenario, ext_seed
-  summarize(n_vertical = n_distinct(category),
-            stem_density = sum(mean_count_ha)) 
-
-
-# change in number of vertical layers
-ggplot(df_structure) + 
-  geom_line(aes(x = year,
-                y = n_vertical,
-                color = clim_cluster ,
-                group = landscape_run
-                ),
-            alpha = 0.5) #+ 
-#  facet_wrap(clim_scenario~ext_seed)
-
-
-
-# change in stem density
-ggplot(df_structure) + 
-  geom_line(aes(x = year,
-                y = stem_density,
-                color = clim_cluster ,
-                group = landscape_run
-            ), alpha = 0.5 ) +
-  
-  facet_wrap(clim_cluster~.)
-
-
-# merge df indicators 
-df_sim_indicators <-
-  df_richness %>% 
-  left_join(df_IVI, by = join_by(year, landscape_run, clim_cluster, clim_class)) %>% #, clim_scenario, ext_seed
-  left_join(df_structure, by = join_by(year, landscape_run, clim_cluster, clim_class)) %>% #, clim_scenario, ext_seed
-#  mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic landscape (1,2,3)
-#         str_cluster = str_sub(landscape, -1, -1))  #%>% # add indication of the strutural cluster (1,2,3,4)
-
-#  %>%   #%>% # add indication of the strutural cluster (1,2,3,4)
-  mutate(site = str_sub(landscape_run, 1,3))  # remove 'run' indication
-
-
-head(df_sim_indicators)
-
-
-
-# get a composite index to order the landscapes
-df_sim_indicators <- df_sim_indicators %>% 
-  mutate(
-    scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
-    scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
-    scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
-    scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
-  ) %>%
-  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
-  mutate(
-    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)) 
-
-df_sim_indicators <- df_sim_indicators %>% 
-  mutate(
-    landscape = factor(landscape, levels = landscape[order(composite_score, decreasing = TRUE)])
-  ) #%>% 
-  mutate(composite_class = factor(composite_score))
-#%>% !!!!
 
 
 
@@ -431,6 +337,22 @@ df_sim_indicators <- df_sim_indicators %>%
   )
 
 # 
+# get a composite index to order the landscapes
+df_sim_indicators <- df_sim_indicators %>% 
+  mutate(
+    scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
+    scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
+    scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
+    scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
+  ) %>%
+  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
+  mutate(
+    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)) 
+
+df_sim_indicators <- df_sim_indicators %>% 
+  mutate(
+    landscape = factor(landscape, levels = landscape[order(composite_score, decreasing = TRUE)])
+  ) 
 
 
 
@@ -445,7 +367,7 @@ df_sim_indicators0 <- df_sim_indicators %>%
 # variation at the end of simulation run
 df_sim_indicators_end <- df_sim_indicators %>% 
   ungroup() %>% 
-  dplyr::filter(year == 25:30 ) %>% #& clim_scenario == "HISTO" %>% 
+  dplyr::filter(year %in% 25:30 ) %>% #& clim_scenario == "HISTO" %>% 
   dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
 
 
@@ -454,7 +376,7 @@ df_sim_indicators_end <- df_sim_indicators %>%
 df_compare0 <- 
   df_field_ind_sub %>% 
   left_join(df_sim_indicators0, by = c("landscape"), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
-  dplyr::select(landscape, site, ends_with("_field"), ends_with("_simul")) %>% 
+  dplyr::select(landscape, site, ext_seed, ends_with("_field"), ends_with("_simul")) %>% 
  na.omit() #%>% # remove empty one
 
 
@@ -467,9 +389,10 @@ plot(df_compare0$richness_field, df_compare0$richness_simul)
 ## merge field data with simulaton at the end -------------------
 df_compare_end <- 
   df_field_ind_sub %>% 
-  left_join(df_sim_indicators0, by = c("landscape"), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
-  dplyr::select(landscape, site, ends_with("_field"), ends_with("_simul")) %>% 
+  left_join(df_sim_indicators_end, by = c("landscape"), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
+  dplyr::select(landscape, site, ext_seed, ends_with("_field"), ends_with("_simul")) %>% 
   na.omit() #%>% # remove empty one
+  
 
 
   
@@ -487,11 +410,12 @@ create_scatter_plot <- function(data, x_var, y_var, x_label, y_label, title) {
     labs(title = title, x = x_label, y = y_label) +
     theme_classic() +
     scale_color_manual(values = colors, 
-                       guide = guide_legend(override.aes = list(size = 4, alpha = 1))) #+
-    #facet_wrap(.~ext_seed)
+                       guide = guide_legend(override.aes = list(size = 4, alpha = 1))) +
+   facet_wrap(.~ext_seed)
 }
 
-print(df_compare0)
+dim(df_compare0)
+dim(df_compare_end)
 
 # Create individual plots using the function
 p0.1 <- create_scatter_plot(df_compare0, 
@@ -567,87 +491,6 @@ ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2, common.legend = TRUE,
 
 
 # understand structural clusters :  ------------------
-p1 <- df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
-             y = rIVI,
-             fill = clim_cluster_spei3)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-p2 <- df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
-             y = richness,
-             fill = clim_cluster_spei3)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-p3 <-df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
-             y = stem_density,
-             fill = clim_cluster_spei3)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-p4<-df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
-             y = n_vertical,
-             fill = clim_cluster_spei3)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-ggarrange(p1,p2,p3,p4, common.legend = T)
-
-
-# explain climate and soil
-p.tmp <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = tmp)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
-
-p.prcp <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = prcp)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
-
-p.spei <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_spei3,
-             y = spei3)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
-
-
-ggarrange(p.tmp, p.prcp, p.spei,common.legend = T)
-
-# check indicators
-df_field_ind_sub %>% 
-  dplyr::select(stem_density, n_vertical, richness, rIVI, cluster, prcp, tmp ) %>% 
-  arrange(stem_density)
-
-
-
-# chcek composite score: try to order variables ----
-
-# Standardize the variables
-df_field_ind_sub <- df_field_ind_sub %>%
-  mutate(
-    scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
-    scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
-    scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
-    scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
-  ) %>%
-  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
-  mutate(
-    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2),
-    cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
-  ) %>% 
-  mutate(composite_class = factor(composite_score)) %>% 
-  mutate(clim_class = case_when(
-    clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
-    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-  ))  #%>% 
   
 
 # Check the updated data with the ordered factor levels
