@@ -100,6 +100,8 @@ df_sim_class <- df_sim_class %>%
 
 
 
+
+
 ## filter field data for selected clusters (simulated landscapes) --------------
 df_field_sub <- df_field %>%
   rename(landscape = cluster) %>%
@@ -435,6 +437,24 @@ head(df_sim_indicators)
 
 
 
+# get a composite index to order the landscapes
+df_sim_indicators <- df_sim_indicators %>% 
+  mutate(
+    scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
+    scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
+    scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
+    scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
+  ) %>%
+  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
+  mutate(
+    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)) 
+
+df_sim_indicators <- df_sim_indicators %>% 
+  mutate(
+    landscape = factor(landscape, levels = landscape[order(composite_score, decreasing = TRUE)])
+  ) #%>% 
+  mutate(composite_class = factor(composite_score))
+#%>% !!!!
 
 
 
@@ -551,20 +571,125 @@ df_sim_indicators0 <- df_sim_indicators %>%
   dplyr::filter(year == 0 ) %>% #& clim_scenario == "HISTO" %>% 
   dplyr::select(landscape_run,  rIVI, richness, stem_density, n_vertical, landscape) #%>% 
   
+# variation at the end of simulation run
+df_sim_indicators_end <- df_sim_indicators %>% 
+  ungroup() %>% 
+  dplyr::filter(year %in% 25:30 ) %>% #& clim_scenario == "HISTO" %>% 
+  dplyr::select(landscape_run,  rIVI, richness, stem_density, n_vertical, landscape) #%>% 
+
 
 
 ###### merge field data with simulated data in year 0 
-df_compare <- 
+df_compare0 <- 
   df_field_ind_sub %>% 
   left_join(df_sim_indicators0, by = c( "cluster" = "landscape"), suffix = c("_field", "_simul")) %>% 
   dplyr::select(cluster, site, ends_with("_field"), ends_with("_simul")) %>% 
  # mutate(clim_cluster = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
  #        str_cluster = str_sub(cluster, -1, -1))  %>% # add indication of the strutural cluster (1,2,3,4)
  na.omit() # remove empty one
-  
-  
 
-print(df_compare)
+table(df_compare0$richness_field)
+table(df_compare0$richness_simul)
+
+plot(df_compare0$richness_field, df_compare0$richness_simul)
+
+
+## merge field data with simulaton at the end -------------------
+df_compare_end <- 
+  df_field_ind_sub %>% 
+  left_join(df_sim_indicators_end, by = c( "cluster" = "landscape"), suffix = c("_field", "_simul")) %>% 
+  dplyr::select(cluster, site, ends_with("_field"), ends_with("_simul")) %>% 
+   na.omit() # remove empty one
+
+
+  
+create_scatter_plot <- function(data, x_var, y_var, x_label, y_label, title) {
+  # Get unique clusters and assign colors
+  unique_clusters <- unique(data$cluster)
+  
+  # Create a color palette with enough colors for each cluster
+  colors <- rainbow(length(unique_clusters))  # or any other palette function
+  
+  # Create the scatter plot using aes with .data[[var]]
+  ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]], color = factor(cluster))) +
+    geom_jitter(alpha = 0.2) +  # Apply alpha to jittered points
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(title = title, x = x_label, y = y_label) +
+    theme_classic() +
+    scale_color_manual(values = colors, 
+                       guide = guide_legend(override.aes = list(size = 4, alpha = 1)))
+}
+
+print(df_compare0)
+
+# Create individual plots using the function
+p0.1 <- create_scatter_plot(df_compare0, 
+                          x_var = "rIVI_simul", 
+                          y_var = "rIVI_field", 
+                          x_label = "Simulated rIVI", 
+                          y_label = "Field rIVI", 
+                          title = "rIVI")
+
+p0.2 <- create_scatter_plot(df_compare0, 
+                          x_var = "richness_simul", 
+                          y_var = "richness_field", 
+                          x_label = "Simulated Richness", 
+                          y_label = "Field Richness", 
+                          title = "Richness")
+
+p0.3 <- create_scatter_plot(df_compare0, 
+                          x_var = "stem_density_simul", 
+                          y_var = "stem_density_field", 
+                          x_label = "Simulated Stem Density", 
+                          y_label = "Field Stem Density", 
+                          title = "Stem Density")
+
+p0.4 <- create_scatter_plot(df_compare0, 
+                          x_var = "n_vertical_simul", 
+                          y_var = "n_vertical_field", 
+                          x_label = "Simulated ", 
+                          y_label = "Field ", 
+                          title = "n Vertical")
+
+# Arrange the plots in a 2x2 grid
+ggarrange(p0.1, p0.2, p0.3, p0.4, ncol = 2, nrow = 2, common.legend = T, align = 'hv')
+
+
+
+# for values 20-30 years in the future
+
+# Create individual plots using the function
+p1 <- create_scatter_plot(df_compare_end, 
+                          x_var = "rIVI_simul", 
+                          y_var = "rIVI_field", 
+                          x_label = "Simulated rIVI", 
+                          y_label = "Field rIVI", 
+                          title = "rIVI: Simulated vs Field")
+
+p2 <- create_scatter_plot(df_compare_end, 
+                          x_var = "richness_simul", 
+                          y_var = "richness_field", 
+                          x_label = "Simulated Richness", 
+                          y_label = "Field Richness", 
+                          title = "Richness: Simulated vs Field")
+
+p3 <- create_scatter_plot(df_compare_end, 
+                          x_var = "stem_density_simul", 
+                          y_var = "stem_density_field", 
+                          x_label = "Simulated Stem Density", 
+                          y_label = "Field Stem Density", 
+                          title = "Stem Density: Simulated vs Field")
+
+p4 <- create_scatter_plot(df_compare_end, 
+                          x_var = "n_vertical_simul", 
+                          y_var = "n_vertical_field", 
+                          x_label = "Simulated n Vertical", 
+                          y_label = "Field n Vertical", 
+                          title = "n Vertical: Simulated vs Field")
+
+# Arrange the plots in a 2x2 grid
+windows()
+ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2, common.legend = TRUE)
 
 
 # understand structural clusters :  ------------------
