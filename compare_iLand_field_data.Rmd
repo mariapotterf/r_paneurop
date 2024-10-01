@@ -2,7 +2,11 @@
 title: "iLand vs field data"
 author: "Maria Potterf"
 date: "2024-09-30"
-output: html_document
+output: 
+  html_document:
+    toc: true           # Enables the table of contents
+    toc_depth: 2        # Sets the level of headers included in the TOC
+    toc_float: true     # Makes the TOC float and always visible while scrolling
 ---
 
 ```{r setup, include=FALSE}
@@ -32,7 +36,7 @@ df_field_ind_sub <- fread('outTable/df_field_indicators_landscapes.csv')
 fwrite(df_field_ind_sub, 'outTable/df_filed_indicators_landscapes.csv')
 
 df_field_ind_sub <- df_field_ind_sub %>% 
-  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3))
+  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) 
 
 # Display the first few rows of the data
 head(df_sim_class)
@@ -42,7 +46,7 @@ head(df_sim_indicators)
 
 # Understand simulated data
 
- - 12 simulated landscapes (3 climatic cluters, 4+5+4 structural clusters)
+ - 12 simulated landscapes (3 climatic clusters, 4+5+3 structural clusters)
 - 3 climatic models = "ICHEC" "MPI"   "NCC"  
 - 4 climate scenarios = "HISTO" "RCP26" "RCP45" "RCP85"
 - 2 seed added/no = extrernal seeds present or not? TRUE/FALSE
@@ -52,7 +56,7 @@ landscape 3_2 does not have no seed scenario! (no regeneration present, so oterw
 
 
 
-```{r inspect_simulated, include=FALSE}
+```{r inspect_simulated, include=T}
 
 unique(df_sim_class$landscape)  # 12, 3 climatic, 3-5 structural in each climate cluster
 #[1] "1_1" "1_2" "1_3" "1_4" "2_1" "2_2" "2_3" "2_4" "2_5" "3_1" "3_2" "3_3"
@@ -77,70 +81,77 @@ unique(df_sim_class$run_nr)  # 5 repetitions
 
 ## Interpret simulated clusters = landscapes
 
-```{r clim_clusters_diff, include=FALSE}
+three climate-environment clusters:
+
+-  clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+-    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+-    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+
+
+```{r clim_clusters_diff, include=T, echo = F, fig.width= 5, fig.height=4}
 
 # explain climate and soil
 p.tmp <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_spei3,
+  ggplot(aes(x = clim_class,
              y = tmp)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
 
 p.prcp <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_spei3,
+  ggplot(aes(x = clim_class,
              y = prcp)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
 
 p.spei <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_spei3,
+  ggplot(aes(x = clim_class,
              y = spei3)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
 
 p.clay <- df_field_ind_sub %>% 
-  ggplot(aes(x = clim_cluster_spei3,
+  ggplot(aes(x = clim_class,
              y = clay_extract)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 0, vjust = 0.5))
 
 
-ggarrange(p.tmp, p.prcp, p.spei,p.clay, common.legend = T)
-
-
-
+ggarrange(p.tmp, p.prcp, p.spei,p.clay, common.legend = T, ncol = 2, nrow = 2)
 
 
 ```
 
+### structure:
+
+- high density, high vertical layers, high richness, low rIVI,
 
 ```{r structural_clusters_diff}
 # understand structural clusters :  ------------------
 p1 <- df_field_ind_sub %>% 
   ggplot(aes(x = cluster,
              y = rIVI,
-             fill = clim_cluster_spei3)) +
+             fill = clim_class)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 p2 <- df_field_ind_sub %>% 
   ggplot(aes(x = cluster,
              y = richness,
-             fill = clim_cluster_spei3)) +
+             fill = clim_class)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 p3 <-df_field_ind_sub %>% 
   ggplot(aes(x = cluster,
              y = stem_density,
-             fill = clim_cluster_spei3)) +
+             fill = clim_class)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 p4<-df_field_ind_sub %>% 
   ggplot(aes(x = cluster,
              y = n_vertical,
-             fill = clim_cluster_spei3)) +
+             fill = clim_class)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -148,6 +159,36 @@ ggarrange(p1,p2,p3,p4, common.legend = T)
 
 
 ```
+
+
+## Get a composite indicator of structure
+
+order the landscapes by individual indicators. scale all indicators and ad them together to order landscapes (from high structure and diverse composition low structural and compoistional diversity). 
+
+Use it to simplify naming of the simulated landscapes
+
+```{r check_landscape_composites}
+par(mfrow = c(2, 2))
+plot(df_field_ind_sub$composite_score, 
+     df_field_ind_sub$stem_density)
+
+plot(df_field_ind_sub$composite_score, 
+     df_field_ind_sub$n_vertical)
+
+plot(df_field_ind_sub$composite_score, 
+     df_field_ind_sub$richness)
+
+plot(df_field_ind_sub$composite_score, 
+     df_field_ind_sub$rIVI)
+
+
+par(mfrow = c(1, 1))
+```
+
+
+
+
+
 ## Temporal development of indicators
 
 
@@ -210,8 +251,8 @@ df_sim_indicators %>%
 
 ```
 
-```{r plot_stem_density, echo=FALSE,fig.width = 6, fig.height = 4}
-###### NUmber of vertical classes ------------------------------------
+```{r plot_stem_density, echo=FALSE,fig.width = 6, fig.height = 3}
+
 df_sim_indicators %>% 
  # change in stem density
   ggplot() + 

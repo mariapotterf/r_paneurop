@@ -98,8 +98,6 @@ df_sim_class <- df_sim_class %>%
   mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, landscape_run, sep = "_"))  # yunique run per lanscape scenario
 
 
-# write field for RMarkdown
-fwrite(df_sim_class, 'outTable/fin_sim_data.csv')
 
 
 ## filter field data for selected clusters (simulated landscapes) --------------
@@ -130,8 +128,6 @@ df_field_ind_sub <- df_indicators %>%
          str_cluster_Kilian = str_sub(cluster, -1, -1),
          clim_cluster_spei3 = factor(clim_cluster_spei3))  # add indication of the strutural cluster (1,2,3,4,5)
 
-# write field for RMarkdown
-fwrite(df_field_ind_sub, 'outTable/df_field_indicators_landscapes.csv')
 
 
 ### Check clim clustering naming :-----------------------------------------------------------------------------
@@ -545,8 +541,6 @@ df_sim_indicators <- df_sim_indicators %>%
 
 # 
 
-# write field for RMarkdown
-fwrite(df_sim_indicators, 'outTable/df_simulated_indicators.csv')
 
 
 
@@ -646,9 +640,16 @@ df_field_ind_sub <- df_field_ind_sub %>%
   ) %>%
   # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
   mutate(
-    composite_score = scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI,
+    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2),
     cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
-  )
+  ) %>% 
+  mutate(composite_class = factor(composite_score)) %>% 
+  mutate(clim_class = case_when(
+    clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+  ))  #%>% 
+  
 
 # Check the updated data with the ordered factor levels
 df_field_ind_sub %>% 
@@ -673,7 +674,7 @@ df_indicators_field <- df_indicators %>%
 df_simulated <- df_sim_indicators %>% 
   ungroup() %>%  
   mutate(type = 'simulated') %>% 
-  dplyr::select(site,  rIVI, richness, stem_density, n_vertical, clim_cluster,   clim_class,  year,   type, landscape_run)
+  dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, clim_cluster,   clim_class,  year,   type, landscape_run)
  
 
 head(df_indicators_field)
@@ -1062,3 +1063,13 @@ kruskal_test_results <- filtered_data_end %>%
     stem_density_kruskal = kruskal.test(stem_density ~ clim_class)$p.value,
     n_vertical_kruskal = kruskal.test(n_vertical ~ clim_class)$p.value
   )
+
+
+
+# Save results and tables -------------------------------------------------
+
+# write field for RMarkdown
+fwrite(df_field_ind_sub, 'outTable/df_field_indicators_landscapes.csv')
+fwrite(df_sim_indicators, 'outTable/df_simulated_indicators.csv')
+fwrite(df_sim_class, 'outTable/fin_sim_data.csv')
+
