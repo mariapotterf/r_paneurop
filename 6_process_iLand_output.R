@@ -227,29 +227,29 @@ df_sim %>%
 
 
 ## Inspect simulated data: ------------------------------------------------------
-# 12 clusters, 
-# 3 climatic models
-# 4 climate scenarios
-# 2 seed added/no
-unique(df_sim2$landscape)  # 12, 3 climatic, 4 strcutural in each climate cluster
-#[1] "1_1" "1_2" "1_3" "1_4" "2_1" "2_2" "2_3" "2_4" "2_5" "3_1" "3_2" "3_3"
-
-unique(df_sim2$species) # 24
-#[1] "acps" "cabe" "potr" "saca" "quro" "acca" "frex" "ulgl" "lade" "tico" "piab" "fasy" "psme"
-#[14] "soau" "pisy" "bepe" "abal" "alin" "algl" "soar" "coav" "acpl" "rops" "casa"
-
-
-unique(df_sim2$clim_model)
-# [1] "ICHEC" "MPI"   "NCC"  
-
-unique(df_sim2$clim_scenario)
-# [1] "HISTO" "RCP26" "RCP45" "RCP85"
-
-# external seed: external seed present or not?? TRUE/FALSE
-# years: 1-30
-unique(df_sim2$run_nr)  # 5 repetitions
-
-
+# # 12 clusters, 
+# # 3 climatic models
+# # 4 climate scenarios
+# # 2 seed added/no
+# unique(df_sim2$landscape)  # 12, 3 climatic, 4 strcutural in each climate cluster
+# #[1] "1_1" "1_2" "1_3" "1_4" "2_1" "2_2" "2_3" "2_4" "2_5" "3_1" "3_2" "3_3"
+# 
+# unique(df_sim2$species) # 24
+# #[1] "acps" "cabe" "potr" "saca" "quro" "acca" "frex" "ulgl" "lade" "tico" "piab" "fasy" "psme"
+# #[14] "soau" "pisy" "bepe" "abal" "alin" "algl" "soar" "coav" "acpl" "rops" "casa"
+# 
+# 
+# unique(df_sim2$clim_model)
+# # [1] "ICHEC" "MPI"   "NCC"  
+# 
+# unique(df_sim2$clim_scenario)
+# # [1] "HISTO" "RCP26" "RCP45" "RCP85"
+# 
+# # external seed: external seed present or not?? TRUE/FALSE
+# # years: 1-30
+# unique(df_sim2$run_nr)  # 5 repetitions
+# 
+# 
 
 ### Indicators from simulated data : ------------------------------------------------------ 
 
@@ -560,7 +560,7 @@ df_merge %>%
 
 
 
-# TEST START - for one variable
+# Summary tables -----------------------------------------------------------------
 
 # Step 1: Calculate median and IQR for field data (year = 1)
 field_summary <- df_merge %>%
@@ -646,7 +646,7 @@ data_subset_str <- df_sim_indicators %>%
   dplyr::filter(year %in% 25:30)
 
 # keep original data, to have indicators of original cluster numbers
-df_origin_values <- data_subset_str
+df_origin_values_sankey <- data_subset_str
 
 data_subset_str  <- data_subset_str[, c("dominant_species", 
                                           "rIVI", "richness",  
@@ -688,6 +688,13 @@ data_for_clustering <- cbind(data_dummied, data_normalized[, -1])
 df1 <- data_for_clustering[, -1] %>%  dplyr::filter(clim_cluster == 1)
 df2 <- data_for_clustering[, -1] %>%  dplyr::filter(clim_cluster == 2)
 df3 <- data_for_clustering[, -1] %>%  dplyr::filter(clim_cluster == 3)
+
+#
+# split original table in 3 clusters to run separately structurral cluster analysis:
+df1_full <- df_origin_values_sankey %>%  dplyr::filter(clim_cluster == 1)
+df2_full <- df_origin_values_sankey %>%  dplyr::filter(clim_cluster == 2)
+df3_full <- df_origin_values_sankey %>%  dplyr::filter(clim_cluster == 3)
+
 
 # remove last columns so they are not part of teh PCA aalysis
 df1 <- df1 %>% dplyr::select(-clim_cluster)
@@ -750,7 +757,7 @@ plot(1:length(sil_width_df3), sil_width_df3, type = "b",
 best_k_df1 <- 2 #which.max(sil_width_df1) # 2
 best_k_df2 <- 2 # 
 #which.max(sil_width_df2) # 2
-best_k_df3 <- 3 # which.max(sil_width_df3) # 3
+best_k_df3 <- 2 # which.max(sil_width_df3) # 3
 
 best_k_df1 <- which.max(sil_width_df1) # 2
 best_k_df2 <- which.max(sil_width_df2) # 2
@@ -767,12 +774,18 @@ optimal_k_clim <- 2  # from visual setup
 
 # List of data frames
 data_frames <- list(df1 = df1, df2 = df2, df3 = df3)
+#data_frames_full <- list(df1_full = df1_full, df2_full = df2_full, df3_full = df3_full)
+
+
+#set.seed(3)
+#kmeans_result <- kmeans(df3, centers = optimal_k_clim, nstart = 25)
 
 # Loop through each data frame, perform K-means, and store the results
 # Loop through each data frame, perform K-means, and store the results
 for (i in seq_along(data_frames)) {
   df_name <- names(data_frames)[i]  # Get the name of the current data frame
-  
+  (print(df_name))
+  print(i)
   # Get the current data frame
   current_df <- data_frames[[df_name]]
   
@@ -781,26 +794,33 @@ for (i in seq_along(data_frames)) {
   kmeans_result <- kmeans(current_df, centers = optimal_k_clim, nstart = 25)
   
   # Create the str_cluster format as "run_index_cluster"
-  data_frames[[df_name]]$str_cluster <- paste(i, kmeans_result$cluster, sep = "_")
+  print(paste(i, kmeans_result$cluster, sep = "_"))
+  data_frames[[df_name]]$str_cluster_end <- paste(i, kmeans_result$cluster, sep = "_")
   
 }
 
+data_frames[["df1"]]$clim_cluster <- 1
+data_frames[["df2"]]$clim_cluster <- 2
+data_frames[["df3"]]$clim_cluster <- 3
+
+df1_full$str_cluster_end <- data_frames[["df1"]]$str_cluster_end
+df2_full$str_cluster_end <- data_frames[["df2"]]$str_cluster_end
+df3_full$str_cluster_end <- data_frames[["df3"]]$str_cluster_end
 
 
-# Assuming data_frames is your list containing df1, df2, and df3
-df_str_clustering_out <- bind_rows(data_frames)
 
-# merge future structural clusters to teh origicanl data 
-df_origin_values$str_cluster_end<-df_str_clustering_out$str_cluster
+# Add cluster indication to original data
+df_str_clustering_out <- bind_rows(df1_full,df2_full,df3_full)
 
-df_origin_values_sankey <- df_origin_values
+table(df_str_clustering_out$clim_cluster, df_str_clustering_out$str_cluster_end )
+
 
 
 # make sankey plot -----------------------------------------------
 library(networkD3)
 
 # Prepare data for the Sankey plot
-sankey_data <- df_origin_values_sankey %>%
+sankey_data <- df_str_clustering_out %>%
   group_by(clim_cluster, str_cluster, str_cluster_end) %>%
   summarise(count = n(), .groups = 'drop')  # Count occurrences of each cluster pair
 
@@ -824,10 +844,10 @@ sankeyNetwork(Links = links, Nodes = nodes, Source = "source", Target = "target"
 sankey_plots <- list()
 
 # Loop through each unique clim_cluster
-for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
+for (cluster in unique(df_str_clustering_out$clim_cluster)) {
   
   # Prepare data for the Sankey plot for the current clim_cluster
-  sankey_data <- df_origin_values %>%
+  sankey_data <- df_str_clustering_out %>%
     filter(clim_cluster == cluster) %>%
     group_by(str_cluster, str_cluster_end) %>%
     summarise(count = n(), .groups = 'drop')  # Count occurrences of each cluster pair
@@ -850,7 +870,7 @@ for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
 }
 
 # To view a specific plot, e.g., for the first clim_cluster
-sankey_plots[[3]]  # Adjust the index as needed
+sankey_plots[[2]]  # Adjust the index as needed
 
 
 
@@ -1165,5 +1185,5 @@ fwrite(df_sim_indicators, 'outTable/df_simulated_indicators.csv')
 fwrite(df_sim_class,      'outTable/fin_sim_data.csv')
 fwrite(df_compare_end,    'outTable/compare_field_sim_12_lands_end.csv')
 fwrite(df_compare0,       'outTable/compare_field_sim_12_lands_start.csv')
-fwrite(df_origin_values_sankey,  'outTable/df_origin_values_sankey.csv')
+fwrite(df_str_clustering_out,  'outTable/df_str_clustering_out_sankey.csv')
 
