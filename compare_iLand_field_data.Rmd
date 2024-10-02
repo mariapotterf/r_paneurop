@@ -17,6 +17,8 @@ library(tidyr)
 library(ggplot2)
 library(ggpubr)
 
+library(networkD3)
+
 # Set theme_classic2 as the default theme for all plots
 theme_set(theme_classic2())
 ```
@@ -529,16 +531,19 @@ df_sim_indicators %>%
 
 run using predictors: as no other variables were available! (disturbance severity, distance_edge, management_intensity)
 
+
+data_subset_str  <- data_subset_str[, c("dominant_species", 
+                                          "rIVI", 
+                                          "richness",
+                                          "stem_density",
+                                          "n_vertical",
+                                          "clim_cluster")]
+                                          
 Used k-means clustering coding the dominant species as dummy variable
 
-```{r select_predictors_structure}
-data_subset_str  <- data_subset_str[, c("dominant_species", 
-                                          "rIVI", "richness",  
-                               "stem_density", "n_vertical", 
-                               "clim_cluster")]
 
-```
-                             
+
+
 
 ```{r silhouette, echo = F, fig.width=3.4, fig.height = 5}
 # Set up a 3-row layout for the plots
@@ -594,7 +599,7 @@ for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
   links <- sankey_data %>%
     mutate(source = match(str_cluster, nodes$name) - 1,  # Match the str_cluster to node indices
            target = match(str_cluster_end, nodes$name) - 1) %>%  # Match the str_cluster_end to node indices
-    select(source, target, value = count)  # Select the necessary columns
+    dplyr::select(source, target, value = count)  # Select the necessary columns
   
   # Create the Sankey plot for the current clim_cluster
   sankey_plot <- sankeyNetwork(Links = links, Nodes = nodes, Source = "source", Target = "target", 
@@ -608,18 +613,21 @@ for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
 
 ```
 
+Clim Cluster 1
 ```{r plot_sankey1}
 # To view a specific plot, e.g., for the first clim_cluster
 sankey_plots[[1]]  
 
 ```
 
+Clim cluster 2
 ```{r plot_sankey2}
 # To view a specific plot, e.g., for the first clim_cluster
 sankey_plots[[2]]  
 
 ```
 
+Clim cluster 3
 ```{r plot_sankey3}
 # To view a specific plot, e.g., for the first clim_cluster
 sankey_plots[[3]]  
