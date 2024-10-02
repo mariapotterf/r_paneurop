@@ -793,12 +793,64 @@ df_str_clustering_out <- bind_rows(data_frames)
 # merge future structural clusters to teh origicanl data 
 df_origin_values$str_cluster_end<-df_str_clustering_out$str_cluster
 
+df_origin_values_sankey <- df_origin_values
 
-# make sankey plot = alluvial
+
+# make sankey plot -----------------------------------------------
 library(networkD3)
 
+# Prepare data for the Sankey plot
+sankey_data <- df_origin_values_sankey %>%
+  group_by(clim_cluster, str_cluster, str_cluster_end) %>%
+  summarise(count = n(), .groups = 'drop')  # Count occurrences of each cluster pair
+
+# Create unique nodes
+nodes <- data.frame(name = unique(c(sankey_data$str_cluster, sankey_data$str_cluster_end)))
+
+# Create links data frame
+links <- sankey_data %>%
+  mutate(source = match(str_cluster, nodes$name) - 1,  # Match the str_cluster to node indices
+         target = match(str_cluster_end, nodes$name) - 1) %>%  # Match the str_cluster_end to node indices
+  select(source, target, value = count)  # Select the necessary columns
+
+# Create the Sankey plot
+sankeyNetwork(Links = links, Nodes = nodes, Source = "source", Target = "target", Value = "value",
+              NodeID = "name", units = "TWh", fontSize = 12, nodeWidth = 30)
 
 
+# for individual groups
+
+# Prepare a list to store plots
+sankey_plots <- list()
+
+# Loop through each unique clim_cluster
+for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
+  
+  # Prepare data for the Sankey plot for the current clim_cluster
+  sankey_data <- df_origin_values %>%
+    filter(clim_cluster == cluster) %>%
+    group_by(str_cluster, str_cluster_end) %>%
+    summarise(count = n(), .groups = 'drop')  # Count occurrences of each cluster pair
+  
+  # Create unique nodes
+  nodes <- data.frame(name = unique(c(sankey_data$str_cluster, sankey_data$str_cluster_end)))
+  
+  # Create links data frame
+  links <- sankey_data %>%
+    mutate(source = match(str_cluster, nodes$name) - 1,  # Match the str_cluster to node indices
+           target = match(str_cluster_end, nodes$name) - 1) %>%  # Match the str_cluster_end to node indices
+    select(source, target, value = count)  # Select the necessary columns
+  
+  # Create the Sankey plot for the current clim_cluster
+  sankey_plot <- sankeyNetwork(Links = links, Nodes = nodes, Source = "source", Target = "target", 
+                               Value = "value", NodeID = "name", units = "TWh", fontSize = 12, nodeWidth = 30)
+  
+  # Store the plot in the list
+  sankey_plots[[as.character(cluster)]] <- sankey_plot
+}
+
+# To view a specific plot, e.g., for the first clim_cluster
+sankey_plots[[3]]  # Adjust the index as needed
 
 
 
@@ -1113,4 +1165,5 @@ fwrite(df_sim_indicators, 'outTable/df_simulated_indicators.csv')
 fwrite(df_sim_class,      'outTable/fin_sim_data.csv')
 fwrite(df_compare_end,    'outTable/compare_field_sim_12_lands_end.csv')
 fwrite(df_compare0,       'outTable/compare_field_sim_12_lands_start.csv')
+fwrite(df_origin_values_sankey,  'outTable/df_origin_values_sankey.csv')
 
