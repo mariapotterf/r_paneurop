@@ -1,11 +1,11 @@
 ---
-title: "Can current state of regeneration predict future stand development?"
+title: "Post-disturbance indicators for future stand development"
 author: "Maria Potterf"
 date: "2024-09-30"
 output: 
   html_document:
     toc: true           # Enables the table of contents
-    toc_depth: 2        # Sets the level of headers included in the TOC
+    toc_depth: 3        # Sets the level of headers included in the TOC
     toc_float: true     # Makes the TOC float and always visible while scrolling
 ---
 
@@ -21,14 +21,21 @@ library(ggpubr)
 theme_set(theme_classic2())
 ```
 
-## Overview
+# Overview
 
-In this overview, we focus on understanding of how how indicative the observation of the post-disturbance tree regeneration can be for future forest development. E.g., how will the structure and composition change in tehe future?
+In this overview, we focus on understanding of how how indicative the observation of the post-disturbance tree regeneration can be for future forest development. E.g., how will the structure and composition change in the future?
 
-Simulation:
+*Simulations*:
 
-12 landscapes (teh most indicative in terms of climate, environment, structure and compositio)
-development 0-30 years
+ - 12 simulated landscapes (3 climatic clusters, 4+5+3 structural clusters)
+ - 3 climatic models = "ICHEC" "MPI"   "NCC"  
+ - 4 climate scenarios = "HISTO" "RCP26" "RCP45" "RCP85"
+ - 2 seed added/no = external seeds present or not? TRUE/FALSE
+ - 5 repetitions
+ - in total 1380 runs
+
+landscape 3_2 does not have no seed scenario! (no regeneration present, so otherwise there would be no trees)
+
 
 
 
@@ -51,6 +58,13 @@ df_compare_end <- fread('outTable/compare_field_sim_12_lands_end.csv')
 df_compare0 <- fread(      'outTable/compare_field_sim_12_lands_start.csv')
 
 
+# read silhouette data - first tests!
+sil_width_all <- fread("outTable/sil_width_test1.csv")
+
+
+# read first sankey data
+df_origin_values_sankey <- fread('outTable/df_origin_values_sankey.csv')
+
 
 # Display the first few rows of the data
 head(df_sim_class)
@@ -59,7 +73,7 @@ head(df_sim_indicators)
 ```
 
 
-```{r functions}
+```{r functions, echo = F}
 create_scatter_plot <- function(data, x_var, y_var, x_label, y_label, title) {
   # Get unique clusters and assign colors
   unique_clusters <- unique(data$landscape)
@@ -74,26 +88,18 @@ create_scatter_plot <- function(data, x_var, y_var, x_label, y_label, title) {
     labs(title = title, x = x_label, y = y_label) +
     theme_classic() +
     scale_color_manual(values = colors, 
-                       guide = guide_legend(override.aes = list(size = 4, alpha = 1))) #+
-    #facet_wrap(.~ext_seed)
+                       guide = guide_legend(override.aes = list(size = 4, alpha = 1))) +
+    facet_wrap(.~ext_seed)
 }
 
 
 ```
 
-# Simulated data
-
- - 12 simulated landscapes (3 climatic clusters, 4+5+3 structural clusters)
-- 3 climatic models = "ICHEC" "MPI"   "NCC"  
-- 4 climate scenarios = "HISTO" "RCP26" "RCP45" "RCP85"
-- 2 seed added/no = extrernal seeds present or not? TRUE/FALSE
-- 5 repetitions
-
-landscape 3_2 does not have no seed scenario! (no regeneration present, so otherwise there would be no trees)
 
 
 
-```{r inspect_simulated, include=T}
+
+```{r inspect_simulated, include=F}
 
 unique(df_sim_class$landscape)  # 12, 3 climatic, 3-5 structural in each climate cluster
 #[1] "1_1" "1_2" "1_3" "1_4" "2_1" "2_2" "2_3" "2_4" "2_5" "3_1" "3_2" "3_3"
@@ -116,16 +122,18 @@ unique(df_sim_class$run_nr)  # 5 repetitions
 ```
 
 
-## Interpret simulated clusters = landscapes
+# Interpret simulated data
 
-three climate-environment clusters:
+##  climate-environment clusters:
 
 -  clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
 -    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
 -    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
 
+Each clim_env cluster has several structral clusters
 
-```{r clim_clusters_diff, include=T, echo = F, fig.width= 5, fig.height=4}
+
+```{r clim_clusters_diff, include=T, echo = F}
 
 # explain climate and soil
 p.tmp <- df_field_ind_sub %>% 
@@ -158,35 +166,35 @@ ggarrange(p.tmp, p.prcp, p.spei,p.clay, common.legend = T, ncol = 2, nrow = 2)
 
 ```
 
-### structure:
+## Structural clusters:
 
-- high density, high vertical layers, high richness, low rIVI,
+- high density, high vertical layers, high richness, low rIVI
 
-```{r structural_clusters_diff}
+```{r structural_clusters_diff, include = T, echo = F}
 # undetsrtand structural clusters
 p1 <- df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
+  ggplot(aes(x = landscape,
              y = rIVI,
              fill = clim_class)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 p2 <- df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
+  ggplot(aes(x = landscape,
              y = richness,
              fill = clim_class)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 p3 <-df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
+  ggplot(aes(x = landscape,
              y = stem_density,
              fill = clim_class)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 p4<-df_field_ind_sub %>% 
-  ggplot(aes(x = cluster,
+  ggplot(aes(x = landscape,
              y = n_vertical,
              fill = clim_class)) +
   geom_col() +
@@ -197,12 +205,57 @@ ggarrange(p1,p2,p3,p4, common.legend = T)
 
 ```
 
+## Composite indicator 
 
-# how does simulated data fit to field data?
+order the landscapes by individual indicators. scale all indicators and add them together to order landscapes (from high structural and compositional  diversity to low structural and compositional diversity). 
 
-check first on 12 landscapes: fit 1:1
-- check at year 0
-- check at the end of simulation: year 25:30
+Use it to simplify naming of the simulated landscapes
+
+```{r check_landscape_composites, echo = F}
+# par(mfrow = c(2, 2))
+# plot(df_field_ind_sub$composite_score, 
+#      df_field_ind_sub$stem_density)
+# 
+# plot(df_field_ind_sub$composite_score, 
+#      df_field_ind_sub$n_vertical)
+# 
+# plot(df_field_ind_sub$composite_score, 
+#      df_field_ind_sub$richness)
+# 
+# plot(df_field_ind_sub$composite_score, 
+#      df_field_ind_sub$rIVI)
+
+
+#par(mfrow = c(1, 1))
+```
+
+
+High composite score = high structural and compositional diversity
+
+(my intension here was to order landscapes by the most diverse to the least diverse, but i have not implemented this all the way yet)
+
+
+```{r get_landscapes_vs_composite}
+
+df_field_ind_sub %>% 
+  dplyr::select(composite_score,
+               landscape) %>% 
+  arrange(-composite_score)
+
+
+```
+
+# Plots
+
+## 1:1 plots: 12 landscapes
+
+check first on 12 landscapes: fit 1:1: field data vs simulated data in year 1
+
+### Year 0: Beginning of simulation 
+
+How simulated data in year 0 correspond to field data?
+
+The data show teh same pattern within seed - no eeds scenarios, as there is not much influence of seeds in year 1
 
 
 ```{r compare_field_begin_simulation, echo = F}
@@ -243,7 +296,14 @@ ggarrange(p0.1, p0.2, p0.3, p0.4, ncol = 2, nrow = 2, common.legend = T, align =
 
 ```
 
-```{r compare_field_end_simulation}
+### Years 25:30 = End of simulation 
+
+- including seeds lowers rIVI, increases richness, stem density and number of vertical layers. Red dashed line represents 1:1 scenarios (not different axes). 
+
+Plots are jitter plots, therefre some values ay seems out of range.
+
+
+```{r compare_field_end_simulation, echo = F}
 # Create individual plots using the function
 p1 <- create_scatter_plot(df_compare_end, 
                           x_var = "rIVI_simul", 
@@ -284,39 +344,13 @@ ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2, common.legend = TRUE,
 ```
 
 
-## Get a composite indicator of structure
-
-order the landscapes by individual indicators. scale all indicators and ad them together to order landscapes (from high structure and diverse composition low structural and compoistional diversity). 
-
-Use it to simplify naming of the simulated landscapes
-
-```{r check_landscape_composites}
-par(mfrow = c(2, 2))
-plot(df_field_ind_sub$composite_score, 
-     df_field_ind_sub$stem_density)
-
-plot(df_field_ind_sub$composite_score, 
-     df_field_ind_sub$n_vertical)
-
-plot(df_field_ind_sub$composite_score, 
-     df_field_ind_sub$richness)
-
-plot(df_field_ind_sub$composite_score, 
-     df_field_ind_sub$rIVI)
 
 
-par(mfrow = c(1, 1))
-```
+## Temporal development of indicators: by landscapes
 
+### Richness
 
-
-
-
-## Temporal development of indicators
-
-
-```{r plot_richness, echo=FALSE, fig.width = 6, fig.height = 4}
-###### Species richness ------------------------------------
+```{r plot_richness, echo=FALSE, fig.width = 5, fig.height = 3}
 df_sim_indicators %>% 
   ggplot() + 
   geom_line(aes(x = year,
@@ -329,16 +363,16 @@ df_sim_indicators %>%
                fun = median, 
                geom = "line", 
                linewidth = 0.8) +
-  facet_wrap(. ~ext_seed)
+  facet_wrap(. ~ext_seed) +
+  theme(legend.position = 'right')
 
 
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### rIVI
 
-```{r plot_rIVI, echo=FALSE,fig.width = 6, fig.height = 4}
-###### Species richness ------------------------------------
+```{r plot_rIVI, echo=FALSE,fig.width = 5, fig.height = 3}
 df_sim_indicators %>% 
   ggplot() + 
   geom_line(aes(x = year,
@@ -351,13 +385,14 @@ df_sim_indicators %>%
                fun = median, 
                geom = "line", 
                linewidth = 0.8) +
-  facet_wrap(. ~ext_seed)
+  facet_wrap(. ~ext_seed) +
+  theme(legend.position = 'right')
 
 
 
 ```
-```{r plot_vertical, echo=FALSE, fig.width = 6, fig.height = 4}
-###### NUmber of vertical classes ------------------------------------
+### n_vertical
+```{r plot_vertical, echo=FALSE, fig.width = 5, fig.height = 3}
 df_sim_indicators %>% 
   ggplot() + 
   geom_line(aes(x = year,
@@ -370,11 +405,13 @@ df_sim_indicators %>%
                fun = median, 
                geom = "line", 
                linewidth = 0.8) +
-  facet_wrap(. ~ext_seed)
+  facet_wrap(. ~ext_seed) +
+  theme(legend.position = 'right')
 
 ```
 
-```{r plot_stem_density, echo=FALSE,fig.width = 6, fig.height = 3}
+### Stem density
+```{r plot_stem_density, echo=FALSE,fig.width = 5, fig.height = 3}
 
 df_sim_indicators %>% 
  # change in stem density
@@ -392,5 +429,199 @@ df_sim_indicators %>%
 
 
 
+
+```
+
+
+# Temporal development: by advanced vs delayed regeneration
+
+
+### Richness
+
+```{r plot_richness2, echo=FALSE, fig.width = 5, fig.height = 3}
+
+#head(df_sim_indicators)
+###### Species richness ------------------------------------
+df_sim_indicators %>% 
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = richness,
+                color = adv_delayed,
+                group = unique_sim_run), alpha = 0.1) +
+  theme(legend.position = 'bottom')+
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = richness, group = adv_delayed, color = adv_delayed), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(. ~ext_seed) +
+  theme(legend.position = 'right')
+
+
+
+```
+
+### rIVI
+
+```{r plot_rIVI2, echo=FALSE,fig.width = 5, fig.height = 3}
+df_sim_indicators %>% 
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = rIVI,
+                color = adv_delayed,
+                group = unique_sim_run), alpha = 0.1) +
+  theme(legend.position = 'bottom')+
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = rIVI, group = adv_delayed, color = adv_delayed), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(. ~ext_seed) +
+  theme(legend.position = 'right')
+
+
+
+```
+### n_vertical
+```{r plot_vertical2, echo=FALSE, fig.width = 5, fig.height = 3}
+###### NUmber of vertical classes ------------------------------------
+df_sim_indicators %>% 
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = n_vertical,
+                color = adv_delayed,
+                group = unique_sim_run), alpha = 0.1) +
+  theme(legend.position = 'bottom') +
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = n_vertical, group = adv_delayed, color = adv_delayed), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(. ~ext_seed) +
+  theme(legend.position = 'right')
+
+```
+
+### Stem density
+```{r plot_stem_density2, echo=FALSE,fig.width = 5, fig.height = 3}
+
+df_sim_indicators %>% 
+ # change in stem density
+  ggplot() + 
+  geom_line(aes(x = year,
+                y = stem_density,
+                color = adv_delayed,
+                group = unique_sim_run), alpha = 0.1) + 
+   # Add median line using stat_summary
+  stat_summary(aes(x = year, y = stem_density, group = adv_delayed, color = adv_delayed), 
+               fun = median, 
+               geom = "line", 
+               linewidth = 0.8) +
+  facet_wrap(.~ext_seed)
+
+
+
+
+```
+
+
+# Structural cluster analysis
+
+run using predictors: as no other variables were available! (disturbance severity, distance_edge, management_intensity)
+
+Used k-means clustering coding the dominant species as dummy variable
+
+```{r select_predictors_structure}
+data_subset_str  <- data_subset_str[, c("dominant_species", 
+                                          "rIVI", "richness",  
+                               "stem_density", "n_vertical", 
+                               "clim_cluster")]
+
+```
+                             
+
+```{r silhouette, echo = F, fig.width=3.4, fig.height = 5}
+# Set up a 3-row layout for the plots
+par(mfrow = c(3, 1))  # Arrange plots in a single column
+
+# Calculate the global ylim to keep consistent scale across all plots
+ylim_global <- c(0, max(sil_width_all, na.rm = TRUE))
+
+# Plot for df1
+plot(1:nrow(sil_width_all), sil_width_all$sil_width_df1, type = "b", 
+     xlab = "Number of clusters", ylab = "Average Silhouette width", 
+     main = "Silhouette Analysis for df1", ylim = ylim_global)
+
+# Plot for df2
+plot(1:nrow(sil_width_all), sil_width_all$sil_width_df2, type = "b", 
+     xlab = "Number of clusters", ylab = "Average Silhouette width", 
+     main = "Silhouette Analysis for df2", ylim = ylim_global)
+
+# Plot for df3
+plot(1:nrow(sil_width_all), sil_width_all$sil_width_df3, type = "b", 
+     xlab = "Number of clusters", ylab = "Average Silhouette width", 
+     main = "Silhouette Analysis for df3", ylim = ylim_global)
+
+
+```
+
+## Sankey plot: structural groups development
+
+compare the structural clusters between the origin (field data) and future development (year 25:30). 
+
+I selected only single scenario here for visualization.
+
+```{r plot_sankey, echo=F}
+
+# for individual groups
+
+# Prepare a list to store plots
+sankey_plots <- list()
+
+# Loop through each unique clim_cluster
+for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
+  
+  # Prepare data for the Sankey plot for the current clim_cluster
+  sankey_data <- df_origin_values_sankey %>%
+    filter(clim_cluster == cluster) %>%
+    group_by(str_cluster, str_cluster_end) %>%
+    summarise(count = n(), .groups = 'drop')  # Count occurrences of each cluster pair
+  
+  # Create unique nodes
+  nodes <- data.frame(name = unique(c(sankey_data$str_cluster, sankey_data$str_cluster_end)))
+  
+  # Create links data frame
+  links <- sankey_data %>%
+    mutate(source = match(str_cluster, nodes$name) - 1,  # Match the str_cluster to node indices
+           target = match(str_cluster_end, nodes$name) - 1) %>%  # Match the str_cluster_end to node indices
+    select(source, target, value = count)  # Select the necessary columns
+  
+  # Create the Sankey plot for the current clim_cluster
+  sankey_plot <- sankeyNetwork(Links = links, Nodes = nodes, Source = "source", Target = "target", 
+                               Value = "value", NodeID = "name", units = "TWh", fontSize = 12, nodeWidth = 30)
+  
+  # Store the plot in the list
+  sankey_plots[[as.character(cluster)]] <- sankey_plot
+}
+
+
+
+```
+
+```{r plot_sankey1}
+# To view a specific plot, e.g., for the first clim_cluster
+sankey_plots[[1]]  
+
+```
+
+```{r plot_sankey2}
+# To view a specific plot, e.g., for the first clim_cluster
+sankey_plots[[2]]  
+
+```
+
+```{r plot_sankey3}
+# To view a specific plot, e.g., for the first clim_cluster
+sankey_plots[[3]]  
 
 ```
