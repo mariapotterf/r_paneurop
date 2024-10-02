@@ -53,6 +53,9 @@ df_sim_indicators <- fread('outTable/df_simulated_indicators.csv')
 # subset of field data: 12 landscapes
 df_field_ind_sub <- fread('outTable/df_field_indicators_landscapes.csv')
 
+# subset indicators to merge with sankey plot
+df_field_ind_sub2 <- df_field_ind_sub %>% 
+  dplyr::select(landscape, clim_cluster_spei3)
 
 # compare 12 clusters: beginning (year 0) and end (year 25:30)
 df_compare_end <- fread('outTable/compare_field_sim_12_lands_end.csv')
@@ -65,7 +68,7 @@ sil_width_all <- fread("outTable/sil_width_test1.csv")
 
 
 # read first sankey data
-df_origin_values_sankey <- fread('outTable/df_origin_values_sankey.csv')
+df_str_clustering_out <- fread('outTable/df_str_clustering_out_sankey.csv')
 
 
 # Display the first few rows of the data
@@ -545,7 +548,7 @@ Used k-means clustering coding the dominant species as dummy variable
 
 
 
-```{r silhouette, echo = F, fig.width=3.4, fig.height = 5}
+```{r silhouette, echo = F, fig.width=3, fig.height = 6}
 # Set up a 3-row layout for the plots
 par(mfrow = c(3, 1))  # Arrange plots in a single column
 
@@ -574,20 +577,23 @@ plot(1:nrow(sil_width_all), sil_width_all$sil_width_df3, type = "b",
 
 compare the structural clusters between the origin (field data) and future development (year 25:30). 
 
-I selected only single scenario here for visualization.
+I selected only **single NO SEEDS scenario** here for visualization. Without seeds, the structurs are simplifying over time. 
 
 ```{r plot_sankey, echo=F}
 
 # for individual groups
 
+df_str_clustering_out2 <- df_str_clustering_out %>% 
+  left_join(df_field_ind_sub2, by = join_by(landscape))
+
 # Prepare a list to store plots
 sankey_plots <- list()
 
 # Loop through each unique clim_cluster
-for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
+for (cluster in unique(df_str_clustering_out$clim_cluster)) {
   
   # Prepare data for the Sankey plot for the current clim_cluster
-  sankey_data <- df_origin_values_sankey %>%
+  sankey_data <- df_str_clustering_out %>%
     filter(clim_cluster == cluster) %>%
     group_by(str_cluster, str_cluster_end) %>%
     summarise(count = n(), .groups = 'drop')  # Count occurrences of each cluster pair
@@ -614,21 +620,21 @@ for (cluster in unique(df_origin_values_sankey$clim_cluster)) {
 ```
 
 Clim Cluster 1
-```{r plot_sankey1}
+```{r plot_sankey1, echo=F, fig.width=5, fig.height=4}
 # To view a specific plot, e.g., for the first clim_cluster
 sankey_plots[[1]]  
 
 ```
 
 Clim cluster 2
-```{r plot_sankey2}
+```{r plot_sankey2,fig.width=5, fig.height=4}
 # To view a specific plot, e.g., for the first clim_cluster
 sankey_plots[[2]]  
 
 ```
 
 Clim cluster 3
-```{r plot_sankey3}
+```{r plot_sankey3,fig.width=5, fig.height=4}
 # To view a specific plot, e.g., for the first clim_cluster
 sankey_plots[[3]]  
 
