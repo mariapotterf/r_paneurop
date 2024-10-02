@@ -2,10 +2,10 @@
 # Process: 
 # Get indicators from simulated data
 # - read iLand simulated data - simulated by Kilian on 29/06/2024
-# - get vertical classes
-# - calculate indicators form simulated data
-# - average values between no seed and seed scenario - complete later by sensitivity analysis
-# - evaluate they cchange change over time, how thtable they are given the clim cluster
+
+# Calculate indicators from simulated data
+# temporal develpment
+#- evaluate they cchange change over time, how thtable they are given the clim cluster
 
 
 # pre-analysis
@@ -42,9 +42,9 @@ library(tidyr)
 
 
 # Cluster analysis
-#library(cluster)
+library(cluster)
 
-# Process input data -----------------------------------------------------------
+# Input data -----------------------------------------------------------
 # get simulated data
 df_sim <- fread('outTable/df_simulated.csv')
 head(df_sim)
@@ -53,7 +53,41 @@ head(df_sim)
 df_field     <- fread('outData/veg_density_DBH.csv')
 df_indicators <- fread('outData/indicators_for_cluster_analysis.csv') # summarized on plot level
 
+# structural clusters numbers ---------------------------------------------------
 df_str_compos_clusters_full <- fread('rawData/iLand/Cluster_Plots.csv')  # structural and clusters indications for analysis from Kilian
+
+# vegetation data -----------
+# get stem density for juveniles and saplings: to check advanced vs delayed regeneration
+# eg is advanced regeneration more stable then delayed ones?
+
+# final tables on site level
+df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
+
+
+# create table to subset the full field data into landscapes
+# Create the data frame with the given pairs
+df_sites_clusters <- data.frame(
+  site = c("23_132", 
+           "26_134", "15_133", "17_104", "22_101", "12_151",
+           "24_146", "20_116", "12_117", "11_145", "19_160", "25_150"),
+  cluster = c("1_1", "1_2", "1_3", "1_4", "2_1", "2_2",
+              "2_3", "2_4", "2_5", "3_1", "3_2", "3_3")
+)
+
+# split into delayed vs advanced
+df_vegetation_sub <- df_fin %>% 
+  ungroup() %>% 
+  dplyr::select(site,
+               # stem_density,
+                sum_stems_juvenile, 
+                sum_stems_sapling, 
+                sum_stems_mature) %>% 
+  mutate(stem_regeneration = sum_stems_juvenile + sum_stems_sapling) %>% 
+  mutate(adv_delayed = ifelse(stem_regeneration <= 50, "Delayed", 
+                              ifelse(sum_stems_juvenile >= 1000, "Advanced", "Med"))) %>% # Add the 3rd category
+  right_join(df_sites_clusters)
+
+
 # List average field data as input for the landscape level simulation
 # "23_132" - "1_1"
 # "26_134" - "1_2"
@@ -68,22 +102,13 @@ df_str_compos_clusters_full <- fread('rawData/iLand/Cluster_Plots.csv')  # struc
 # "19_160" - "3_2"
 # "25_150" - "3_3"
 
-# Create the data frame with the given pairs
-df_sites_clusters <- data.frame(
-  site = c("23_132", 
-           "26_134", "15_133", "17_104", "22_101", "12_151",
-           "24_146", "20_116", "12_117", "11_145", "19_160", "25_150"),
-  cluster = c("1_1", "1_2", "1_3", "1_4", "2_1", "2_2",
-              "2_3", "2_4", "2_5", "3_1", "3_2", "3_3")
-)
+
 
 
 # name the clusters from Kilian: if cluster analysis is run separately, the numbers do not fit! therefore,
 # check the naming from plots (boxplot) an rename them to fit
 df_sim_class <- df_sim %>%
   rename(landscape = cluster) %>% 
-  mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(landscape, -1, -1))  %>% # add indication of the strutural cluster (1,2,3,4,5) 
   mutate(clim_class = case_when(
     clim_cluster == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
     clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
@@ -97,14 +122,23 @@ head(df_sim_class)
 df_sim_class <- df_sim_class %>% 
   mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, landscape_run, sep = "_"))  # yunique run per lanscape scenario
 
+# get delayed vs adanced regeeneration indication ------------------------------
+# split into delayed vs advanced
+#df_fin_sub <- 
+  df_fin_sub %>%
+  #rename(landscape = cluster) %>%
+  right_join(df_sites_clusters) #%>%
+
+
+
 
 
 ## filter field data for selected clusters (simulated landscapes) --------------
 df_field_sub <- df_field %>%
   rename(landscape = cluster) %>%
-  right_join(df_sites_clusters) %>%
-  mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         str_cluster = str_sub(landscape, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
+  right_join(df_sites_clusters) #%>%
+  #mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
+      #   str_cluster = str_sub(landscape, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
 
 # get Landsscape indicators for all of locations:
@@ -217,7 +251,7 @@ unique(df_sim2$run_nr)  # 5 repetitions
 
 
 
-### Indicators from simulated ata : ------------------------------------------------------ 
+### Indicators from simulated data : ------------------------------------------------------ 
 
 # richness
 # rIVI
@@ -226,12 +260,7 @@ unique(df_sim2$run_nr)  # 5 repetitions
 # summarize across simulation repetition and across the clim model
 
 
-
-
-
-
-##### Indicators from all simulation runs  -------------------------
-###### Species richness ------------------------------------
+#### Species richness ------------------------------------
 
 # Get grouping table : 1380 unique simulations combination
 df_simulations_groups <- df_sim_class %>% 
@@ -323,9 +352,7 @@ df_sim_indicators <-
   left_join(df_richness) %>% 
   left_join(df_IVI) %>%
   left_join(df_structure) #%>% 
-  #mutate(clim_cluster_kilian = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-   #      str_cluster_Kilian = str_sub(cluster, -1, -1)) 
-
+  
 # landscaepe 3_2 has only 'seed' scenario: no seed would lead to no tree regeneration
 # replace NA values by 0 
 df_sim_indicators <- df_sim_indicators %>%
@@ -349,12 +376,10 @@ df_sim_indicators <- df_sim_indicators %>%
   mutate(
     composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)) 
 
+
+# add indication of advanced vs delayed vegetation: advanced >1000 juveniles, delayed < 50 stems/ha
 df_sim_indicators <- df_sim_indicators %>% 
-  mutate(
-    landscape = factor(landscape, levels = landscape[order(composite_score, decreasing = TRUE)])
-  ) 
-
-
+  left_join(df_vegetation_sub, by= c("landscape" = "cluster"))
 
 
 ##### evaluate initial state with my sites (only 12 sites! )   -------------------------
@@ -601,7 +626,179 @@ df_merge %>%
   
   labs(x = "Year", y = "Stem Density") +
   theme_classic2()
-#TEST END
+
+
+# get structural cluster analysis -------------------------------------------------
+# for data 25:30 years after simulation\
+head(df_sim_indicators)
+
+
+# Simulated: run structural cluster anaysis, for each clim cluster separately --------------
+
+# Subset the data
+# "dominant_species", 
+# note that disturbace characteristica are missing from here!
+
+# select last decade
+data_subset_str <- df_sim_indicators %>% 
+  # select only one scenario (climate is missing but that is ok)
+  dplyr::filter(clim_model  == 'ICHEC' & ext_seed == 'noseed') %>% 
+  dplyr::filter(year %in% 25:30)
+
+# keep original data, to have indicators of original cluster numbers
+df_origin_values <- data_subset_str
+
+data_subset_str  <- data_subset_str[, c("dominant_species", 
+                                          "rIVI", "richness",  
+                               "stem_density", "n_vertical", 
+                               "clim_cluster")]
+
+
+
+# Convert dominant_species to factor
+data_subset_str$dominant_species <- as.factor(data_subset_str$dominant_species)
+
+# Normalize the quantitative variables for clustering
+data_normalized <- data_subset_str %>%
+  mutate(across(c(rIVI, richness, stem_density, n_vertical), scale)) %>% 
+  as.data.frame()
+
+# Check for missing species and their indices
+empty_species_indices <- which(is.na(data_subset_str$dominant_species) | data_subset_str$dominant_species == "")
+
+
+# Dummy code the categorical variable
+data_dummied <- model.matrix(~dominant_species - 1, data = data_normalized)
+data_dummied <- as.data.frame(data_dummied)
+
+# Create a matrix of NA with the same number of columns as data_dummied
+if (length(empty_species_indices) > 0) {
+  na_rows <- matrix(NA, nrow = length(empty_species_indices), ncol = ncol(data_dummied))
+  colnames(na_rows) <- colnames(data_dummied)
+  
+  # Combine the dummy coded categorical variable with NA rows
+  data_dummied <- rbind(data_dummied, na_rows)
+}
+
+# Combine the dummy coded categorical variable with the normalized quantitative variables
+data_for_clustering <- cbind(data_dummied, data_normalized[, -1])
+
+# avoid dummy variables, hard to read
+# split table in 3 clusters to run separately structurral cluster analysis:
+df1 <- data_for_clustering[, -1] %>%  dplyr::filter(clim_cluster == 1)
+df2 <- data_for_clustering[, -1] %>%  dplyr::filter(clim_cluster == 2)
+df3 <- data_for_clustering[, -1] %>%  dplyr::filter(clim_cluster == 3)
+
+# remove last columns so they are not part of teh PCA aalysis
+df1 <- df1 %>% dplyr::select(-clim_cluster)
+df2 <- df2 %>% dplyr::select(-clim_cluster)
+df3 <- df3 %>% dplyr::select(-clim_cluster)
+
+nrow(df1)
+nrow(df2)
+nrow(df3)
+
+# Find which number of clusters is teh best
+# Perform K-means clustering for different values of k
+
+# Function to perform K-means clustering and return silhouette widths
+find_best_k <- function(data, max_clusters = 10) {
+  sil_width <- numeric(max_clusters)
+  
+  for (k in 2:max_clusters) {
+    kmeans_result <- kmeans(data, centers = k, nstart = 25)
+    sil <- silhouette(kmeans_result$cluster, dist(data))
+    sil_width[k] <- mean(sil[, 3])
+  }
+  
+  # Return the silhouette widths
+  return(sil_width)
+}
+
+# Find the best number of clusters for each data frame
+sil_width_df1 <- find_best_k(df1)
+sil_width_df2 <- find_best_k(df2)
+sil_width_df3 <- find_best_k(df3)
+
+sil_width_all = cbind(sil_width_df1,
+                      sil_width_df2,
+                      sil_width_df3)
+sil_width_all <- as.data.frame(sil_width_all)
+
+fwrite(sil_width_all, 'outTable/sil_width_test1.csv')
+#fwrite(df_compare0,       'outTable/compare_field_sim_12_lands_start.csv')
+
+# Plot Silhouette widths for each data frame
+par(mfrow = c(3, 1))  # Arrange plots in a single column
+
+# Plot for df1
+plot(1:length(sil_width_all$sil_width_df1), sil_width_df1, type = "b", 
+     xlab = "Number of clusters", ylab = "Average Silhouette width", 
+     main = "Silhouette Analysis for df1", ylim = c(0, max(c(sil_width_df1, sil_width_df2, sil_width_df3), na.rm = TRUE)))
+
+# Plot for df2
+plot(1:length(sil_width_df2), sil_width_df2, type = "b", 
+     xlab = "Number of clusters", ylab = "Average Silhouette width", 
+     main = "Silhouette Analysis for df2", ylim = c(0, max(c(sil_width_df1, sil_width_df2, sil_width_df3), na.rm = TRUE)))
+
+# Plot for df3
+plot(1:length(sil_width_df3), sil_width_df3, type = "b", 
+     xlab = "Number of clusters", ylab = "Average Silhouette width", 
+     main = "Silhouette Analysis for df3", ylim = c(0, max(c(sil_width_df1, sil_width_df2, sil_width_df3), na.rm = TRUE)))
+
+
+best_k_df1 <- 2 #which.max(sil_width_df1) # 2
+best_k_df2 <- 2 # 
+#which.max(sil_width_df2) # 2
+best_k_df3 <- 3 # which.max(sil_width_df3) # 3
+
+best_k_df1 <- which.max(sil_width_df1) # 2
+best_k_df2 <- which.max(sil_width_df2) # 2
+best_k_df3 <- which.max(sil_width_df3) # 3
+(best_k_df1)
+(best_k_df2)
+(best_k_df3)
+
+# Determine the optimal number of clusters
+#optimal_k_clim <- best_k_df1  # from Kilian's study
+
+# Set the optimal number of clusters
+optimal_k_clim <- 2  # from visual setup
+
+# List of data frames
+data_frames <- list(df1 = df1, df2 = df2, df3 = df3)
+
+# Loop through each data frame, perform K-means, and store the results
+# Loop through each data frame, perform K-means, and store the results
+for (i in seq_along(data_frames)) {
+  df_name <- names(data_frames)[i]  # Get the name of the current data frame
+  
+  # Get the current data frame
+  current_df <- data_frames[[df_name]]
+  
+  # Perform K-means clustering with the optimal number of clusters
+  set.seed(3)
+  kmeans_result <- kmeans(current_df, centers = optimal_k_clim, nstart = 25)
+  
+  # Create the str_cluster format as "run_index_cluster"
+  data_frames[[df_name]]$str_cluster <- paste(i, kmeans_result$cluster, sep = "_")
+  
+}
+
+
+
+# Assuming data_frames is your list containing df1, df2, and df3
+df_str_clustering_out <- bind_rows(data_frames)
+
+# merge future structural clusters to teh origicanl data 
+df_origin_values$str_cluster_end<-df_str_clustering_out$str_cluster
+
+
+# make sankey plot = alluvial
+library(networkD3)
+
+
+
 
 
 
