@@ -303,6 +303,25 @@ stem_dens_species_long %>%
 #View()
 
 
+# get density plot per vertical class and species
+
+# Summarize the data by VegType and Species
+df_sum_stems_vertical <- stem_dens_species_long %>%
+  group_by(cluster, VegType, Species) %>%
+  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  arrange(sum_stems) 
+
+
+# Create the density plot using ggplot2
+ggplot(df_sum_stems_vertical, aes(x = sum_stems, fill = VegType)) +
+  geom_density(alpha = 0.4) +  # Semi-transparent density plot
+  facet_wrap(~ Species, scales = "free_y") +  # Facet by species with independent y scales
+  labs(title = "Density Plot of Stem Density per Species and Vegetation Type",
+       x = "Stem Density",
+       y = "Density") +
+  theme_minimal() +  # Clean theme
+  theme(legend.position = "top")  # Move legend to the top
 
 # Species composition: vertical class  ------------------------------------
 # Summarize the data by VegType and Species
@@ -334,32 +353,6 @@ species_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)
 # Map colors to each species
 mean_stems_vertical$color <- species_colors[as.numeric(mean_stems_vertical$Species)]
 
-#### 3D Plot using latticeExtra ----------------------
-
-# Set up PNG device with 300 DPI and 7x7 inch size
-png(filename = "outFigs/3D_bar_plot_trees_species.png", width = 7, height = 7, units = "in", res = 300)
-
-
-# Create a 3D bar plot using latticeExtra
-cloud(mean_stems ~ Species * VegType, data = mean_stems_vertical,
-      panel.3d.cloud = panel.3dbars, 
-      col.facet = mean_stems_vertical$color,  # Use the color for each species
-      xbase = 0.4, 
-      ybase = 0.4,
-      scales = list(arrows = FALSE, col = 1), 
-      par.settings = list(axis.line = list(col = "transparent")),
-      screen = list(z = 60, x = -60),  # Adjust view angle
-      main = "Mean Stems per Species and Growth Class",
-      key = list(space = "right", 
-                 z = list(draw = FALSE),  # Remove z-axis labels
-                 y = list(draw = FALSE),  # Remove y-axis (bottom) labels
-                 title = "Tree Species", 
-                 points = list(pch = 15, col = species_colors),  # Color points for species
-                 text = list(as.character(levels(mean_stems_vertical$Species)))))  # Correct species labels
-
-
-# Close the PNG device to save the file
-dev.off()
 # # Create a 3D bar plot using latticeExtra with the adjusted settings
 # cloud(mean_stems ~ Species * VegType, data = mean_stems_vertical,
 #       panel.3d.cloud = panel.3dbars, 
