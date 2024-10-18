@@ -302,26 +302,96 @@ stem_dens_species_long %>%
   arrange(desc(share)) #%>% 
 #View()
 
+summary(stem_dens_species_long$stem_density)
+
 
 # get density plot per vertical class and species
 
 # Summarize the data by VegType and Species
 df_sum_stems_vertical <- stem_dens_species_long %>%
-  group_by(cluster, VegType, Species) %>%
+  group_by(cluster,VegType, Species) %>% #cluster, 
   summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>%
   ungroup() %>% 
-  arrange(sum_stems) 
+  dplyr::filter(sum_stems > 0) #%>%  
+ # arrange(sum_stems) 
+
+
+# Function to cap values at 1st and 99th percentiles
+cap_percentiles <- function(x, lower = 0.01, upper = 0.99) {
+  q <- quantile(x, probs = c(lower, upper), na.rm = TRUE)
+  x <- ifelse(x < q[1], q[1], x)
+  x <- ifelse(x > q[2], q[2], x)
+  return(x)
+}
+
+# Cap the sum_stems data at 1st and 99th percentiles for each Species and VegType
+df_sum_stems_vertical_capped <- df_sum_stems_vertical %>%
+  group_by(Species, VegType) %>%
+  mutate(sum_stems_capped = cap_percentiles(sum_stems)) %>%
+  ungroup()
 
 
 # Create the density plot using ggplot2
-ggplot(df_sum_stems_vertical, aes(x = sum_stems, fill = VegType)) +
+df_sum_stems_vertical_capped %>% 
+ # dplyr::filter(sum_stems > 0) %>%  
+  dplyr::filter(Species =='fasy') %>% 
+ # group_by(VegType) %>% 
+  #summary(range = range(sum_stems))
+ggplot(aes(x = sum_stems, fill = VegType)) +
   geom_density(alpha = 0.4) +  # Semi-transparent density plot
-  facet_wrap(~ Species, scales = "free_y") +  # Facet by species with independent y scales
+  #scale_x_log10() 
+  facet_grid(VegType~ ., scales = 'free')
+  
+  
+  
+# use violin plot
+  
+  # Create the density plot using ggplot2
+  df_sum_stems_vertical_capped %>% 
+    #dplyr::filter(sum_stems > 0) %>%  
+    dplyr::filter(Species =='piab') %>% 
+    # group_by(VegType) %>% 
+    #summary(range = range(sum_stems))
+    ggplot(aes(y = sum_stems, x = VegType)) +
+    geom_violin(alpha = 0.4)# +  # Semi-transparent density plot
+    #scale_x_log10() 
+   # facet_grid(VegType~ ., scales = 'free')# +  # Facet by species with independent y scales
   labs(title = "Density Plot of Stem Density per Species and Vegetation Type",
        x = "Stem Density",
        y = "Density") +
-  theme_minimal() +  # Clean theme
-  theme(legend.position = "top")  # Move legend to the top
+    theme_minimal() +  # Clean theme
+    theme(legend.position = "top")  # Move legend to the top
+  
+
+  
+  # plot just meadian and IQR
+  
+  # Calculate median and IQR for sum_stems per Species and VegType
+  df_median_iqr <- df_sum_stems_vertical %>%
+    dplyr::filter(sum_stems >0) %>% 
+    group_by(Species, VegType) %>%
+    summarize(
+      median_stems = median(sum_stems, na.rm = TRUE),
+      Q1 = quantile(sum_stems, 0.25, na.rm = TRUE),  # First quartile (25th percentile)
+      Q3 = quantile(sum_stems, 0.75, na.rm = TRUE)   # Third quartile (75th percentile)
+    ) %>%
+    ungroup()
+  
+  
+  
+  # Plot the median with IQR for each Species and VegType
+  df_median_iqr %>% 
+    dplyr::filter(Species %in% c('piab', 'fasy')) #%>% 
+  ggplot(aes(x = Species, y = median_stems)) +
+    geom_bar(stat = "identity", position = "dodge", alpha = 0.6) +  # Bar plot for median values
+    geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, position = position_dodge(0.9)) +  # IQR error bars
+    facet_wrap(.~VegType, scales = 'free') +
+    labs(title = "Median and IQR of Stem Density per Species and Vegetation Type",
+         x = "Species",
+         y = "Stem Density (Median ± IQR)") +
+    theme_minimal() +
+    theme(legend.position = "top")
+  
 
 # Species composition: vertical class  ------------------------------------
 # Summarize the data by VegType and Species
@@ -353,20 +423,6 @@ species_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)
 # Map colors to each species
 mean_stems_vertical$color <- species_colors[as.numeric(mean_stems_vertical$Species)]
 
-# # Create a 3D bar plot using latticeExtra with the adjusted settings
-# cloud(mean_stems ~ Species * VegType, data = mean_stems_vertical,
-#       panel.3d.cloud = panel.3dbars, 
-#       col.facet = mean_stems_vertical$color,  # Use the color for each species
-#       xbase = 0.4, 
-#       ybase = 0.4,
-#       scales = list(arrows = FALSE, 
-#                     col = 1, 
-#                     z = list(draw = FALSE),  # Remove z-axis labels
-#                     y = list(draw = FALSE),  # Remove y-axis (bottom) labels
-#                     x = list(rot = 90)),     # Rotate x-axis (Species) labels for readability
-#       par.settings = list(axis.line = list(col = "transparent")),
-#       screen = list(z = 60, x = -60),  # Adjust view angle
-#       main = "Mean Stems per Species and Growth Class")
 
 
 #### Global species composition ----------------------
