@@ -191,7 +191,7 @@ dat_manag_intensity_cl <-
   rename(management_intensity  = scaled_manag_int_cluster,
          salvage_intensity     = scaled_salvage_int_cluster,
          protection_intensity  = scaled_protect_int_cluster) %>% 
-  dplyr::select(cluster, management_intensity, salvage_intensity, protection_intensity)  #%>% 
+  dplyr::select(cluster, management_intensity, salvage_intensity, protection_intensity, n_plots)  #%>% 
     #View()
 
 
@@ -316,38 +316,58 @@ veg_matrix_counts <-
 
 # Exclude 'ID', 'cluster', VegType columns from summarization
 species_columns <- setdiff(names(veg_matrix_counts), c("ID", "cluster", 'VegType', 'country', 'management_intensity',
-                                                       'salvage_intensity','protection_intensity'))  #'manag', '', 
+                                                       'salvage_intensity','protection_intensity', 'n_plots'))  #'manag', '', 
 
 # Calculate the total and average stems per species per hectare
 stem_dens_ha <-
   veg_matrix_counts %>%
   group_by(cluster, VegType,  country, management_intensity) %>% # manag, manag_intensity 
   summarize(across(all_of(species_columns), sum),
-            rows_per_cluster = n()) %>% # .groups = "drop"
+            n_plots = min(n_plots) #,
+            #n_subplots = n()
+            ) %>% # .groups = "drop"
     
-  mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
-    #View()  # divide by 4 as one sub-plot = 4 m2 
+  mutate(scaling_factor = 10000 / (4 * n_plots)) %>% # if n_subplots = 15 -ok, its accounts for 3 vertical layers
+   # View()  # divide by 4 as one sub-plot = 4 m2 
     ungroup(.) %>%
   group_by(cluster, VegType, country, management_intensity) %>%  # , manag, manag_intensity
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
          total_stems_all_species = sum(across(all_of(species_columns)))) 
 
-# calculate density per plot&species, add management intensity
+# 10/18/2024 corrected scalling factor
 stem_dens_species_long<- 
   veg_matrix_counts %>%
   group_by(ID, cluster, VegType,  country,management_intensity ) %>% #, manag, manag_intensity
   summarize(across(all_of(species_columns), sum),
-            rows_per_cluster = n()) %>% # .groups = "drop"
-  mutate(scaling_factor = 10000 / (4 * rows_per_cluster)) %>% # if rows_per_cluster = 15 -ok, its accounts for 3 vertical layers
-  ungroup(.) %>% 
-  group_by(cluster, VegType, country, management_intensity) %>% # , manag, manag_intensity 
+            n_plots = min(n_plots) #,
+            #n_subplots = n()
+            ) %>% # .groups = "drop"
+  mutate(scaling_factor = 10000 / (4 * n_plots)) %>% # if n_subplots = 15 -ok, its accounts for 3 vertical layers
+  #View()
+    ungroup(.) %>%
+  group_by(cluster, VegType, country, management_intensity) %>% # , manag, manag_intensity
   mutate(across(all_of(species_columns), ~ .x * scaling_factor),
-         total_stems_all_species = sum(across(all_of(species_columns)))) %>% 
-  dplyr::select(-total_stems_all_species, -rows_per_cluster, -scaling_factor ) %>% 
-  pivot_longer(!c(ID, cluster, VegType, country, management_intensity), 
+         total_stems_all_species = sum(across(all_of(species_columns)))) %>%
+  dplyr::select(-total_stems_all_species, #-n_subplots, 
+                -scaling_factor ) %>%
+  pivot_longer(!c(ID, cluster, VegType, country, management_intensity,n_plots ), #ID, country, management_intensity
                names_to = 'Species', 
                values_to = "stem_density") #%>%  #, manag, manag_intensity
-  
+
+
+
+
+# calculate density per plot&species, add management intensity
+stem_dens_species_long_cluster<- 
+  stem_dens_ha %>% 
+    ungroup(.) %>% 
+   dplyr::select(-total_stems_all_species,  -scaling_factor ) %>% 
+   pivot_longer(!c(cluster, VegType, country, management_intensity,n_plots  ), #ID, country, management_intensity
+               names_to = 'Species', 
+               values_to = "stem_density") #%>%  #, manag, manag_intensity
+ 
+
+
 
 # cluster 14_114 has less records??
 #   17_107 has many record?
@@ -356,7 +376,7 @@ dat %>%
   filter(Variable == "n") %>% 
   nrow()
 
-table(stem_dens_species_long$cluster, stem_dens_species_long$Species      )
+table(stem_dens_species_long_cluster$cluster, stem_dens_species_long_cluster$Species      )
 
 
 # final stem density
@@ -364,7 +384,6 @@ stem_dens_ha_cluster_sum <- stem_dens_ha %>%
   group_by(cluster,  country, VegType, management_intensity) %>%  #
   summarize(total_stems = sum(total_stems_all_species)) #%>% 
   #dplyr::select(cluster, total_stems_all_species)
-
 
 
 # sum stems first up across vertical groups!!
@@ -413,6 +432,10 @@ p_dens <-plot_density %>%
 
 (p_dens)
 
+
+# plot density by density plots by vertical classes
+
+
 # Richness  ---------------------------------------------------------------
 # Calculate species richness
 # from the original table
@@ -452,7 +475,7 @@ df_richness %>%
 rel_density <- 
   stem_dens_ha %>% 
   ungroup(.) %>% 
-  dplyr::select(-rows_per_cluster , -scaling_factor, -VegType, -total_stems_all_species  ) %>% 
+  dplyr::select(-n_subplots , -scaling_factor, -VegType, -total_stems_all_species  ) %>% 
   pivot_longer(piab:pist, 
                names_to = 'Species', 
                values_to = 'stem_dens') %>% 
