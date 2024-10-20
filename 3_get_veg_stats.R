@@ -35,8 +35,8 @@ dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 
 # check: has 4 mature trees? in ID 12_17_112_3
 
-dat %>% 
-  dplyr::filter(ID == "12_17_112_3") %>% View()
+#dat %>% 
+ # dplyr::filter(ID == "12_17_112_3") %>% View()
 
 # remove Italy and Vaia - windthrow
 dat <- dat %>% 
@@ -97,6 +97,12 @@ dat <- dat %>%
     VegType == "Survivor" ~ "Mature",
     TRUE ~ NA_character_      # Fallback in case of unidentified country_id
   ))  
+
+dat <- dat %>% 
+  mutate(VegType  = factor(VegType, levels = c("Mature",
+                                               "Juveniles",
+                                               "Saplings"
+                                               )))
   
 
 # filter sub-plots that are misplaced/double recorded
@@ -249,11 +255,11 @@ table(dat$ID, dat$Species)# YES - 7 records per plot, for each species
 # number of points
 # number of clusters
 
-(n_row         <- nrow(dat))
-(n_plots       <- length(unique(dat$ID)))
-(n_clusters    <- length(unique(dat$cluster)))
-(n_regions     <- length(unique(dat$region)))
-(n_countries   <- length(unique(dat$country)))
+# (n_row         <- nrow(dat))
+# (n_plots       <- length(unique(dat$ID)))
+# (n_clusters    <- length(unique(dat$cluster)))
+# (n_regions     <- length(unique(dat$region)))
+# (n_countries   <- length(unique(dat$country)))
 
 
 # do analyses on teh cluster evel, but considering the all vertical layers:
@@ -381,19 +387,34 @@ table(stem_dens_species_long_cluster$cluster, stem_dens_species_long_cluster$Spe
 
 # test plotting START -----------------
 # Create the density plot using ggplot2
-stem_dens_species_long_cluster %>% 
+df_test <- stem_dens_species_long_cluster %>% 
   dplyr::filter(stem_density > 0) %>%  
-  dplyr::filter(Species =='fasy') %>% 
-  # group_by(VegType) %>% 
-  #summary(range = range(sum_stems))
-  ggplot(aes(x = stem_density, fill = VegType)) +
-  geom_density(alpha = 0.4) #  # Semi-transparent density plot
-  #scale_x_log10() 
-  facet_grid(VegType~ ., scales = 'free')
+  dplyr::filter(Species %in% c('piab', 'fasy', 'pisy', 'besp')) #%>% 
+ # group_by(VegType) %>% 
+ # reframe(min = min(stem_density),
+ #         max = max(stem_density))
 
-hist(stem_dens_species_long_cluster$stem_density)
-density(stem_dens_species_long_cluster$stem_density)
+df_test %>% 
+  ggplot(aes(x = VegType, y = stem_density)) +
+  geom_boxplot(outlier.shape = NA) +  # Hide outliers
+  coord_flip() +  # Flip the coordinates
+  ylim(0, 5000) +  # Zoom in on the stem_density range
+  facet_grid(Species ~ .) #+  # Facet by Species
+  #   ggplot(aes(x = stem_density, fill = VegType)) +
+#   geom_density(alpha = 0.4) #  # Semi-transparent density plot
+#   #scale_x_log10() 
+#   #facet_grid(VegType~ ., scales = 'free')
+
+
+df_test %>% 
+  ggplot(aes(x = VegType, y = stem_density)) +
+  geom_violin(trim = TRUE) +  # Use violin plot, trimmed to data range
+  coord_flip() +  # Flip the coordinates
+  ylim(0, 5000) +  # Zoom in on the stem_density range
+  facet_grid(Species ~ .) #+  # Facet by Species
   
+
+
   # Calculate median and IQR for sum_stems per Species and VegType
   df_median_iqr <- stem_dens_species_long_cluster %>%
     dplyr::filter(stem_density >0) %>% 
@@ -409,7 +430,7 @@ density(stem_dens_species_long_cluster$stem_density)
   
   # Plot the median with IQR for each Species and VegType
   df_median_iqr %>% 
-    dplyr::filter(Species %in% c('piab', 'fasy', 'pisy','frex')) %>% 
+    dplyr::filter(Species %in% c('piab', 'fasy', 'pisy')) %>% 
   ggplot(aes(x = Species, y = median_stems)) +
     geom_bar(stat = "identity", position = "dodge", alpha = 0.6) +  # Bar plot for median values
     geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, position = position_dodge(0.9)) +  # IQR error bars
@@ -427,7 +448,7 @@ density(stem_dens_species_long_cluster$stem_density)
 
 # END --------------
 
-# final stem density
+# stem density sum per vertical layer and species!
 stem_dens_ha_cluster_sum <- stem_dens_ha %>% 
   group_by(cluster,  country, VegType) %>%  #
   summarize(total_stems = sum(total_stems_all_species)) #%>% 
