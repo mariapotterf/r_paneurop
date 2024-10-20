@@ -331,7 +331,8 @@ df_sum_stems_vertical_capped <- df_sum_stems_vertical %>%
 # find dominant/prevailing species: (this is now an example!)
 
 dominant_species5 <- c('piab', 'fasy', 'pisy', 'besp')
-  df_test <- stem_dens_species_long_cluster %>% 
+
+df_test <- stem_dens_species_long_cluster %>% 
     dplyr::filter(stem_density > 0) %>%  
     dplyr::filter(Species %in% dominant_species5) #%>% 
   
@@ -386,7 +387,7 @@ df_test %>%
   
 # Species composition: vertical class  ------------------------------------
 # Summarize the data by VegType and Species
-mean_stems_vertical <- stem_dens_species_long %>%
+mean_stems_vertical <- stem_dens_species_long_cluster %>%
   group_by(VegType, Species) %>%
   summarize(mean_stems = mean(stem_density, na.rm = TRUE)) %>%
   ungroup()
@@ -418,7 +419,7 @@ mean_stems_vertical$color <- species_colors[as.numeric(mean_stems_vertical$Speci
 
 #### Global species composition ----------------------
 # Summarize the total stem density per species for each climate class
-species_composition <- stem_dens_species_long %>%
+species_composition <- stem_dens_species_long_cluster %>%
   group_by(clim_class, Species) %>%
   summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
   ungroup() 
@@ -437,7 +438,7 @@ species_richness <- top_species_per_clim_class %>%
   group_by(clim_class) %>%
   summarise(species_richness = n_distinct(Species))
 
-stem_dens_species_long %>% 
+stem_dens_species_long_cluster %>% 
   ungroup() %>% 
   dplyr::filter(stem_density > 0) %>% 
   summarise(species_richness = n_distinct(Species))
@@ -523,7 +524,7 @@ ggsave(filename = 'outFigs/fig_p_species_distribution_global.png',
 #### Species compositiosn: country -----------------------------------
 
 # Summarize the total stem density per species for each climate class
-species_composition <- stem_dens_species_long %>%
+species_composition <- stem_dens_species_long_cluster %>%
   group_by(Species, country) %>%
   summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
   ungroup() 
@@ -585,7 +586,7 @@ ggsave(filename = 'outFigs/fig_p_species_distribution_global_country.png',
 
 library(treemapify)
 
-stem_dens_species_long %>% 
+stem_dens_species_long_cluster %>% 
   group_by(Species, VegType) %>% 
   mutate(VegType = factor(VegType, levels = c('Saplings', "Juveniles", "Mature"))) %>% 
   summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
@@ -612,7 +613,7 @@ stem_dens_species_long %>%
 ## Get presence absence data for indiviual layers --------------------------
 
 # Group by cluster and VegType, check if stem_density > 0
-vert_class_presence_absence <- stem_dens_species_long %>%
+vert_class_presence_absence <- stem_dens_species_long_cluster %>%
   group_by(cluster, VegType) %>%
   summarise(has_stem_density = sum(stem_density > 0, na.rm = TRUE) > 0) %>%
   ungroup() %>%
@@ -622,7 +623,7 @@ vert_class_presence_absence <- stem_dens_species_long %>%
 
 # Now find clusters where no VegType has stem_density > 0
 # Find clusters where no vegType has stem_density
-all_clusters <- stem_dens_species_long %>%
+all_clusters <- stem_dens_species_long_cluster %>%
   ungroup() %>% 
   dplyr::select(cluster, VegType) %>% 
   distinct(cluster)
@@ -723,7 +724,7 @@ ggsave(filename = 'outFigs/fig_vert_classes_share_clim_clust.png',
 
 # Get again individual layers:
 df_vert_full <- 
-  stem_dens_species_long %>% 
+  stem_dens_species_long_cluster %>% 
   left_join(clim_cluster_indicator, by = c('cluster' = 'site')) %>% 
   dplyr::filter(stem_density>0) %>% 
   ungroup(.) %>% 
