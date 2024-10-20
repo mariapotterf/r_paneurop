@@ -379,17 +379,67 @@ dat %>%
 table(stem_dens_species_long_cluster$cluster, stem_dens_species_long_cluster$Species      )
 
 
+# test plotting START -----------------
+# Create the density plot using ggplot2
+stem_dens_species_long_cluster %>% 
+  dplyr::filter(stem_density > 0) %>%  
+  dplyr::filter(Species =='fasy') %>% 
+  # group_by(VegType) %>% 
+  #summary(range = range(sum_stems))
+  ggplot(aes(x = stem_density, fill = VegType)) +
+  geom_density(alpha = 0.4) #  # Semi-transparent density plot
+  #scale_x_log10() 
+  facet_grid(VegType~ ., scales = 'free')
+
+hist(stem_dens_species_long_cluster$stem_density)
+density(stem_dens_species_long_cluster$stem_density)
+  
+  # Calculate median and IQR for sum_stems per Species and VegType
+  df_median_iqr <- stem_dens_species_long_cluster %>%
+    dplyr::filter(stem_density >0) %>% 
+    group_by(Species, VegType) %>%
+    summarize(
+      median_stems = median(stem_density, na.rm = TRUE),
+      Q1 = quantile(stem_density, 0.25, na.rm = TRUE),  # First quartile (25th percentile)
+      Q3 = quantile(stem_density, 0.75, na.rm = TRUE)   # Third quartile (75th percentile)
+    ) %>%
+    ungroup()
+  
+  
+  
+  # Plot the median with IQR for each Species and VegType
+  df_median_iqr %>% 
+    dplyr::filter(Species %in% c('piab', 'fasy', 'pisy','frex')) %>% 
+  ggplot(aes(x = Species, y = median_stems)) +
+    geom_bar(stat = "identity", position = "dodge", alpha = 0.6) +  # Bar plot for median values
+    geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, position = position_dodge(0.9)) +  # IQR error bars
+    facet_wrap(.~VegType, scales = 'free') +
+    labs(title = "Median and IQR of Stem Density per Species and Vegetation Type",
+         x = "Species",
+         y = "Stem Density (Median ± IQR)") +
+    theme_minimal() +
+    theme(legend.position = "top")
+  
+  
+
+  
+
+
+# END --------------
+
 # final stem density
 stem_dens_ha_cluster_sum <- stem_dens_ha %>% 
-  group_by(cluster,  country, VegType, management_intensity) %>%  #
+  group_by(cluster,  country, VegType) %>%  #
   summarize(total_stems = sum(total_stems_all_species)) #%>% 
   #dplyr::select(cluster, total_stems_all_species)
-
+range(stem_dens_ha_cluster_sum$total_stems)
 
 # sum stems first up across vertical groups!!
 df_stems <- stem_dens_ha_cluster_sum %>% 
-  group_by(cluster, country, management_intensity) %>% #
+  group_by(cluster, country) %>% #
   summarise(sum_stems = sum(total_stems))# %>% 
+
+range(df_stems$sum_stems)
 
 
 
@@ -622,6 +672,7 @@ save(dat_manag_intensity_cl, # get the management intensity value per cluster
      df_stems,  # numbers of stems for all vert layers
      stem_dens_ha_cluster_sum,   
      stem_dens_species_long,  # stem density per ID& species
+     stem_dens_species_long_cluster, # summaziesd per cluster, species and vert class
      veg_matrix_counts,    # stem counts (not stem density)
      file="outData/veg.Rdata")
 
