@@ -385,69 +385,9 @@ dat %>%
 table(stem_dens_species_long_cluster$cluster, stem_dens_species_long_cluster$Species      )
 
 
-# test plotting START -----------------
-# Create the density plot using ggplot2
-df_test <- stem_dens_species_long_cluster %>% 
-  dplyr::filter(stem_density > 0) %>%  
-  dplyr::filter(Species %in% c('piab', 'fasy', 'pisy', 'besp')) #%>% 
- # group_by(VegType) %>% 
- # reframe(min = min(stem_density),
- #         max = max(stem_density))
-
-df_test %>% 
-  ggplot(aes(x = VegType, y = stem_density)) +
-  geom_boxplot(outlier.shape = NA) +  # Hide outliers
-  coord_flip() +  # Flip the coordinates
-  ylim(0, 5000) +  # Zoom in on the stem_density range
-  facet_grid(Species ~ .) #+  # Facet by Species
-  #   ggplot(aes(x = stem_density, fill = VegType)) +
-#   geom_density(alpha = 0.4) #  # Semi-transparent density plot
-#   #scale_x_log10() 
-#   #facet_grid(VegType~ ., scales = 'free')
-
-
-df_test %>% 
-  ggplot(aes(x = VegType, y = stem_density)) +
-  geom_violin(trim = TRUE) +  # Use violin plot, trimmed to data range
-  coord_flip() +  # Flip the coordinates
-  ylim(0, 5000) +  # Zoom in on the stem_density range
-  facet_grid(Species ~ .) #+  # Facet by Species
   
 
-
-  # Calculate median and IQR for sum_stems per Species and VegType
-  df_median_iqr <- stem_dens_species_long_cluster %>%
-    dplyr::filter(stem_density >0) %>% 
-    group_by(Species, VegType) %>%
-    summarize(
-      median_stems = median(stem_density, na.rm = TRUE),
-      Q1 = quantile(stem_density, 0.25, na.rm = TRUE),  # First quartile (25th percentile)
-      Q3 = quantile(stem_density, 0.75, na.rm = TRUE)   # Third quartile (75th percentile)
-    ) %>%
-    ungroup()
-  
-  
-  
-  # Plot the median with IQR for each Species and VegType
-  df_median_iqr %>% 
-    dplyr::filter(Species %in% c('piab', 'fasy', 'pisy')) %>% 
-  ggplot(aes(x = Species, y = median_stems)) +
-    geom_bar(stat = "identity", position = "dodge", alpha = 0.6) +  # Bar plot for median values
-    geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, position = position_dodge(0.9)) +  # IQR error bars
-    facet_wrap(.~VegType, scales = 'free') +
-    labs(title = "Median and IQR of Stem Density per Species and Vegetation Type",
-         x = "Species",
-         y = "Stem Density (Median ± IQR)") +
-    theme_minimal() +
-    theme(legend.position = "top")
-  
-  
-
-  
-
-
-# END --------------
-
+ 
 # stem density sum per vertical layer and species!
 stem_dens_ha_cluster_sum <- stem_dens_ha %>% 
   group_by(cluster,  country, VegType) %>%  #
@@ -697,6 +637,4 @@ save(dat_manag_intensity_cl, # get the management intensity value per cluster
      veg_matrix_counts,    # stem counts (not stem density)
      file="outData/veg.Rdata")
 
-
-unique(df_IVI$cluster)
 

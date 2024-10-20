@@ -4,7 +4,7 @@
 # for structural data
 # get summary tables
 
-
+gc()
 # Libs --------------------------------------------------------------------------
 
 
@@ -223,10 +223,6 @@ combined_plot <- ggarrange(plotlist = plots, ncol = 3, nrow = 3)  # Adjust ncol 
 ggsave("outFigs/combined_stem_density_plots.png", combined_plot, width = 10, height = 8, dpi = 300)
 
 
-### Climate space:  2D density plot with raster -------------------------------
-
-# Merge structure & composition into single space 
-
 
 #View(df_fin)
 # get summary for the scatter plot, one point is one country & management
@@ -286,29 +282,27 @@ df_seral_species
 
 
 # ad indicators for clim cluster
-stem_dens_species_long <- stem_dens_species_long %>% 
+stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>% 
   left_join(clim_cluster_indicator, by = c('cluster' = 'site')) #%>% 
   
 
 # get overall number for the species compositions:
-stem_dens_species_long %>% 
-  group_by(Species, clim_class  ) %>% 
+stem_dens_species_long_cluster %>% 
+  group_by(Species) %>% 
   summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
   ungroup(.) %>% 
   mutate(sum_vegType = sum(sum_stems),
-         share       = sum_stems/sum_vegType*100) %>% 
-  group_by(clim_class) %>% 
+         share       = sum_stems/sum_vegType*100)#%>% 
+  #group_by(clim_class) %>% 
   
-  arrange(desc(share)) #%>% 
+ # arrange(desc(share)) #%>% 
 #View()
-
-summary(stem_dens_species_long$stem_density)
 
 
 # get density plot per vertical class and species
 
 # Summarize the data by VegType and Species
-df_sum_stems_vertical <- stem_dens_species_long %>%
+df_sum_stems_vertical <- stem_dens_species_long_cluster %>%
   group_by(cluster,VegType, Species) %>% #cluster, 
   summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>%
   ungroup() %>% 
@@ -330,50 +324,47 @@ df_sum_stems_vertical_capped <- df_sum_stems_vertical %>%
   mutate(sum_stems_capped = cap_percentiles(sum_stems)) %>%
   ungroup()
 
-
-# Create the density plot using ggplot2
-df_sum_stems_vertical_capped %>% 
- # dplyr::filter(sum_stems > 0) %>%  
-  dplyr::filter(Species =='fasy') %>% 
- # group_by(VegType) %>% 
-  #summary(range = range(sum_stems))
-ggplot(aes(x = sum_stems, fill = VegType)) +
-  geom_density(alpha = 0.4) +  # Semi-transparent density plot
-  #scale_x_log10() 
-  facet_grid(VegType~ ., scales = 'free')
-  
-  
-  
-# use violin plot
-  
-  # Create the density plot using ggplot2
-  df_sum_stems_vertical_capped %>% 
-    #dplyr::filter(sum_stems > 0) %>%  
-    dplyr::filter(Species =='piab') %>% 
-    # group_by(VegType) %>% 
-    #summary(range = range(sum_stems))
-    ggplot(aes(y = sum_stems, x = VegType)) +
-    geom_violin(alpha = 0.4)# +  # Semi-transparent density plot
-    #scale_x_log10() 
-   # facet_grid(VegType~ ., scales = 'free')# +  # Facet by species with independent y scales
-  labs(title = "Density Plot of Stem Density per Species and Vegetation Type",
-       x = "Stem Density",
-       y = "Density") +
-    theme_minimal() +  # Clean theme
-    theme(legend.position = "top")  # Move legend to the top
-  
-
-  
   # plot just meadian and IQR
+  # test plotting START -----------------
+  # Create the density plot using ggplot2
+
+# find dominant/prevailing species: (this is now an example!)
+
+dominant_species5 <- c('piab', 'fasy', 'pisy', 'besp')
+  df_test <- stem_dens_species_long_cluster %>% 
+    dplyr::filter(stem_density > 0) %>%  
+    dplyr::filter(Species %in% dominant_species5) #%>% 
+  
+df_test %>% 
+    ggplot(aes(x = VegType, y = stem_density, fill = VegType)) +
+    geom_boxplot(outlier.shape = NA) +  # Hide outliers
+  geom_jitter(size = 0.5, alpha = 0.2) +
+    coord_flip() +  # Flip the coordinates
+    ylim(0, 5000) +  # Zoom in on the stem_density range
+    facet_grid(Species ~ .) +  # Facet by Species
+   theme_classic() +
+  theme(legend.position = 'none')
+  
+df_test %>% 
+  ggplot(aes(x = VegType, y = stem_density, fill = VegType)) +
+  geom_violin(trim = T) +  # trim extreme values
+  geom_jitter(size = 0.5, alpha = 0.2) +
+  coord_flip() +  # Flip the coordinates
+  ylim(0, 5000) +  # Zoom in on the stem_density range
+  facet_grid(Species ~ .) +  # Facet by Species
+  theme_classic() +
+  theme(legend.position = 'none')
+
+  
   
   # Calculate median and IQR for sum_stems per Species and VegType
-  df_median_iqr <- df_sum_stems_vertical %>%
-    dplyr::filter(sum_stems >0) %>% 
+  df_median_iqr <- stem_dens_species_long_cluster %>%
+    dplyr::filter(stem_density >0) %>% 
     group_by(Species, VegType) %>%
     summarize(
-      median_stems = median(sum_stems, na.rm = TRUE),
-      Q1 = quantile(sum_stems, 0.25, na.rm = TRUE),  # First quartile (25th percentile)
-      Q3 = quantile(sum_stems, 0.75, na.rm = TRUE)   # Third quartile (75th percentile)
+      median_stems = median(stem_density, na.rm = TRUE),
+      Q1 = quantile(stem_density, 0.25, na.rm = TRUE),  # First quartile (25th percentile)
+      Q3 = quantile(stem_density, 0.75, na.rm = TRUE)   # Third quartile (75th percentile)
     ) %>%
     ungroup()
   
@@ -381,8 +372,8 @@ ggplot(aes(x = sum_stems, fill = VegType)) +
   
   # Plot the median with IQR for each Species and VegType
   df_median_iqr %>% 
-    dplyr::filter(Species %in% c('piab', 'fasy')) #%>% 
-  ggplot(aes(x = Species, y = median_stems)) +
+    dplyr::filter(Species %in% c('piab', 'fasy', 'pisy')) %>% 
+    ggplot(aes(x = Species, y = median_stems)) +
     geom_bar(stat = "identity", position = "dodge", alpha = 0.6) +  # Bar plot for median values
     geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, position = position_dodge(0.9)) +  # IQR error bars
     facet_wrap(.~VegType, scales = 'free') +
@@ -392,7 +383,7 @@ ggplot(aes(x = sum_stems, fill = VegType)) +
     theme_minimal() +
     theme(legend.position = "top")
   
-
+  
 # Species composition: vertical class  ------------------------------------
 # Summarize the data by VegType and Species
 mean_stems_vertical <- stem_dens_species_long %>%
