@@ -166,62 +166,6 @@ clim_cluster_indicator <- df_fin %>%
 
 ## Exploratory analysis ---------------------
 
-### explore general trends of vegetation along management gradient: -------------------------------
-
-# Define the function
-create_xy_plot_loess <- function(data, x_var, y_var) {
-  data %>%
-    ggplot(aes_string(x = x_var, y = y_var)) +  # Use aes_string to allow for dynamic variable names
-    geom_jitter(alpha = 0.5) +
-    geom_smooth(method = 'loess') +
-    theme_bw() +
-    theme(aspect.ratio = 1)
-}
-
-# Example usage
-# Replace 'management_intensity' and 'rIVI' with any desired variables
-p1 <- create_xy_plot_loess(df_fin, "management_intensity", "rIVI")
-p2 <- create_xy_plot_loess(df_fin, "management_intensity", "richness")
-p3 <- create_xy_plot_loess(df_fin, "management_intensity", "stem_density")
-p4 <- create_xy_plot_loess(df_fin, "management_intensity", "n_vertical")
-
-# Print the plots (or use in a grid with gridExtra or patchwork)
-print(p1)
-print(p2)
-print(p3)
-print(p4)
-
-# add variables:
-
-#library(patchwork)  # Optional: for arranging multiple plots together
-
-
-# List of variables to plot against 'stem_density'
-variables <- c("tmp", "prcp", "tmp_z", "prcp_z", "spei1", "spei3", "spei6", "spei12", "spei24")
-
-# Generate plots and store them in a list
-plots <- lapply(variables, function(var) {
-  create_xy_plot_loess(df_fin, var, "stem_density")
-})
-
-# Optional: Name each plot in the list for easier reference
-names(plots) <- paste0("p", 5:(4 + length(variables)))
-
-# Print or save each plot
-for (i in seq_along(plots)) {
-  print(plots[[i]])  # This will print each plot to the R graphics device
-}
-
-# Optional: Combine all plots into a single figure (if needed)
-# e.g., using patchwork to arrange all plots together
-combined_plot <- ggarrange(plotlist = plots, ncol = 3, nrow = 3)  # Adjust ncol to set the number of columns
-
-# Display the combined plot
-(combined_plot)
-
-# Save the combined plot (optional)
-ggsave("outFigs/combined_stem_density_plots.png", combined_plot, width = 10, height = 8, dpi = 300)
-
 
 
 #View(df_fin)
@@ -349,7 +293,8 @@ df_test %>%
 df_test %>% 
   ggplot(aes(x = VegType, y = stem_density, fill = VegType)) +
   geom_violin(trim = T) +  # trim extreme values
-  geom_jitter(size = 0.5, alpha = 0.2) +
+  #geom_boxplot(width=0.1, outlier.shape = NA) +
+  #geom_jitter(size = 0.5, alpha = 0.2) +
   coord_flip() +  # Flip the coordinates
   ylim(0, 5000) +  # Zoom in on the stem_density range
   facet_grid(Species ~ .) +  # Facet by Species
