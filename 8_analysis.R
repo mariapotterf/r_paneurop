@@ -18,6 +18,10 @@ library(stringr)
 
 library(ggpubr)
 
+# library
+library(ggridges)
+
+
 
 
 
@@ -229,120 +233,24 @@ df_seral_species
 stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>% 
   left_join(clim_cluster_indicator, by = c('cluster' = 'site')) #%>% 
   
-
 # get overall number for the species compositions:
 stem_dens_species_long_cluster %>% 
-  group_by(Species) %>% 
-  summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
-  ungroup(.) %>% 
-  mutate(sum_vegType = sum(sum_stems),
-         share       = sum_stems/sum_vegType*100)#%>% 
-  #group_by(clim_class) %>% 
-  
- # arrange(desc(share)) #%>% 
-#View()
-
-
-# get density plot per vertical class and species
-
-# Summarize the data by VegType and Species
-df_sum_stems_vertical <- stem_dens_species_long_cluster %>%
-  group_by(cluster,VegType, Species) %>% #cluster, 
-  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>%
-  ungroup() %>% 
-  dplyr::filter(sum_stems > 0) #%>%  
- # arrange(sum_stems) 
-
-
-# Function to cap values at 1st and 99th percentiles
-cap_percentiles <- function(x, lower = 0.01, upper = 0.99) {
-  q <- quantile(x, probs = c(lower, upper), na.rm = TRUE)
-  x <- ifelse(x < q[1], q[1], x)
-  x <- ifelse(x > q[2], q[2], x)
-  return(x)
-}
-
-# Cap the sum_stems data at 1st and 99th percentiles for each Species and VegType
-df_sum_stems_vertical_capped <- df_sum_stems_vertical %>%
-  group_by(Species, VegType) %>%
-  mutate(sum_stems_capped = cap_percentiles(sum_stems)) %>%
-  ungroup()
-
-  # plot just meadian and IQR
-  # test plotting START -----------------
-  # Create the density plot using ggplot2
-
-# TEST find dominant/prevailing species: (this is now an example!)
-
-df_test <- stem_dens_species_long_cluster %>% 
-    dplyr::filter(stem_density > 0) %>%  
-    dplyr::filter(Species %in% top_species_global_vect) #%>% 
-  
-df_test %>% 
-    ggplot(aes(x = VegType, y = stem_density, fill = VegType)) +
-    geom_boxplot(outlier.shape = NA) +  # Hide outliers
-  geom_jitter(size = 0.5, alpha = 0.2) +
-    coord_flip() +  # Flip the coordinates
-    ylim(0, 10000) +  # Zoom in on the stem_density range
-    facet_grid(Species ~ .) +  # Facet by Species
-   theme_classic() +
-  theme(legend.position = 'none')
-  
-df_test %>% 
-  ggplot(aes(x = VegType, y = stem_density, fill = VegType)) +
-  geom_violin(trim = T) +  # trim extreme values
-  #geom_boxplot(width=0.1, outlier.shape = NA) +
-  #geom_jitter(size = 0.5, alpha = 0.2) +
-  coord_flip() +  # Flip the coordinates
-  ylim(0, 5000) +  # Zoom in on the stem_density range
-  facet_grid(Species ~ .) +  # Facet by Species
-  theme_classic() +
-  theme(legend.position = 'none')
-
-
-# library
-library(ggridges)
-
-# basic example
-ggplot(diamonds, aes(x = price, y = cut, fill = cut)) +
-  geom_density_ridges() +
-  theme_ridges() + 
-  theme(legend.position = "none")
-
-df_test %>% 
-  ggplot(aes(x = stem_density, y = Species, fill = VegType)) +
+  dplyr::filter(stem_density > 0) %>%  
+  dplyr::filter(Species %in% top_species_global_vect) %>% 
+  dplyr::mutate(Species = factor(Species, levels = top_species_global_vect)) %>%  # Order species by top_species_global_vect
+   ggplot(aes(x = stem_density, y = Species, fill = Species)) +
   geom_density_ridges(alpha = 0.5) +
   theme_ridges() +
-  xlim(0, 5000)# +  # Zoom in on the stem_density range
-  
-
-# Create a new column combining Species and VegType
-df_test <- df_test %>%
-  dplyr::mutate(Species_VegType = paste(Species, VegType, sep = " - "))
-
-# Create the ridge plot
-df_test %>% 
-  ggplot(aes(x = stem_density, y = Species_VegType, fill = VegType)) +
-  geom_density_ridges(alpha = 0.5) +
-  theme_ridges() +
-  xlim(0, 3000) +  # Zoom in on the stem_density range
-  labs(title = "Density Ridges of Stem Density by Combined Species and VegType",
+  xlim(0, 5000) +  # Zoom in on the stem_density range
+  labs(title = "",
        x = "Stem Density",
        y = "Species and VegType") +
   theme(legend.position = "top")  # Optional: place legend at the top
 
-# try it simpler: 
-stem_dens_species_long_cluster %>%
-  dplyr::filter(VegType == 'Saplings') %>% 
-  dplyr::filter(stem_density>0) %>% 
-  dplyr::filter(Species %in% top_species_global_vect) %>% 
-  dplyr::mutate(Species = factor(Species, levels = top_species_global_vect)) %>%  # Order species by top_species_global_vect
-  group_by(Species) %>% 
-  summarize(median = median(stem_density),
-            min = min(stem_density),
-            max = max(stem_density)) %>% 
-  View()
 
+
+
+ 
 
 
 stem_dens_species_long_cluster %>%
