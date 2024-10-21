@@ -227,41 +227,31 @@ df_seral_species <- data.frame(
 # Display the dataframe
 df_seral_species
 
-
+df_stem_sp_sum <- stem_dens_species_long_cluster %>% 
+  group_by(cluster, Species) %>% 
+  summarise(sum_stem_density = sum(stem_density, na.rm = t)) %>% 
+  dplyr::filter(sum_stem_density>0)
 
 # ad indicators for clim cluster
 stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>% 
   left_join(clim_cluster_indicator, by = c('cluster' = 'site')) #%>% 
   
 # get overall number for the species compositions:
-stem_dens_species_long_cluster %>% 
-  dplyr::filter(stem_density > 0) %>%  
+
+# Calculate median for each species and reorder the factor levels
+df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
   dplyr::filter(Species %in% top_species_global_vect) %>% 
-  dplyr::mutate(Species = factor(Species, levels = top_species_global_vect)) %>%  # Order species by top_species_global_vect
-   ggplot(aes(x = stem_density, y = Species, fill = Species)) +
-  geom_density_ridges(alpha = 0.5) +
-  theme_ridges() +
-  xlim(0, 5000) +  # Zoom in on the stem_density range
-  labs(title = "",
-       x = "Stem Density",
-       y = "Species and VegType") +
-  theme(legend.position = "top")  # Optional: place legend at the top
+  dplyr::group_by(Species) %>%
+  dplyr::mutate(median_stem_density = median(sum_stem_density, na.rm = TRUE)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(Species = reorder(Species, median_stem_density))  # Reorder species by median stem density
 
-
-
-
- 
-
-
-stem_dens_species_long_cluster %>%
-  # dplyr::filter(VegType == 'Saplings') %>% 
-  dplyr::filter(stem_density>0) %>% 
-  dplyr::filter(Species %in% top_species_global_vect) %>% 
-  dplyr::mutate(Species = factor(Species, levels = top_species_global_vect)) %>%  # Order species by top_species_global_vect
-  ggplot(aes(x = stem_density, y = Species, group = Species)) +
-  geom_density_ridges(aes(fill = Species),alpha = 0.5) +
+# Plot the reordered ridge plot
+p_stem_density_species <- df_stem_sp_sum_ordered %>%
+  ggplot(aes(x = sum_stem_density, y = Species, group = Species)) +
+  geom_density_ridges(aes(fill = Species), alpha = 0.5, trim = T) +#, quantile_lines = TRUE, quantiles = 2
   stat_summary(
-    aes(x = stem_density), 
+    aes(x = sum_stem_density), 
     fun = median, 
     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
@@ -270,10 +260,37 @@ stem_dens_species_long_cluster %>%
     size = 0.5,
     position = position_nudge(y = .2)  # Adjust position slightly
   ) +
-  theme_ridges() +
-  coord_cartesian(xlim = c(0, 5000))# +  # Zoom in on the stem_density range
+  theme_classic() +
+  coord_cartesian(xlim = c(0, 5000)) +
+  labs(title = "",
+       x = "Stem Density",
+       y = "Species")  +
+  theme(legend.position = 'none') 
 
-  
+(p_stem_density_species)
+
+ggsave(filename = 'outFigs/p_stem_density_ridge_sum_species.png', 
+       plot = p_stem_density_species, 
+       width = 4, height = 10, dpi = 300, bg = 'white')
+
+
+
+df_stem_sp_sum_ordered %>%
+  ggplot(aes(x = sum_stem_density, y = Species, group = Species)) +
+  geom_density_ridges(aes(fill = Species), alpha = 0.5, quantile_lines = TRUE, quantiles = 4) #, 
+
+
+# not much better
+df_stem_sp_sum_ordered %>% 
+  dplyr::filter(sum_stem_density<5000) %>% 
+  ggplot(aes(x = sum_stem_density, y = Species, fill = after_stat(x))) +
+  geom_density_ridges_gradient(quantile_lines = TRUE, quantiles = 2) +
+  # coord_cartesian(xlim = c(0, 5000)) +
+  scale_fill_viridis_c(option = "plasma") +
+  labs(x = "High temperature", y = NULL, color = "Temp")# +
+ 
+
+
 # Plot Stem density per species and vertical class: --------------------------------
 
 
