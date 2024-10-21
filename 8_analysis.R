@@ -272,20 +272,18 @@ df_sum_stems_vertical_capped <- df_sum_stems_vertical %>%
   # test plotting START -----------------
   # Create the density plot using ggplot2
 
-# find dominant/prevailing species: (this is now an example!)
-
-dominant_species5 <- c('piab', 'fasy', 'pisy', 'besp')
+# TEST find dominant/prevailing species: (this is now an example!)
 
 df_test <- stem_dens_species_long_cluster %>% 
     dplyr::filter(stem_density > 0) %>%  
-    dplyr::filter(Species %in% dominant_species5) #%>% 
+    dplyr::filter(Species %in% top_species_global_vect) #%>% 
   
 df_test %>% 
     ggplot(aes(x = VegType, y = stem_density, fill = VegType)) +
     geom_boxplot(outlier.shape = NA) +  # Hide outliers
   geom_jitter(size = 0.5, alpha = 0.2) +
     coord_flip() +  # Flip the coordinates
-    ylim(0, 5000) +  # Zoom in on the stem_density range
+    ylim(0, 10000) +  # Zoom in on the stem_density range
     facet_grid(Species ~ .) +  # Facet by Species
    theme_classic() +
   theme(legend.position = 'none')
@@ -301,8 +299,124 @@ df_test %>%
   theme_classic() +
   theme(legend.position = 'none')
 
+
+# library
+library(ggridges)
+
+# basic example
+ggplot(diamonds, aes(x = price, y = cut, fill = cut)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+
+df_test %>% 
+  ggplot(aes(x = stem_density, y = Species, fill = VegType)) +
+  geom_density_ridges(alpha = 0.5) +
+  theme_ridges() +
+  xlim(0, 5000)# +  # Zoom in on the stem_density range
   
+
+# Create a new column combining Species and VegType
+df_test <- df_test %>%
+  dplyr::mutate(Species_VegType = paste(Species, VegType, sep = " - "))
+
+# Create the ridge plot
+df_test %>% 
+  ggplot(aes(x = stem_density, y = Species_VegType, fill = VegType)) +
+  geom_density_ridges(alpha = 0.5) +
+  theme_ridges() +
+  xlim(0, 3000) +  # Zoom in on the stem_density range
+  labs(title = "Density Ridges of Stem Density by Combined Species and VegType",
+       x = "Stem Density",
+       y = "Species and VegType") +
+  theme(legend.position = "top")  # Optional: place legend at the top
+
+# try it simpler: 
+stem_dens_species_long_cluster %>%
+  dplyr::filter(VegType == 'Saplings') %>% 
+  dplyr::filter(stem_density>0) %>% 
+  dplyr::filter(Species %in% top_species_global_vect) %>% 
+  dplyr::mutate(Species = factor(Species, levels = top_species_global_vect)) %>%  # Order species by top_species_global_vect
+  group_by(Species) %>% 
+  summarize(median = median(stem_density),
+            min = min(stem_density),
+            max = max(stem_density)) %>% 
+  View()
+
+
+
+stem_dens_species_long_cluster %>%
+  # dplyr::filter(VegType == 'Saplings') %>% 
+  dplyr::filter(stem_density>0) %>% 
+  dplyr::filter(Species %in% top_species_global_vect) %>% 
+  dplyr::mutate(Species = factor(Species, levels = top_species_global_vect)) %>%  # Order species by top_species_global_vect
+  ggplot(aes(x = stem_density, y = Species, group = Species)) +
+  geom_density_ridges(aes(fill = Species),alpha = 0.5) +
+  stat_summary(
+    aes(x = stem_density), 
+    fun = median, 
+    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+    geom = "pointrange", 
+    color = "black", 
+    size = 0.5,
+    position = position_nudge(y = .2)  # Adjust position slightly
+  ) +
+  theme_ridges() +
+  coord_cartesian(xlim = c(0, 5000))# +  # Zoom in on the stem_density range
+
   
+# Plot Stem density per species and vertical class: --------------------------------
+
+
+# test plotting function ridge density 
+plot_ridge_density <- function(data, species_name, xlim_range = c(0, 5000)) {
+  data %>%
+    dplyr::filter(stem_density > 0) %>% 
+    dplyr::filter(Species == species_name) %>% 
+    ggplot(aes(x = stem_density, y = VegType, group = VegType)) +
+    geom_density_ridges(aes(fill = VegType), alpha = 0.5) +
+    stat_summary(
+      aes(x = stem_density), 
+      fun = median, 
+      fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+      fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+      geom = "pointrange", 
+      color = "black", 
+      size = 0.5,
+      position = position_nudge(y = .2)  # Adjust position slightly
+    ) +
+    theme_classic() +
+    coord_cartesian(xlim = xlim_range) +  # Zoom in on the stem_density range
+    labs(
+      #title = paste("Density Ridges for Species:", species_name),
+      x = "",
+      y = ""
+    )
+}
+
+# Example usage for species 'fasy'
+p_piab <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'piab')
+p_fasy <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'fasy')
+p_pisy <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'pisy')
+p_acps <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'acps')
+p_soau <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'soau')
+p_quro <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'quro')
+p_potr <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'potr')
+
+p_stem_density_ridge <- ggarrange(p_piab,p_fasy,p_pisy,
+          p_acps,p_soau,p_quro,p_potr, 
+          common.legend = T, ncol = 1,
+          labels = top_species_global_vect)#, nrow = 7
+
+ggsave(filename = 'outFigs/p_stem_density_ridge.png', 
+       plot = p_stem_density_ridge, 
+       width = 4, height = 10, dpi = 300, bg = 'white')
+
+
+
+
+
   # Calculate median and IQR for sum_stems per Species and VegType
   df_median_iqr <- stem_dens_species_long_cluster %>%
     dplyr::filter(stem_density >0) %>% 
@@ -363,15 +477,15 @@ mean_stems_vertical$color <- species_colors[as.numeric(mean_stems_vertical$Speci
 
 
 #### Global species composition ----------------------
-# Summarize the total stem density per species for each climate class
+# Summarize the total stem density per species
 species_composition <- stem_dens_species_long_cluster %>%
-  group_by(clim_class, Species) %>%
+  group_by(Species) %>%
   summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
   ungroup() 
 
 # Calculate the total stem density per climate class and the share of each species
 species_composition <- species_composition %>%
-  group_by(clim_class) %>%
+#  group_by(clim_class) %>%
   mutate(total_stems_clim_class = sum(sum_stems),  # Total stem density in each climate class
          share = (sum_stems / total_stems_clim_class) * 100) %>%  # Calculate percentage share
   ungroup()
@@ -483,18 +597,17 @@ species_composition <- species_composition %>%
 
 
 # Find the top 5 species per climate class based on share
-top_species_per_clim_class <- species_composition %>%
-  group_by( country) %>%
+top_species_global <- species_composition %>%
+ # group_by( country) %>%
   arrange(desc(share)) %>%  # Sort species by their share within each climate class
-  #slice_head(n = 6) #%>%  # Select the top 5 species per country
-  dplyr::filter(share > 5)# %>%  # select species with share > 5%
-  #left_join(df_seral_species, by = join_by(Species))  #%>% 
-#arrange(seral_type) %>% 
-#mutate(seral_type=factor(seral_type) )
+  slice_head(n = 7) #%>%  # Select the top X species per country
+  #dplyr::filter(share > 5)# %>%  # select species with share > 5%
+
+top_species_global_vect <- top_species_global$Species
 
 # Ensure species are arranged by seral type and within each climate class
-top_species_per_clim_class <- top_species_per_clim_class %>%
-  arrange(country, Species)  # First arrange by seral type and then by Species alphabetically
+#top_species_per_clim_class <- top_species_per_clim_class %>%
+#  arrange(country, Species)  # First arrange by seral type and then by Species alphabetically
 
 n_colors <- length(unique(top_species_per_clim_class$Species))
 
