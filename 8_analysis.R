@@ -339,7 +339,7 @@ ggsave(filename = 'outFigs/p_stem_density_ridge.png',
        width = 4, height = 10, dpi = 300, bg = 'white')
 
 
-
+# stem density: show only median and IQR?  ----------------------------------
 
 
   # Calculate median and IQR for sum_stems per Species and VegType
@@ -1582,26 +1582,6 @@ sjPlot::tab_df(best_predictors,
 
 
 ###  variable selection: BORUTA ---------------------------------------------
-library(Boruta)
-library(randomForest)
- 
-df_fin$log_distance_edge        <- log(df_fin$distance_edge + 1)
-df_fin$log_disturbance_severity <- log(df_fin$disturbance_severity + 0.001)
-df_fin$log_depth_extract        <- log(df_fin$depth_extract + 1) # in cm
-df_fin$salvage_intensity        <- df_fin$salvage_intensity + 0.01 # increase a bit
-
-
-# occurence or risk of teh binary outcome
-# Create the binary outcome variable for regeneration status
-df_fin$delayed <- ifelse(df_fin$stem_regeneration < 50, 1,0)
-df_fin$advanced <- ifelse(df_fin$stem_regeneration > 1000, 1,0)
-df_fin$advanced_juv <- ifelse(df_fin$sum_stems_juvenile > 1000, 1,0)
-
-
-
-
-
-hist(df_fin$log_depth_extract)
 # List of dependent variables
 dependent_vars <- c(#"sum_stems_juvenile", 
                     #"sum_stems_sapling", 
@@ -1644,125 +1624,6 @@ predictor_vars_sub <- c(#"spei1", "spei3",
                     'rIVI',
                     "sum_stems_mature",
                     "n_vertical")
-
-
-
-# Subset the dataset to include only predictor and dependent variables
-df_for_boruta <- df_fin[, c(dependent_vars, predictor_vars_sub), with=FALSE]
-
-# check for correlations and remote the highly correlated predictors
-cor_matrix <- cor(df_for_boruta[, predictor_vars_sub, with=FALSE], use="pairwise.complete.obs")
-# View correlation matrix to find high correlations
-round(cor_matrix, 2)
-
-# remove high correlated predictor:
-# Set the upper triangle and the diagonal of the correlation matrix to NA
-cor_matrix[upper.tri(cor_matrix, diag = TRUE)] <- NA
-
-# Find pairs of variables with correlations above the threshold (e.g., 0.75)
-high_cor_pairs <- which(abs(cor_matrix) > 0.7, arr.ind = TRUE)
-
-# Display highly correlated pairs
-print(high_cor_pairs)
-
-# Identify the names of predictors to be removed (keep the first occurrence)
-predictors_to_remove <- unique(rownames(high_cor_pairs))
-
-predictor_vars_cleaned <- predictor_vars_sub[!(predictor_vars_sub %in% predictors_to_remove)]
-
-# Display cleaned predictor variables
-print(colnames(predictor_vars_cleaned))
-
-
-
-# TEST LOOP BORUTA ---------------------------------------
-
-# Define the function that performs Boruta analysis and returns the merged result
-run_boruta_analysis <- function(dep_var, df_for_boruta, predictor_vars_sub) {
-  
-  # Run Boruta analysis
-  boruta_results <- Boruta(as.formula(paste(dep_var, "~ .")),
-                           data = df_for_boruta[, c(dep_var, predictor_vars_sub), with = FALSE], 
-                           doTrace = 2)
-  
-  # Extract final decisions for each variable
-  decisions_df <- as.data.frame(boruta_results$finalDecision)
-  decisions_df$Dependent <- dep_var  # Create new column for the dependent variable
-  
-  # Add row names as a new column called "Variable"
-  decisions_df$Variable <- rownames(decisions_df)
-  
-  # Rename the decision column to "Decision"
-  colnames(decisions_df) <- c("Decision", "Dependent", "Variable")
-  
-  # Extract importance history and remove shadow variables
-  importance_history <- boruta_results$ImpHistory[, !grepl("shadow", colnames(boruta_results$ImpHistory))]
-  
-  # Convert the importance history to a data frame
-  importance_df <- as.data.frame(importance_history)
-  
-  # Pivot the data to long format
-  importance_long <- importance_df %>%
-    pivot_longer(cols = everything(),  # Select all columns
-                 names_to = "Variable", 
-                 values_to = "Importance")
-  
-  # Merge the importance scores with the Boruta decisions
-  result_df <- importance_long %>%
-    left_join(decisions_df, by = "Variable")
-  
-  return(result_df)
-}
-
-# Apply the function to each dependent variable using lapply or a loop
-out_list <- lapply(dependent_vars, function(dep_var) {
-  print(dep_var)
-  run_boruta_analysis(dep_var, df_fin, predictor_vars_cleaned)
-})
-
-# Combine the results into a single dataframe
-out_df <- bind_rows(out_list)
-
-# View the final output
-head(out_df)
-
-# Order variables by median importance, from lowest to highest
-out_df <- out_df %>%
-  group_by(Variable) %>%
-  mutate(median_importance = median(Importance, na.rm = TRUE)) %>%
-  ungroup() %>%
-  arrange(median_importance)
-
-# Create a factor for ordered variables by median importance
-out_df$Variable <- factor(out_df$Variable, levels = unique(out_df$Variable))
-
-p_select_vars_boruta <- out_df %>% 
-  dplyr::filter(!grepl('sum_', Dependent)) %>% 
-  ggplot(aes(x = Variable, y = Importance, fill = Decision)) +
-  geom_boxplot() +
-  scale_fill_manual(values = c("Confirmed" = "green", "Rejected" = "red", "Tentative" = "orange")) +
-  labs(title = "Boxplot of Importance by Variables",
-       x = "Variables", 
-       y = "Importance") +
-  theme_classic2() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = 'bottom') + # Rotate x-axis labels for better readability
-facet_wrap(Dependent ~.)
-
-ggsave('outFigs/fig_select_vars_boruta.png', plot = p_select_vars_boruta, width =7,height = 7)
-# get sumary table:
-
-out_df_summary <- out_df %>% 
-       dplyr::filter(Importance != -Inf) %>% 
-  group_by(Dependent, Variable, Decision ) %>% 
-  summarise(median = median(Importance , na.rm = T))# %>% 
-  #group_by(Dependent) %>% 
-  #slice_max(order_by = median, n = 5) %>%
-  #print(n = 40)
-# 
-
-View(out_df_summary)
-
 
 
 
@@ -1840,9 +1701,6 @@ df_advanced2 <- df_fin %>%
   dplyr::select(all_of(c("advanced", predictor_vars_sub, "management_intensity",
                                                  "country_pooled", "clim_grid", "clim_class", "x", "y", "tmp_c", "prcp_c")))
 
-#df_advanced_juv2 <- df_fin %>% 
-#  dplyr::select(all_of(c("advanced_juv", predictor_vars_sub, "management_intensity",
- #                        "country_pooled", "clim_grid", "clim_class", "x", "y")))
 
 df_stem_regeneration2 <- df_fin %>% 
   dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,"management_intensity",
@@ -3481,7 +3339,7 @@ ggarrange(p.country.density, p.country.richness)
 # Save the model object and input data
 save(#fin.m.delayed, df_delayed2, 
      fin.m.advanced, df_advanced2, 
-     #fin.m.advanced_juv, df_advanced_juv2,
+     
      #fin.m.reg.density, df_stem_regeneration2,
      file = "outData/stem_density_models.RData")
 
