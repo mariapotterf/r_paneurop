@@ -20,10 +20,12 @@ library(ggplot2)
 library(viridis)
 library(raster)
 library(reshape2)
+library(data.table)
 
 
 
 # Get species Wessely and field data - prepared and merged manually
+# 3rd columns has Wessely species
 species<- read.csv("rawData/tree_sp_field_wessely_merged.csv", sep = ';')[,3]
 
 # test single one 
@@ -136,7 +138,17 @@ combined_long_df <- combined_df %>%
 combined_long_df2 <- combined_long_df %>%
   separate(raster_name, into = c("species", "scenario", "timestep"), sep = "_")
 
+# calculate if teh species is continuous: sum per all years == 8 
+# calculate the presence values per site, scenario, species over all years
+present_species <- 
+  combined_long_df2 %>% 
+  group_by(site, species, scenario) %>% 
+    summarise(occurence_years = sum(raster_value), .groups = 'drop') %>%
+    mutate(overall_presence = case_when(
+      occurence_years == 8 ~ 1,
+      TRUE ~ 0
+    ))
 
-
-
+# export final table
+fwrite(present_species, 'outTable/species_presence_clim_change.csv')
 
