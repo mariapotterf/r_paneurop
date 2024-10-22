@@ -12,6 +12,8 @@
 # this will be 0/1 per species and decade
 # merge 
 
+gc()
+
 library("terra")
 library(tidyr)
 library(ggplot2)
@@ -36,8 +38,8 @@ xy <- xy_proj[, "site"]
 plot(r)
 plot(xy, add = T)
 
-# get raster naming 
-species = c("Abiesalba", "Acercampestre")
+# TEST - get raster naming --------------------------------------------------- 
+#species = c("Abiesalba", "Acercampestre")
 ## define climate change scenarios
 scenarios <- c("rcp26","rcp45","rcp85")
 ## define timesteps
@@ -47,7 +49,7 @@ timesteps <- seq(2020,2090,by=10)
 # read file
 rastPath <- "rawData/wessely_species_bottleneck/data_submit/data_submit/modelResults"
 r <- rast(paste(rastPath, raster_name_in, sep = '/'))
-
+my_crs <- crs(r)
 
 raster_name_in = paste(one_species, '_rcp26_', '2020.tif', sep = '')
 rast_name_out  = paste(one_species, '_rcp26_', '2020', sep = '')
@@ -56,15 +58,6 @@ rast_name_out  = paste(one_species, '_rcp26_', '2020', sep = '')
 df <- extract(r, xy, ID = F, 
                             bind = T    # add sites names
 )
-
-names(df)[names(df) == "layer"] <- rast_name_out
-              
-              
-              # View the extracted values
-head(df)
-
-
-
 # test loop
 
 
@@ -79,11 +72,20 @@ process_raster <- function(species, scenario, timestep, xy) {
   # Read the raster
   r <- rast(file.path(rastPath, raster_name_in))
   
+  # set crs
+  crs(r) <- my_crs
+  
   # Extract raster values to XY points
-  df <- extract(r, xy, ID = FALSE, bind = TRUE)  # 'ID = FALSE' avoids including the raster ID
+  df <- extract(r, xy, ID = F, bind = TRUE)  # 'ID = FALSE' avoids including the raster ID
   
   # Rename the 'layer' column to the raster name
   names(df)[names(df) == "layer"] <- rast_name_out
+  
+ # print(rast_name_out)
+  # Check if CRS between raster and vector are different
+ # if (crs(r) != crs(xy)) {
+  #  print("CRS mismatch between raster and vector!")
+  #}
   
   df <- as.data.frame(df)
   
@@ -91,8 +93,9 @@ process_raster <- function(species, scenario, timestep, xy) {
   return(df)
 }
 
+
 # Define species, scenarios, and timesteps
-#species <- c("Abiesalba", "Acercampestre")
+species2 <- c("Tiliacordata", "Quercusfrainetto", "Ostryacarpinifolia")
 scenarios <- c("rcp26", "rcp45", "rcp85")
 timesteps <- seq(2020, 2090, by = 10)
 
@@ -109,9 +112,31 @@ all_data <- lapply(species, function(sp) {
   })
 })
 
-# Combine the list of data frames into one data frame by "site"
-combined_df <- Reduce(function(x, y) merge(x, y, by = "site", all = TRUE), all_data_flat)
+# Flatten the nested list structure into a single list of data frames
+flattened_data <- do.call(c, do.call(c, all_data))
+
+# Combine all data frames by "site" column
+combined_df <- Reduce(function(x, y) merge(x, y, by = "site", all = TRUE), flattened_data)
+
 
 # View the combined data frame
-head(combined_df)
+dim(combined_df)
+names(combined_df)
+
+
+# Convert the wide dataframe to long format
+combined_long_df <- combined_df %>%
+  pivot_longer(
+    cols = -site,                # Keep 'site' as the ID column
+    names_to = "raster_name",     # Create a new column for the raster names
+    values_to = "raster_value"    # Create a new column for the raster values
+  )
+
+# Split the 'raster_name' column into 'species', 'scenario', and 'timestep' using '_'
+combined_long_df2 <- combined_long_df %>%
+  separate(raster_name, into = c("species", "scenario", "timestep"), sep = "_")
+
+
+
+
 
