@@ -65,7 +65,7 @@ load("outData/veg.Rdata")
 # final tables on site level
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
 
-## read coordinates: to add XY coordinates to final model ---------------------
+### get coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
 xy <- st_read("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg")
 
@@ -168,8 +168,7 @@ clim_cluster_indicator <- df_fin %>%
 
 
 
-## Exploratory analysis ---------------------
-
+## Summary table -----------------------------------------------
 
 
 #View(df_fin)
@@ -192,12 +191,16 @@ df_summary <- df_fin %>%
 
 
 
+## Exploratory analysis ---------------------
+
+### structure ---------------------------------
+
+### composition -------------------------------
 
 
 
 
-
-# 2. species composition per stems: --------------
+## 2. species composition per stems: --------------
 
 # identify seral stages and whether the species are coniferous or deciduous
 df_seral_species <- data.frame(
@@ -291,7 +294,7 @@ df_stem_sp_sum_ordered %>%
  
 
 
-# Plot Stem density per species and vertical class: --------------------------------
+## Plot Stem density per species and vertical class: --------------------------------
 
 
 # test plotting function ridge density 
@@ -334,12 +337,14 @@ p_stem_density_ridge <- ggarrange(p_piab,p_fasy,p_pisy,
           common.legend = T, ncol = 1,
           labels = top_species_global_vect)#, nrow = 7
 
+p_stem_density_ridge
+
 ggsave(filename = 'outFigs/p_stem_density_ridge.png', 
        plot = p_stem_density_ridge, 
        width = 4, height = 10, dpi = 300, bg = 'white')
 
 
-# stem density: show only median and IQR?  ----------------------------------
+## stem density: show only median and IQR?  ----------------------------------
 
 
   # Calculate median and IQR for sum_stems per Species and VegType
@@ -369,7 +374,7 @@ ggsave(filename = 'outFigs/p_stem_density_ridge.png',
     theme(legend.position = "top")
   
   
-# Species composition: vertical class  ------------------------------------
+## Species composition: vertical class  ------------------------------------
 # Summarize the data by VegType and Species
 mean_stems_vertical <- stem_dens_species_long_cluster %>%
   group_by(VegType, Species) %>%
@@ -433,7 +438,7 @@ stem_dens_species_long_cluster %>%
 
 # Find the top 5 species per climate class based on share
 top_species_per_clim_class <- species_composition %>%
-  group_by(clim_class) %>%
+  #group_by(clim_class) %>%
   arrange(desc(share)) %>%  # Sort species by their share within each climate class
   dplyr::filter(share > 2) %>%  # select species with share > 5%
   left_join(df_seral_species, by = join_by(Species))  #%>% 
@@ -593,7 +598,7 @@ stem_dens_species_long_cluster %>%
 
 ### Vertical structure  --------------------------------------
 
-## Get presence absence data for indiviual layers --------------------------
+#### Get presence absence data for indiviual layers --------------------------
 
 # Group by cluster and VegType, check if stem_density > 0
 vert_class_presence_absence <- stem_dens_species_long_cluster %>%
@@ -1291,7 +1296,7 @@ correlation_matrix
 # split table in two: drivers for advanced (> 1000 stems/ha)
 #                     drivers for delayed regeneration (<50 stems/ha)  
 
-# Prep fnal table --------------
+## Prep fnal table --------------
 
 df_fin <- df_fin %>% 
   mutate(country_full    = factor(country_full),
@@ -3330,10 +3335,6 @@ dunnTest
 ggarrange(p.country.density, p.country.richness)
 
 
-
-#### Stem density vs IVI -----------------------------------------------------
-
-
 # Save models --------------------------------------------------
 
 # Save the model object and input data
@@ -3343,3 +3344,50 @@ save(#fin.m.delayed, df_delayed2,
      #fin.m.reg.density, df_stem_regeneration2,
      file = "outData/stem_density_models.RData")
 
+# future evelopmenet -------------------------------------------
+
+# compare current species composition with future ones form wessely
+
+# 
+head(stem_dens_species_long_cluster)
+
+# get species merging table
+species_look_up_simple<- read.csv("rawData/tree_sp_simple.csv", sep = ';')
+
+# get species merging table
+species_look_up_full<- read.csv("rawData/tree_sp_field_wessely_merged.csv", sep = ';')
+
+
+# identify what species are present per cluster
+present_species <- 
+  stem_dens_species_long_cluster %>% 
+  ungroup() %>% 
+  group_by(cluster, Species) %>% 
+  summarize(sum_stem_density = sum(stem_density, na.rm = T )) %>% 
+  mutate(presence = if_else(sum_stem_density > 0, 1, 0)) %>% 
+  dplyr::select(-sum_stem_density ) %>% 
+  left_join(species_look_up_simple, by = c("Species" = "acc")) %>% 
+  dplyr::select(-latin) 
+
+present_species <- present_species %>% 
+  dplyr::rename(acc = Species) %>% 
+  dplyr::rename(site = cluster)
+
+# read table with Wessely species
+future_species <- fread('outTable/species_presence_clim_change.csv')
+
+# add acronyms and consider presence across several species: eg betula sp.
+future_species <- 
+  future_species %>%
+  left_join(species_look_up_full, by = c('species' = 'wessely')) %>%
+  # group by species to allow occurence of species that have specified genus: eg betula sp.
+  group_by(site, scenario, acc) %>% 
+  # Summarize and set sum_presence to 1 if the sum is greater than 1
+  summarize(sum_presence = pmin(sum(overall_presence), 1), .groups = 'drop')
+  
+wide_future_species <- future_species %>%
+  pivot_wider(names_from = scenario, values_from = sum_presence)
+
+# merge both tables: the presently recorded species and species under climate scenarios
+df_compare_future_species <- wide_future_species %>% 
+  full_join(present_species)
