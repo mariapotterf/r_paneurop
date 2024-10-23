@@ -21,6 +21,8 @@ library(ggpubr)
 # library
 library(ggridges)
 
+library(purrr)
+
 
 
 
@@ -3344,7 +3346,7 @@ save(#fin.m.delayed, df_delayed2,
      #fin.m.reg.density, df_stem_regeneration2,
      file = "outData/stem_density_models.RData")
 
-# future evelopmenet -------------------------------------------
+# 4. future developmenet -------------------------------------------
 
 # compare current species composition with future ones form wessely
 
@@ -3375,9 +3377,100 @@ present_species <- present_species %>%
 
 # read table with Wessely species
 future_species <- fread('outTable/species_presence_clim_change.csv')
+future_species_full <- fread('outTable/species_presence_clim_change_full.csv')
+
+# check how many of the filed found species are found in 2020?
+future_species_full_2020 <- future_species_full %>% 
+  dplyr::filter(timestep  == 2020) %>% 
+  left_join(species_look_up_full, by = c('species' = 'wessely')) %>%
+  pivot_wider(names_from = scenario, values_from = raster_value) %>% 
+  full_join(present_species)
+  
+# Define the list of species
+species_list <- c("piab", "fasy", "pisy", "acps", "soau", "quro", "potr")
+
+# Filter for sites where piab is currently present
+piab_current <- future_species_full_2020 %>%
+  dplyr::filter(acc == 'piab' & presence == 1)
+
+# Calculate the proportion of sites where piab is present under each RCP scenario
+proportions <- piab_current %>%
+  summarise(
+    total_sites = n(),
+    rcp26_proportion = sum(rcp26 == 1) / total_sites,
+    rcp45_proportion = sum(rcp45 == 1) / total_sites,
+    rcp85_proportion = sum(rcp85 == 1) / total_sites
+  )
+
+# Print the result
+print(proportions)
+
+
+
+# for all species 
+
+# test
+filter_species <- function(species, ...) {
+  print(species)
+  df <- future_species_full_2020 %>%
+        dplyr::filter(acc == species & presence == 1) 
+  head(df)
+}
+
+filter_species <- function(species, ...) {
+  print(species)
+  
+  # Clean and ensure case-insensitive comparison
+  df <- future_species_full_2020 %>%
+    dplyr::mutate(acc = stringr::str_trim(tolower(acc))) %>%  # Trim and lowercase 'acc'
+    dplyr::filter(acc == tolower(species) & presence == 1)    # Lowercase comparison
+  
+  head(df)
+}
+
+my_species <- c('piab','besp')
+
+lapply(my_species, filter_species)
+
+
+# Function to calculate the proportions for each species
+calculate_proportions <- function(species,...) {
+  print(species)
+  
+  df <- future_species_full_2020 %>%
+    dplyr::filter(acc == species & presence == 1) #%>%
+  head(df)
+  
+  df <- df %>% 
+    #dplyr::filter(acc == 'piab' & presence == 1) #%>%
+    reframe(
+      species = species,                 # Add species name
+      total_sites = n(),                 # Total sites where species is currently present
+      rcp26_proportion = sum(rcp26 == 1) / total_sites,  # Proportion of sites for rcp26
+      rcp45_proportion = sum(rcp45 == 1) / total_sites,  # Proportion of sites for rcp45
+      rcp85_proportion = sum(rcp85 == 1) / total_sites   # Proportion of sites for rcp85
+    )
+  return(df)
+}
+
+
+
+
+# Use lapply to calculate proportions for all species in species_list
+proportions_list <- lapply(species_list, calculate_proportions)
+
+# Combine the list of data frames into a single data frame
+proportions_all_species <- bind_rows(proportions_list)
+
+# Print the result
+print(proportions_all_species)
+
+
+
+
 
 # add acronyms and consider presence across several species: eg betula sp.
-future_species <- 
+future_species_sum <- 
   future_species %>%
   left_join(species_look_up_full, by = c('species' = 'wessely')) %>%
   # group by species to allow occurence of species that have specified genus: eg betula sp.
@@ -3385,9 +3478,28 @@ future_species <-
   # Summarize and set sum_presence to 1 if the sum is greater than 1
   summarize(sum_presence = pmin(sum(overall_presence), 1), .groups = 'drop')
   
-wide_future_species <- future_species %>%
+wide_future_species <- future_species_sum %>%
   pivot_wider(names_from = scenario, values_from = sum_presence)
 
 # merge both tables: the presently recorded species and species under climate scenarios
 df_compare_future_species <- wide_future_species %>% 
   full_join(present_species)
+
+
+
+# Compare presence with future scenarios
+df_compare_future_species_summary <- df_compare_future_species %>%
+  group_by(site) %>%
+  summarise(
+    # Species that remain present (presence == 1 and also present in any future scenario)
+    same_present = sum(presence == 1 & (rcp26 == 1 | rcp45 == 1 | rcp85 == 1)),
+    
+    # Species that will go extinct (present == 1 but absent in all future scenarios)
+    extinct_species = sum(presence == 1 & rcp26 == 0 & rcp45 == 0 & rcp85 == 0),
+    
+    # Species that will regain (present == 0 but present in any future scenario)
+    regain_species = sum(presence == 0 & (rcp26 == 1 | rcp45 == 1 | rcp85 == 1))
+  )
+
+# Print the result
+View(df_compare_future_species_summary)
