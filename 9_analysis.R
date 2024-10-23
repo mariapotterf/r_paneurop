@@ -65,7 +65,7 @@ theme_set(
   theme_classic() + 
     theme(
       legend.position = 'bottom',
-      text = element_text(size = 8),         # Set all text to size 8
+      text = element_text(size = 4),         # Set all text to size 8
       axis.text = element_text(size = 8),    # Axis tick labels
       axis.title = element_text(size = 8),   # Axis titles
       strip.text = element_text(size = 8),   # Facet labels
@@ -322,7 +322,7 @@ plot_ridge_density <- function(data, species_name, xlim_range = c(0, 5000)) {
     dplyr::filter(stem_density > 0) %>% 
     dplyr::filter(Species == species_name) %>% 
     ggplot(aes(x = stem_density, y = VegType, group = VegType)) +
-    geom_density_ridges(aes(fill = VegType), alpha = 0.5) +
+    geom_density_ridges(aes(fill = VegType), alpha = 0.5, trim = T) +
     stat_summary(
       aes(x = stem_density), 
       fun = median, 
@@ -1315,7 +1315,7 @@ correlation_matrix
 # split table in two: drivers for advanced (> 1000 stems of juveniles/ha)
 #                     drivers for delayed regeneration (<50 stems/ha: saplings  + juveniles)  
 
-## Prep fnal table --------------
+## Prep final table --------------
 
 df_fin <- df_fin %>% 
   mutate(country_full    = factor(country_full),
@@ -1346,10 +1346,10 @@ df_fin <- df_fin %>%
                                      ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
                               levels = c("Delayed", "Other", "Advanced"))) %>%  
   # make larger categories to differentiate between groups
-  mutate(adv_delayed_wider = factor(ifelse(stem_regeneration <= 500, "Delayed_w", 
-                                     ifelse(sum_stems_juvenile >= 1000 , "Advanced_w", #| stem_regeneration >= 2000
-                                            "Other_w")),
-                              levels = c("Delayed_w", "Other_w", "Advanced_w"))) %>%  
+  mutate(adv_delayed_wider = factor(ifelse(stem_regeneration <= 500, "Delayed", 
+                                     ifelse(sum_stems_juvenile >= 1000 , "Advanced", #| stem_regeneration >= 2000
+                                            "Other")),
+                              levels = c("Delayed", "Other", "Advanced"))) %>%  
   
   # create binary classes for advanced vs delayed
   mutate(delayed = ifelse(stem_regeneration <= 50, 1, 0),
@@ -1671,93 +1671,16 @@ predictor_vars_sub <- c(#"spei1", "spei3",
 
 
 
-## Models: prepare fin tables ---------------------------------------------------------------------------------
-
-#
-# make median +IQR plots of variables for quick view
-
-
-# Subsetting the data for different models
-# Variables to be used for each dependent variable
-predictors_delayed <- c("rIVI", 
-                        # "n_vertical",  # remove as it has only 1/0 outcome
-                        # "richness",    # remove as it has only 1/0 outcome
-                        "clay_extract",
-                        "sum_stems_mature", 
-                        "prcp",
-                        "spei12",
-                        "disturbance_severity",
-                        "distance_edge",
-                        #"drought_spei12",
-                        "tmp",
-                        "av.nitro",
-                        "depth_extract",
-                        "management_intensity",
-                        "country_pooled","clim_grid", "clim_class", "x", "y")
-
-
-predictors_advanced <- c("richness", 
-                         "rIVI", 
-                         "n_vertical", 
-                         "sum_stems_mature", 
-                         "spei12",
-                        # "drought_spei12", 
-                         "country_pooled",
-                         "prcp",
-                         "tmp",
-                         "clay_extract",
-                         "av.nitro",
-                         "depth_extract",
-                         "management_intensity",
-                         "disturbance_severity",
-                        "distance_edge",
-                         "clim_grid",  
-                         "clim_class", 
-                         "x", "y")
-predictors_stem_regeneration <- c("richness",
-                                  "n_vertical", 
-                                  "rIVI", 
-                                  "prcp", 
-                                  #"drought_spei12",
-                                  "spei12",
-                                  "tmp",
-                                  "av.nitro",
-                                  "clay_extract",
-                                  "depth_extract",
-                                  "management_intensity",
-                                  "disturbance_severity",
-                                  "distance_edge",
-                                  "country_pooled", "clim_grid", "clim_class", "x", "y")
-
-# Subset the data
-df_delayed <- df_fin %>% dplyr::select(all_of(c("delayed", predictors_delayed)))
-df_advanced <- df_fin %>% dplyr::select(all_of(c("advanced", predictors_advanced)))
-df_stem_regeneration <- df_fin %>% dplyr::select(all_of(c("stem_regeneration", predictors_stem_regeneration)))
-
-
-
+## Models: prepare fin tables for individual models  ---------------------------------------------------------------------------------
 # test drivers: simplify the analysis:
 # Subset the data
-df_delayed2 <- df_fin %>% 
-  dplyr::select(all_of(c("delayed", predictor_vars_sub, "management_intensity",
-                                                "country_pooled", "clim_grid", "clim_class", "x", "y", "tmp_c", "prcp_c")))
-df_advanced2 <- df_fin %>% 
-  dplyr::select(all_of(c("advanced", predictor_vars_sub, "management_intensity",
-                                                 "country_pooled", "clim_grid", "clim_class", "x", "y", "tmp_c", "prcp_c")))
-
 
 df_stem_regeneration2 <- df_fin %>% 
   dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,"management_intensity",
                                                           "country_pooled", "clim_grid", "clim_class", "x", "y")))
 
 
-table(df_fin$delayed)
-table(df_fin$advanced)
-
-
-
-
-# Drivers: ---------------------------------------------------------------------
+## Drivers: ---------------------------------------------------------------------
 
 
 # SIMPLIFY PLOTTING TEST
@@ -1814,7 +1737,7 @@ create_interaction_plot <- function(model, terms, title, data, x_label = terms[1
 
 
 
-## Drivers regeneration density pooled ---------------------------------------------
+## Drivers: regeneration density pooled ---------------------------------------------
 
 
 # Check the structure of the data
@@ -2102,7 +2025,13 @@ sjPlot::tab_model(fin.m.advanced,
 
 
 
-## Boxplot sites differences: delayed vs advaced ----------------------------
+## Wilcox: Boxplot sites differences: delayed vs advaced ----------------------------
+
+# two categories: count how many plots i have?
+
+prop.table(table(df_fin$adv_delayed_wider))
+prop.table(table(df_fin$adv_delayed))
+
 
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
@@ -2221,31 +2150,43 @@ df_long_narrow <- df_fin %>%
 
 
 # list groups to pairwise comparison
-comparisons_w <- list(c("Delayed_w", "Other_w"), c("Delayed_w", "Advanced_w"), c("Other_w", "Advanced_w"))
-comparisons_n <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
+comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
 
 # Plot using ggboxplot
 p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Value", 
                               fill = "adv_delayed", 
                               palette = c("blue", "red", "green"),
                               facet.by = "Variable", scales = "free_y", 
-                              ylab = "Values", xlab = "Regeneration Status") +
-  stat_compare_means(comparisons = comparisons_n, method = "wilcox.test", 
+                              ylab = "Values", xlab = "Regeneration Status",
+                              outlier.size = .2,
+                              size = 0.2) +
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
                      label = "p.signif", 
                      #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
-                     size = 4,
-                     label.x = 1.5) +  # Position labels between the groups
- # theme_classic() +
-  #theme(legend.position = 'bottom') +
+                     size = 2,
+                     label.x = 1.5) +  # Position labels between the groups+
   labs(title = "Delayed <=50, advanced >= 1000 juv",
-       x = "Reg. Status", y = "Vals")
+       x = "Reg. Status", y = "Vals")+
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 3),         # Set all text to size 3
+    axis.text = element_text(size = 3),    # Axis tick labels
+    axis.title = element_text(size = 3),   # Axis titles
+    strip.text = element_text(size = 3),   # Facet labels
+    legend.text = element_text(size = 3),  # Legend text
+    plot.title = element_text(size = 5),   # Plot title
+    strip.background = element_blank(),    # Remove the box around facet names
+    strip.placement = "outside",           # Optional: Move facet label outside the plot area
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
+  ) 
 
 p_boxplot_wilcox_narrow
 
 # Save the combined plot (optional)
-ggsave("outFigs/p_boxplot_wilcox_narrow.png", p_boxplot_wilcox_narrow, width = 5, height = 3, 
-       dpi = 300,  bg = 'white')
-
+# Save the plot ensuring text sizes are preserved
+ggsave("outFigs/p_boxplot_wilcox_delayed_50.png", plot = p_boxplot_wilcox_narrow, 
+       width = 3, height = 3.2, units = "in", dpi = 300, 
+       bg = 'white', scale = 1)
 
 ### wider intervals: ------------------------------------------------------
 
@@ -2271,25 +2212,39 @@ p_boxplot_wilcox_wider <- ggboxplot(df_long_wider, x = "adv_delayed_wider", y = 
                               fill = "adv_delayed_wider",
                               palette = c("blue", "red", "green"),
                               facet.by = "Variable", scales = "free_y", 
+                              outlier.size = .2,
+                              size = 0.2,
                               ylab = "Values", xlab = "Regeneration Status") +
-  stat_compare_means(comparisons = comparisons_w, method = "wilcox.test", 
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
                      label = "p.signif", 
                      #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
-                     size = 4,
+                     size = 2,
                      label.x = 1.5) +  # Position labels between the groups
- # theme_classic() +
-  #theme(legend.position = 'bottom') +
+  #geom_boxplot(lwd = 0.3) +      
   labs(title = "Delayed <=500, advanced >= 1000 juv",
-       x = "Reg. Status", y = "Vals")
+       x = "Reg. Status", y = "Vals") +
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 3),         # Set all text to size 3
+    axis.text = element_text(size = 3),    # Axis tick labels
+    axis.title = element_text(size = 3),   # Axis titles
+    strip.text = element_text(size = 3),   # Facet labels
+    legend.text = element_text(size = 3),  # Legend text
+    plot.title = element_text(size = 5),   # Plot title
+    strip.background = element_blank(),    # Remove the box around facet names
+    strip.placement = "outside",           # Optional: Move facet label outside the plot area
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
+  ) 
+
 
 p_boxplot_wilcox_wider
 
 # Save the combined plot (optional)
-ggsave("outFigs/p_boxplot_wilcox_wider.png", p_boxplot_wilcox_wider, width = 5, height = 3, 
+ggsave("outFigs/p_boxplot_wilcox_delayed_500.png", p_boxplot_wilcox_wider, width = 3, height = 3.2, 
        dpi = 300,  bg = 'white')
 
 
-
+#### Wilcox tablle -----------------------------------------------
 library(tidyr)
 
 # Perform pairwise Wilcoxon test
