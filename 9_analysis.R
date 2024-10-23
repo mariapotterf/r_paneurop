@@ -626,7 +626,11 @@ vert_class_presence_absence <- stem_dens_species_long_cluster %>%
   ungroup() %>%
   # Filter only where there is stem density present
   dplyr::filter(has_stem_density) %>%
-  dplyr::select(cluster, VegType)
+  dplyr::select(cluster, VegType) %>% 
+  mutate(Presence = 1) %>%  # Add a column with 1 indicating presence
+  pivot_wider(names_from = VegType, values_from = Presence, values_fill = 0)  # Convert to wide format, filling NAs with 0
+
+
 
 # Now find clusters where no VegType has stem_density > 0
 # Find clusters where no vegType has stem_density
@@ -635,211 +639,54 @@ all_clusters <- stem_dens_species_long_cluster %>%
   dplyr::select(cluster, VegType) %>% 
   distinct(cluster)
 
-clusters_with_stem_density <- presence_absence %>%
-  ungroup() %>% 
-  dplyr::select(cluster, VegType) %>% 
-  distinct(cluster)
-
-clusters_without_stem_density <- all_clusters %>%
-  anti_join(clusters_with_stem_density, by = "cluster") %>%
-  mutate(VegType = "0")
-
 # Combine clusters with and without stem density
-final_result <- bind_rows(vert_class_presence_absence, clusters_without_stem_density) %>%
-  arrange(cluster, VegType)
-
-# Display final result
-final_result
-
-# reclassify naming convention
-
-final_result <- final_result %>%
-  mutate(VegType = case_when(
-    VegType == "Mature" ~ "m",
-    VegType == "Saplings" ~ "s",
-    VegType == "Juveniles" ~ "j",
-    TRUE ~ VegType # In case there are other values
-  )) %>% 
-  left_join(clim_cluster_indicator, by = c('cluster' = 'site'))  
-
-# Group by cluster, concatenate VegType into a single string for each cluster
-vert_vegtype_classes <- final_result %>%
-  group_by(cluster, clim_class) %>%
-  summarise(veg_class = paste(sort(unique(VegType)), collapse = "")) %>%
-  ungroup()
-
-# Count the occurrences of each veg_class within each clim_class
-vert_vegtype_class_count <- vert_vegtype_classes %>%
-  group_by(clim_class, veg_class) %>%
-  summarise(count = n()) %>%
-  ungroup() %>%
-  arrange(clim_class, veg_class)
-
-# Calculate the total counts per clim_class
-vert_vegtype_class_percent <- vert_vegtype_class_count %>%
-  group_by(clim_class) %>%
-  mutate(total_count = sum(count)) %>% 
-  ungroup() %>%
-  # Calculate the percentage for each veg_class within each clim_class
-  mutate(percent = round((count / total_count) * 100, 1))
-
-
-# order the classes:
-
-# Set up the correct factor levels for veg_class based on your preferred order
-vert_vegtype_class_percent$veg_class <- factor(vert_vegtype_class_percent$veg_class, 
-                                               levels = c("0", "s", "js", "j", "jm",  "jms", "ms", "m"))
-
-# Define a green color palette using colorRampPalette for 's' to 'jms' classes
-green_palette <- colorRampPalette(c("lightgreen", "darkgreen"))(7)  # 7 shades of green
-
-# Combine the red color for '0' with the generated green palette
-color_palette <- c("0" = "red", setNames(green_palette, c("s", "js", "j", "jm",  "jms", "ms", "m")))
+vert_class_presence_absence_fin <- vert_class_presence_absence  %>% 
+  right_join(all_clusters)
 
 
 
-# Create a stacked bar plot
-p_vertical_classes <- ggplot(vert_vegtype_class_percent, aes(x = clim_class, y = percent, fill = veg_class)) +
-  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
-  geom_text(aes(label = #paste0(count, " (", percent, "%)")
-                  ifelse(percent>=2, percent, '')
-  ),
-  position = position_stack(vjust = 0.5),  # Labels inside the bars
-  size = 3, color = "black") +  # Adjust text size and color
-  labs(x = "", y = "Percentage", 
-       fill = "Vertical\nclass",
-       title = "") +
-  scale_fill_manual(values = color_palette) +  # Apply the color palette with green gradient and red
-  theme_classic2() +  # Use a clean theme
-  theme(
-    # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
-    plot.title = element_text(hjust = 0.5)  # Center the title
-  )
+# visualize vertical classes by UpSEt plot
+
+# Upset plot -----------------------------------
+
+library(UpSetR)
 
 
 
-ggsave(filename = 'outFigs/fig_vert_classes_share_clim_clust.png', 
-       plot = p_vertical_classes, 
-       width = 5, height = 4, dpi = 300, bg = 'white')
+# full data:
+
+# Step 2: Select only the columns with presence/absence data
+upset_data <- vert_class_presence_absence_fin %>% dplyr::select(Saplings, Juveniles, Mature) %>% 
+  as.data.frame()
+
+# Step 3: Create the UpSet plot
+upset(upset_data, sets = c('Saplings', 'Juveniles', 'Mature'), order.by = "freq")
 
 
+# upset data test ---------------------------------------------------------
 
-# 
+dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
+                 vert = c('m', 
+                          's', 'j',
+                          'j','s','m',
+                          's',
+                          'j','s',
+                          's',
+                          'm','j','s'))
+# Step 1: Create a binary presence/absence matrix for each site
+dd_wide <- dd %>%
+  pivot_wider(names_from = vert, values_from = vert, 
+              values_fn = length, values_fill = 0) %>%
+  mutate(m = ifelse(m > 0, 1, 0),
+         j = ifelse(j > 0, 1, 0),
+         s = ifelse(s > 0, 1, 0))
 
+# Step 2: Select only the columns with presence/absence data
+upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
+  as.data.frame()
 
-#### test vertical layers - OLD -----------------------------------------------------
-
-# Get again individual layers:
-df_vert_full <- 
-  stem_dens_species_long_cluster %>% 
-  left_join(clim_cluster_indicator, by = c('cluster' = 'site')) %>% 
-  dplyr::filter(stem_density>0) %>% 
-  ungroup(.) %>% 
-  dplyr::select(cluster, VegType) %>%
-  group_by(cluster) %>%
-  distinct(.) %>% 
-  mutate(n_layers = n()) #%>% 
-
-
-
-# Calculate frequencies of individual layers and combinations
-layer_frequencies <- 
-  df_vert_full %>%
-  group_by(cluster) %>% 
-  right_join(df_stems) %>% # to account for teh empty ones
-  mutate(VegType = case_when(
-    is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
-    TRUE ~ VegType           # Keep existing values for non-NA cases
-  )) %>% 
-  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
-  ungroup() %>%
-  count(layers)
-
-layer_frequencies$prop <- layer_frequencies$n/n_clusters*100
-(layer_frequencies)
-
-# plot how often each category occurs
-windows()
-layer_frequencies %>% 
-  ggplot(aes(x = reorder(layers, -n), y = n)) +
-  geom_bar(stat = "identity") #, position = "fill") #+
-#geom_text(aes(label = paste0(round(scales::percent, 1), "%"), 
-#              y = cumsum(n) - n/2), 
-#          position = position_fill(), 
-#          color = "white", 
-#          size = 3) +
-ylab("Percentage (%)") +
-  theme_classic() +
-  labs(fill = "Layers")
-
-
-layer_frequencies %>% 
-  ggplot(aes(fill = layers     , 
-             area = prop      ,
-             label = paste(layers, "\n", round(prop,2), "%"))) +
-  geom_treemap() +
-  geom_treemap_text(colour ="white", place = "centre")# +
-
-
-
-
-layer_reg_frequencies <- 
-  df_vert_full %>%
-  dplyr::filter(VegType != 'Mature') %>% 
-  group_by(cluster) %>% 
-  right_join(df_stems) %>% # to account for teh empty ones
-  mutate(VegType = case_when(
-    is.na(VegType) ~ 'NO',   # Replace NA with 'NO'
-    TRUE ~ VegType           # Keep existing values for non-NA cases
-  )) %>% 
-  summarise(layers = paste(sort(unique(VegType)), collapse = "-")) %>%
-  ungroup() %>%
-  count(layers)
-
-
-# View the result
-print(layer_reg_frequencies)
-
-
-###### chi sqare goodnes of fit: -------------------
-# expecting that categories are equally distributed: divide total observations by number of groups
-# Total observations
-total_observations <- sum(layer_reg_frequencies$n)
-
-# Expected frequencies if all layers were equally likely
-expected_frequencies <- rep(total_observations / nrow(layer_reg_frequencies), 
-                            nrow(layer_reg_frequencies))
-
-# Perform the chi-square test for goodness of fit
-chi_square_test_result <- chisq.test(x = layer_reg_frequencies$n, 
-                                     p = expected_frequencies / total_observations)
-
-# Print the result
-print(chi_square_test_result)
-
-
-# compare residuals to understand the differences between groups:
-# Assuming chi_square_test_result is the result of your chi-square test
-# and layer_reg_frequencies contains the observed frequencies for your categories
-
-# Calculate expected frequencies
-expected_frequencies <- chi_square_test_result$expected
-
-# Calculate standardized residuals
-standardized_residuals <- (layer_reg_frequencies$n - expected_frequencies) / sqrt(expected_frequencies)
-
-# Associate residuals with group names
-residuals_table <- data.frame(Group = layer_reg_frequencies$layers, 
-                              StandardizedResiduals = standardized_residuals)
-
-# Print the residuals table, sorted by the absolute value of residuals
-residuals_table <- residuals_table[order(abs(residuals_table$StandardizedResiduals), decreasing = TRUE),]
-print(residuals_table)
-
-
-
-
-
+# Step 3: Create the UpSet plot
+upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
 
 
 
@@ -899,38 +746,6 @@ ggsave(filename = 'outFigs/fig_indicators_violin.png',
        width = 7, height = 7, dpi = 300, bg = 'white')
 
 
-# visualize vertical classes by UpSEt plot
-
-# Upset plot -----------------------------------
-
-library(UpSetR)
-
-dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
-                 vert = c('m', 
-                          's', 'j',
-                          'j','s','m',
-                          's',
-                          'j','s',
-                          's',
-                          'm','j','s'))
-# Step 1: Create a binary presence/absence matrix for each site
-dd_wide <- dd %>%
-  pivot_wider(names_from = vert, values_from = vert, 
-              values_fn = length, values_fill = 0) %>%
-  mutate(m = ifelse(m > 0, 1, 0),
-         j = ifelse(j > 0, 1, 0),
-         s = ifelse(s > 0, 1, 0))
-
-# Step 2: Select only the columns with presence/absence data
-upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
-  as.data.frame()
-
-# Step 3: Create the UpSet plot
-upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
-
-
-
-# 
 
 
 
