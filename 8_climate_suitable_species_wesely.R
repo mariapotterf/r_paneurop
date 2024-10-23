@@ -135,13 +135,13 @@ combined_long_df <- combined_df %>%
   )
 
 # Split the 'raster_name' column into 'species', 'scenario', and 'timestep' using '_'
-combined_long_df2 <- combined_long_df %>%
+future_species_full <- combined_long_df %>%
   separate(raster_name, into = c("species", "scenario", "timestep"), sep = "_")
 
 # calculate if teh species is continuous: sum per all years == 8 
 # calculate the presence values per site, scenario, species over all years
-present_species <- 
-  combined_long_df2 %>% 
+future_species_lifecycle <- 
+  future_species_full %>% 
   group_by(site, species, scenario) %>% 
     summarise(occurence_years = sum(raster_value), .groups = 'drop') %>%
     mutate(overall_presence = case_when(
@@ -150,5 +150,6 @@ present_species <-
     ))
 
 # export final table
-fwrite(present_species, 'outTable/species_presence_clim_change.csv')
+fwrite(future_species_lifecycle, 'outTable/species_presence_clim_change.csv')
+fwrite(future_species_full, 'outTable/species_presence_clim_change_full.csv')
 
