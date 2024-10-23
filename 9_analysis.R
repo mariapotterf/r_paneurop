@@ -59,6 +59,23 @@ library(RColorBrewer)
 
 source('my_functions.R')
 
+# Set a global theme -------------------------------------------------------------------
+
+theme_set(
+  theme_classic() + 
+    theme(
+      legend.position = 'bottom',
+      text = element_text(size = 8),         # Set all text to size 8
+      axis.text = element_text(size = 8),    # Axis tick labels
+      axis.title = element_text(size = 8),   # Axis titles
+      strip.text = element_text(size = 8),   # Facet labels
+      legend.text = element_text(size = 8),  # Legend text
+      plot.title = element_text(size = 8)    # Plot title
+    )
+)
+
+
+
 # Read data -----------------------------------------------------------------------
 
 # get vegetation data
@@ -1295,8 +1312,8 @@ correlation_matrix
 
 #5. Drivers ---------------------------------
 # for all regeneration (juveniles and saplings)
-# split table in two: drivers for advanced (> 1000 stems/ha)
-#                     drivers for delayed regeneration (<50 stems/ha)  
+# split table in two: drivers for advanced (> 1000 stems of juveniles/ha)
+#                     drivers for delayed regeneration (<50 stems/ha: saplings  + juveniles)  
 
 ## Prep fnal table --------------
 
@@ -1323,18 +1340,38 @@ df_fin <- df_fin %>%
 # Make sure df_fin has no missing values, if necessary
 df_fin <- na.omit(df_fin)
 
-# make two regeneration classes: advnaced vs advanced
+# make  regeneration classes: advanced vs delayed
 df_fin <- df_fin %>% 
-  mutate(adv_delayed = ifelse(stem_regeneration <= 50, "Delayed", 
-                              ifelse(sum_stems_juvenile >= 1000, "Advanced", NA))) %>% 
+  mutate(adv_delayed = factor(ifelse(stem_regeneration <= 50, "Delayed", 
+                                     ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
+                              levels = c("Delayed", "Other", "Advanced"))) %>%  
+  # make larger categories to differentiate between groups
+  mutate(adv_delayed_wider = factor(ifelse(stem_regeneration <= 500, "Delayed_w", 
+                                     ifelse(sum_stems_juvenile >= 1000 , "Advanced_w", #| stem_regeneration >= 2000
+                                            "Other_w")),
+                              levels = c("Delayed_w", "Other_w", "Advanced_w"))) %>%  
+  
+  # create binary classes for advanced vs delayed
   mutate(delayed = ifelse(stem_regeneration <= 50, 1, 0),
          advanced = ifelse(sum_stems_juvenile >=  1000, 1, 0))
 
+# check my categories?
+df_fin %>% 
+  dplyr::select(site, 
+                stem_density,
+                stem_regeneration,
+                sum_stems_juvenile,
+                sum_stems_sapling, 
+                #sum_stems_mature,
+                adv_delayed,
+                adv_delayed_wider
+  ) %>% 
+  View()
 
 
 
 
-## Variables selection: Corelations  ------------------------------------------------------
+## Variables selection: Correlations  ------------------------------------------------------
 
 # Select relevant columns for the plot
 df_pairs <- df_fin %>%
@@ -2854,34 +2891,36 @@ sjPlot::tab_model(fin.m.advanced,
 
 
 
-## Wilcox PLOTS: sites differences: delayed vs advaced ----------------------------
+## Boxplot sites differences: delayed vs advaced ----------------------------
 
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
-  "rIVI", "sum_stems_mature", "prcp", 
-  "richness",
-  "n_vertical",
- # "spei1", "drought_spei1",                      
-  "spei3", #"drought_spei3",
-                        "spei12", #"drought_spei12", 
-                      
-                      # "spei24", "drought_spei24" ,
-                       "tmp", "av.nitro", "depth_extract", "management_intensity", 
- "distance_edge" ,
- "salvage_intensity",
- "clay_extract",
- "clay_extract",
- "disturbance_severity",
-                       "adv_delayed"
+  "tmp",
+  "prcp",     
+  "spei12", 
+  "stem_regeneration",
+  "sum_stems_juvenile"  ,
+  "sum_stems_sapling", 
+  "sum_stems_mature",
+  "av.nitro", 
+  "depth_extract", 
+  "management_intensity", 
+  "salvage_intensity", 
+  "protection_intensity", 
+  "distance_edge" , 
+  "disturbance_severity",
+  "salvage_intensity",
+  "clay_extract"#,
+ # "adv_delayed"
                        )
 
-#                       "country_pooled", "clim_grid", "clim_class"
+# differentiate classes:
 
 # Step 2: Calculate median and IQR for each variable by regeneration status
-summary_stats <- 
+summary_stats_narrow <- 
   df_fin %>%
   na.omit() %>% 
-    dplyr::select(all_of(variables_to_plot)) %>% 
+    dplyr::select(all_of(c(variables_to_plot, 'adv_delayed'))) %>% 
   gather(key = "Variable", value = "Value", -adv_delayed) %>%
   group_by(adv_delayed, Variable) %>%
   summarise(
@@ -2892,58 +2931,171 @@ summary_stats <-
   mutate(IQR_Lower = Median - Q1, 
          IQR_Upper = Q3 - Median)
 
+
+# make wider categories: for delayed and advanced
+
+summary_stats_wider <- 
+  df_fin %>%
+  na.omit() %>% 
+    dplyr::select(all_of(c(variables_to_plot, 'adv_delayed_wider'))) %>% 
+  gather(key = "Variable", value = "Value", -adv_delayed_wider) %>%
+  group_by(adv_delayed_wider, Variable) %>%
+  summarise(
+    Median = median(Value, na.rm = TRUE),
+    Q1 = quantile(Value, 0.25, na.rm = TRUE),
+    Q3 = quantile(Value, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(IQR_Lower = Median - Q1, 
+         IQR_Upper = Q3 - Median)
+
+
+
+# chack my categories?
+df_fin %>% 
+  dplyr::select(site, 
+                stem_density,
+                stem_regeneration,
+                sum_stems_juvenile,
+                 sum_stems_sapling, 
+                 sum_stems_mature,
+                adv_delayed,
+                adv_delayed_wider
+                ) %>% 
+  View()
+
+
 # Step 3: Create the median and IQR plot using ggplot2
-ggplot(summary_stats, aes(x = Variable, y = Median, color = adv_delayed)) +
+ggplot(summary_stats_narrow, aes(x = Variable, y = Median, color = adv_delayed)) +
   geom_point(position = position_dodge(width = 0.5), size = 3) +  # Points for median
   geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, 
                 position = position_dodge(width = 0.5)) +          # Error bars for IQR
   labs(title = "Median and IQR Plot for Delayed vs Advanced Regeneration",
        x = "Variables", y = "Median and IQR") +
-  theme_minimal() +
+  theme_classic() +
   facet_wrap(.~Variable, scales = 'free')+
   #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_manual(values = c("blue", "red")) +  # Set colors for delayed vs advanced
+  #scale_color_manual(values = c("blue", "red")) +  # Set colors for delayed vs advanced
+  theme(legend.title = element_blank())            # Remove legend title
+
+# for wider interavls:
+
+# Step 3: Create the median and IQR plot using ggplot2
+ggplot(summary_stats_wider , aes(x = Variable, y = Median, color = adv_delayed_wider  )) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +  # Points for median
+  geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, 
+                position = position_dodge(width = 0.5)) +          # Error bars for IQR
+  labs(title = "Median and IQR Plot for Delayed vs Advanced Regeneration: wider intervals",
+       x = "Variables", y = "Median and IQR") +
+  theme_classic() +
+  facet_wrap(.~Variable, scales = 'free')+
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  #scale_color_manual(values = c("blue", "red")) +  # Set colors for delayed vs advanced
   theme(legend.title = element_blank())            # Remove legend title
 
 
+
+
+### test differences between groups: Narrow --------------------------------------
 # Step 1: Reshape the data to long format
-df_long <- df_fin %>%
+df_long_narrow <- df_fin %>%
   na.omit() %>% 
-  dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
+  dplyr::select(tmp, 
+                prcp, 
+                spei12,
+                disturbance_severity, 
+                distance_edge, 
+                adv_delayed) %>% 
+  #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
   gather(key = "Variable", value = "Value", -adv_delayed)
 
-# Calculate max value for each variable to set label.y properly
-df_long_summary <- df_long %>%
-  group_by(Variable) %>%
-  summarize(max_value = max(Value, na.rm = TRUE)) %>%
-  mutate(label_y = max_value + (0.1 * max_value)) # Add a 10% margin above the max value for label
 
-# Create a named vector for easy lookup in stat_compare_means
-label_y_positions <- setNames(df_long_summary$label_y, df_long_summary$Variable)
+# list groups to pairwise comparison
+comparisons_w <- list(c("Delayed_w", "Other_w"), c("Delayed_w", "Advanced_w"), c("Other_w", "Advanced_w"))
+comparisons_n <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
 
 # Plot using ggboxplot
-# Plot using ggboxplot
-p_boxplot_wilcox <- ggboxplot(df_long, x = "adv_delayed", y = "Value", 
-                              color = "adv_delayed", palette = c("blue", "red"),
+p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Value", 
+                              fill = "adv_delayed", 
+                              palette = c("blue", "red", "green"),
                               facet.by = "Variable", scales = "free_y", 
                               ylab = "Values", xlab = "Regeneration Status") +
-  stat_compare_means(aes(group = adv_delayed), method = "wilcox.test", 
+  stat_compare_means(comparisons = comparisons_n, method = "wilcox.test", 
                      label = "p.signif", 
-                     label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
+                     #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
                      size = 4,
-                     label.x = 1.5) +  # Position labels between the two boxplots
-  theme_minimal() +
-  theme(legend.position = 'bottom') +
-  labs(title = "",
+                     label.x = 1.5) +  # Position labels between the groups
+ # theme_classic() +
+  #theme(legend.position = 'bottom') +
+  labs(title = "Delayed <=50, advanced >= 1000 juv",
        x = "Reg. Status", y = "Vals")
 
-p_boxplot_wilcox
+p_boxplot_wilcox_narrow
 
 # Save the combined plot (optional)
-ggsave("outFigs/p_boxplot_wilcox.png", p_boxplot_wilcox, width = 6, height = 8, 
+ggsave("outFigs/p_boxplot_wilcox_narrow.png", p_boxplot_wilcox_narrow, width = 5, height = 3, 
        dpi = 300,  bg = 'white')
 
 
+### wider intervals: ------------------------------------------------------
+
+# Step 1: Reshape the data to long format
+df_long_wider <- df_fin %>%
+  dplyr::select(tmp, 
+                prcp, 
+                spei12,
+                disturbance_severity, 
+                distance_edge, 
+                adv_delayed_wider) %>% 
+  na.omit() %>% 
+ # dplyr::select(all_of(variables_to_plot), adv_delayed_wider) %>% 
+  gather(key = "Variable", value = "Value", -adv_delayed_wider)
+
+
+
+# get pairwised comparison:
+
+
+p_boxplot_wilcox_wider <- ggboxplot(df_long_wider, x = "adv_delayed_wider", y = "Value", 
+                              #color = "adv_delayed_wider",
+                              fill = "adv_delayed_wider",
+                              palette = c("blue", "red", "green"),
+                              facet.by = "Variable", scales = "free_y", 
+                              ylab = "Values", xlab = "Regeneration Status") +
+  stat_compare_means(comparisons = comparisons_w, method = "wilcox.test", 
+                     label = "p.signif", 
+                     #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
+                     size = 4,
+                     label.x = 1.5) +  # Position labels between the groups
+ # theme_classic() +
+  #theme(legend.position = 'bottom') +
+  labs(title = "Delayed <=500, advanced >= 1000 juv",
+       x = "Reg. Status", y = "Vals")
+
+p_boxplot_wilcox_wider
+
+# Save the combined plot (optional)
+ggsave("outFigs/p_boxplot_wilcox_wider.png", p_boxplot_wilcox_wider, width = 5, height = 3, 
+       dpi = 300,  bg = 'white')
+
+
+
+library(tidyr)
+
+# Perform pairwise Wilcoxon test
+pairwise_results <- df_long_wider %>%
+  group_by(Variable) %>%
+  summarise(pairwise_p = list(pairwise.wilcox.test(Value, adv_delayed_wider, p.adjust.method = "BH")$p.value))
+
+# Expand pairwise Wilcoxon p-value matrix into a long format
+pairwise_table <- pairwise_results %>%
+  mutate(pairwise_p = map(pairwise_p, ~as.data.frame(as.table(.)))) %>% # Convert matrix to data frame
+  unnest(pairwise_p) %>%
+  rename(Comparison1 = Var1, Comparison2 = Var2, p_value = Freq) %>%
+  mutate(Comparison = paste(Comparison1, "vs", Comparison2)) %>%
+  dplyr::select(Variable, Comparison, p_value)
+
+# Show the pairwise Wilcoxon p-values as a table
+pairwise_table
 
 
 # Assuming `df_delayed_filtered` is your data frame
