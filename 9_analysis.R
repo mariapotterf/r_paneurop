@@ -257,8 +257,132 @@ df_stem_sp_sum <- stem_dens_species_long_cluster %>%
 # ad indicators for clim cluster
 stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>% 
   left_join(clim_cluster_indicator, by = c('cluster' = 'site')) #%>% 
-  
-# get overall number for the species compositions:
+
+
+## Species composition overall: total sum of stems ----------------------------------
+
+# Summarize the total stem density per species for each climate class
+species_composition_overall <- stem_dens_species_long_cluster %>%
+  group_by(Species) %>%
+  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
+  ungroup() 
+
+# Calculate the total stem density per climate class and the share of each species
+species_composition_overall <- species_composition_overall %>%
+  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
+         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
+  ungroup()
+
+
+# Find the top 5 species per climate class based on share
+top_species_overall <- species_composition_overall %>%
+  arrange(desc(share)) %>%  
+  slice_head(n = 7) #%>%  # Select the top X species
+#dplyr::filter(share > 5)# %>%  # select species with share > 5%
+
+top_species_overall_vect <- top_species_overall$Species
+
+(top_species_overall_vect)
+
+
+# Species composition by layer -----------------------------------------------------
+
+# Summarize the total stem density per species 
+species_composition_layer <- stem_dens_species_long_cluster %>%
+  group_by(Species, VegType) %>%
+  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
+  ungroup() 
+
+# Calculate the total stem density per climate class and the share of each species
+species_composition_layer <- species_composition_layer %>%
+  group_by(VegType) %>%
+  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
+         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
+  ungroup()
+
+
+# Find the top 5 species per climate class based on share
+top_species_layer <- species_composition_layer %>%
+  group_by(VegType) %>% 
+  arrange(desc(share)) %>%  
+#  slice_head(n = 7) #%>%  # Select the top X species
+dplyr::filter(share > 5)# %>%  # select species with share > 5%
+
+top_species_layer_vect <- top_species_layer$Species
+
+(top_species_overall_vect)
+unique((top_species_layer_vect))
+
+# compare teh species by overall ominance and by layer:
+setdiff(top_species_layer_vect, top_species_overall_vect )
+
+
+# Make a barplot - use previous colors and color schemes!!
+
+# Generate custom color palette based on the number of unique species
+n_colors <- length(unique(top_species_layer$Species))
+my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Extend to n_colors
+
+
+
+
+# Order the species based on their share
+top_species_layer$Species <- reorder(top_species_layer$Species, top_species_layer$share, decreasing = TRUE)
+
+# Create the bar plot with custom colors and ordered species
+ggplot(top_species_layer, aes(x = Species, y = share, fill = Species)) +
+  geom_bar(stat = "identity", color = 'black') +  # Create bar plot with species share
+  facet_grid(VegType ~ ., scales = "free_x") +  # Facet by VegType
+  labs(title = "Species Share by vertical layer", 
+       x = "Species", y = "Share (%)") +
+  scale_fill_manual(values = my_colors) +  # Apply custom color palette
+  theme_classic() +  # Use a minimal theme for a clean look
+  #coord_flip() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate the y-axis text (Species)
+        panel.border = element_rect(color = "black", fill = NA, size = 1),  # Black border around facets
+        strip.background = element_rect(color = "black", linewidth = 1),  # Black border around facet labels
+        panel.grid.major = element_line(color = "grey", linetype = "dotted"),  # Add grey dashed major grid lines
+        panel.grid.minor = element_blank(),  # Remove minor grid lines
+        legend.position = 'none') #+  # Hide the legend
+ # Rotate x-axis labels for better readability
+
+### Speceies composition: share per plot: filetr the most important species -------------
+# Summarize the total stem density per species 
+species_composition_layer_cluster <- stem_dens_species_long_cluster %>%
+  group_by(cluster, Species) %>%
+  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
+  ungroup() 
+
+# Calculate the total stem density per climate class and the share of each species
+species_composition_layer_cluster <- species_composition_layer_cluster %>%
+  group_by(cluster) %>%
+  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
+         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
+  ungroup() %>% 
+  filter(!is.nan(share) & share > 0) 
+
+
+unique((top_species_layer_vect))
+
+
+species_composition_layer_cluster %>% 
+  dplyr::filter(Species %in% top_species_layer_vect ) %>% 
+  ggplot(aes(x = Species, y = share, fill = Species)) +
+  stat_summary(fun = median, geom = "bar", color = "black", width = 0.7) +  # Bar plot with median share
+ stat_summary(fun.min = function(y) quantile(y, 0.25),  # Lower bound of IQR
+              fun.max = function(y) quantile(y, 0.75),  # Upper bound of IQR
+              geom = "errorbar", width = 0.2, color = "black") +  # Add IQR error bars
+  #facet_wrap(~ VegType, scales = "free_x") +  # Facet by VegType
+  labs(title = "Median Species Share by Vegetation Type", 
+       x = "Species", y = "Median Share (%)") +
+  scale_fill_brewer(palette = "Set3") +  # Apply a color palette
+  theme_minimal() +  # Use a minimal theme for a clean look
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
+        legend.position = "none")  # Hide legend if not needed
+
+
+
+# get overall number for the species compositions: ----------------------------------
 
 # Calculate median for each species and reorder the factor levels
 df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
@@ -267,6 +391,41 @@ df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
   dplyr::mutate(median_stem_density = median(sum_stem_density, na.rm = TRUE)) %>% 
   dplyr::ungroup() %>% 
   dplyr::mutate(Species = reorder(Species, median_stem_density))  # Reorder species by median stem density
+
+
+# Add a log-transformed column for sum_stem_density
+df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
+  mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
+
+
+# test trim values:
+df_stem_sp_sum_ordered %>% 
+  ggplot(aes(Month, x = sum_stem_density, y = Species, group = Species, height = after_stat(density))) +
+  geom_density_ridges(stat = "density", trim = TRUE)
+
+
+# est with log values
+df_stem_sp_sum_ordered %>%
+  ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
+  geom_density_ridges(aes(fill = Species), alpha = 0.5) +
+  stat_summary(
+    aes(x = log_sum_stem_density), 
+    fun = median, 
+    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+    geom = "pointrange", 
+    color = "black", 
+    size = 0.5,
+    position = position_nudge(y = .2)  # Adjust position slightly
+  ) +
+  theme_classic() +
+  #coord_cartesian(xlim = c(0, 5000)) +
+  labs(title = "",
+       x = "log10 Stem Density",
+       y = "Species")  +
+  theme(legend.position = 'none') 
+
+
 
 # Plot the reordered ridge plot
 p_stem_density_species <- df_stem_sp_sum_ordered %>%
@@ -314,17 +473,68 @@ df_stem_sp_sum_ordered %>%
 
 
 ## Plot Stem density per species and vertical class: --------------------------------
+# Add a log-transformed column for sum_stem_density
+stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
+  mutate(log_stem_density = log10(stem_density + 1))  # Adding 1 to avoid log(0)
+
+# simplify naming and make new categories for proper stem density
+stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
+  mutate(VegType_acc = case_when(
+    VegType == "Mature" ~ "mat",
+    VegType == "Juveniles" ~ "juv",
+    VegType == "Saplings" ~ "sap",
+    TRUE ~ as.character(VegType)  # Keep any other VegType values as they are
+  )) %>% 
+  mutate(species_VegType = paste(Species, VegType_acc, sep = '_'))
+
+
+stem_dens_species_long_cluster %>%  
+  dplyr::filter(Species %in% top_species_overall_vect[1:5]  ) %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
+  ggplot(aes(x = log_stem_density, y = VegType, group = VegType)) +
+  geom_density_ridges(aes(fill = VegType), alpha = 0.5) +
+  stat_summary(
+    aes(x = log_stem_density), 
+    fun = median, 
+    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+    geom = "pointrange", 
+    color = VegType, 
+    size = 0.3,
+    position = position_nudge(y = .2)  # Adjust position slightly
+  ) +
+  facet_grid(Species ~.) +
+  theme_classic() +
+  coord_cartesian(xlim = c(2,5)) +  # Zoom in on the stem_density range
+  labs(
+    #title = paste("Density Ridges for Species:", species_name),
+    x = "",
+    y = ""
+  ) +
+  theme(legend.position = 'none')
+
+
+# test density by group???  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
+# does not work very well
+stem_dens_species_long_cluster %>%  
+  dplyr::filter(Species %in% top_species_overall_vect[1:5]  ) %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
+  ggplot(aes(x = log_stem_density, group = VegType, fill = VegType)) +#, , y = VegType
+  geom_density(alpha=0.6) +
+  facet_grid(Species ~.)
 
 
 # test plotting function ridge density 
-plot_ridge_density <- function(data, species_name, xlim_range = c(0, 5000)) {
+plot_ridge_density <- function(data, species_name, xlim_range = c(0, 5)) {
   data %>%
-    dplyr::filter(stem_density > 0) %>% 
+    dplyr::filter(log_stem_density > 0) %>% 
     dplyr::filter(Species == species_name) %>% 
-    ggplot(aes(x = stem_density, y = VegType, group = VegType)) +
+    ggplot(aes(x = log_stem_density, y = VegType, group = VegType)) +
     geom_density_ridges(aes(fill = VegType), alpha = 0.5, trim = T) +
     stat_summary(
-      aes(x = stem_density), 
+      aes(x = log_stem_density), 
       fun = median, 
       fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
       fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
@@ -1462,7 +1672,7 @@ predictor_vars_sub <- c(#"spei1", "spei3",
                     "prcp", 
                     #"prcp_z", 
                     #"drought_spei1", "drought_spei3", "drought_spei6", 
-                    "drought_spei12", 
+                   # "drought_spei12", 
                     #"drought_spei24",
                     #"drought_tmp", 
                     #"drought_prcp",
@@ -1576,8 +1786,6 @@ numeric_vars <- df_stem_regeneration2[, sapply(df_stem_regeneration2, is.numeric
 cor_matrix <- cor(na.omit(numeric_vars))
 corrplot(cor_matrix)
 
-ggplot(df_stem_regeneration2, aes(x = richness)) + geom_histogram(bins = 20) + facet_wrap(~ stem_regeneration    )
-
 basic_gam <- gam(stem_regeneration     ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
                    s(distance_edge) +
                    s(depth_extract, k = 15) +
@@ -1656,7 +1864,23 @@ interaction_model_5 <- gam(
 )
 
 
+# remove spei, add interaction ebtween disturbance severity and distance_edge
+interaction_model_6 <- gam(
+stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) +
+  s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) +
+  s(clay_extract) + s(av.nitro, k = 20) +
+  # Change from separate smooths to a random slope model for management_intensity by country
+  s(management_intensity, by = country_pooled, bs = "re") +
+  s(country_pooled, bs = "re") +  # Random intercept for country
+  ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) +
+  s(x, y) + s(clim_grid, bs = "re"), 
+family = tw(), method = "REML", data = df_stem_regeneration2
+)
+
+
+
 # View the summary of the updated model
+summary(interaction_model_6)
 summary(interaction_model_5)
 summary(interaction_model_4)
 appraise(interaction_model_5)
