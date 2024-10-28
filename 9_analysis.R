@@ -2986,7 +2986,7 @@ length(sp_diff)/length(x)*100
 
 
 
-# TEST 2 
+# run for all species: -----------------------------------------------------
 
 
 
@@ -3042,5 +3042,5 @@ species_loss_summary_wide <- species_loss_summary %>%
   arrange(country)
 
 # export table
-
+head(species_loss_summary_wide)
 
