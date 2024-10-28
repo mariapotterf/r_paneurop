@@ -1864,6 +1864,22 @@ interaction_model_5 <- gam(
   family = tw(), method = "REML", data = df_stem_regeneration2
 )
 
+interaction_model_5_k5 <- gam(
+     stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) + s(spei12, k = 5) +
+        s(distance_edge, k = 5) + s(depth_extract, k = 5) + s(disturbance_severity, k = 5) +
+         s(clay_extract, k = 5) + s(av.nitro, k = 5) +
+         # Change from separate smooths to a random slope model for management_intensity by country
+         s(management_intensity, by = country_pooled, bs = "re") +
+         s(country_pooled, bs = "re") +  # Random intercept for country
+         ti(prcp, tmp, k = 10) + 
+        #ti(spei12, tmp, k = 10) +
+        s(x, y) + 
+        s(clim_grid, bs = "re"), 
+    family = tw(), 
+     method = "REML", 
+    data = df_stem_regeneration2)
+
+
 # remove spei as it has corr coefficeint of 0.59
 interaction_model_5_no_spei_dist_in <- gam(
   stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + #s(spei12, k = 15) +
