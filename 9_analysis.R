@@ -1932,7 +1932,7 @@ summary(interaction_model_6_c)
 summary(interaction_model_5)
 summary(interaction_model_5_c)
 
-AIC(interaction_model_6_c, interaction_model_5, interaction_model_5_c)
+AIC(interaction_model_6_c, interaction_model_5, interaction_model_5_c,interaction_model_5_no_spei_dist_in)
 
 #summary(interaction_model_4)
 appraise(interaction_model_5)
@@ -2788,95 +2788,6 @@ present_species <- present_species %>%
 future_species <- fread('outTable/species_presence_clim_change.csv')
 future_species_full <- fread('outTable/species_presence_clim_change_full.csv')
 
-# TEST START climate suitability current --------------------------
-
-# check how many of the filed found species are found in 2020?
-future_species_full_2020 <- future_species_full %>% 
-  dplyr::filter(timestep  == 2020) %>% 
-  left_join(species_look_up_full, by = c('species' = 'wessely')) %>%
-  pivot_wider(names_from = scenario, values_from = raster_value) %>% 
-  full_join(present_species)
-  
-# Define the list of species
-species_list <- c("piab", "fasy", "pisy", "acps", "soau", "quro", "potr")
-
-# Filter for sites where piab is currently present
-piab_current <- future_species_full_2020 %>%
-  dplyr::filter(acc == 'piab' & presence == 1)
-
-# Calculate the proportion of sites where piab is present under each RCP scenario
-proportions <- piab_current %>%
-  summarise(
-    total_sites = n(),
-    rcp26_proportion = sum(rcp26 == 1) / total_sites,
-    rcp45_proportion = sum(rcp45 == 1) / total_sites,
-    rcp85_proportion = sum(rcp85 == 1) / total_sites
-  )
-
-# Print the result
-print(proportions)
-
-
-
-# for all species 
-
-# test
-filter_species <- function(species, ...) {
-  print(species)
-  df <- future_species_full_2020 %>%
-        dplyr::filter(acc == species & presence == 1) 
-  head(df)
-}
-
-filter_species <- function(species, ...) {
-  print(species)
-  
-  # Clean and ensure case-insensitive comparison
-  df <- future_species_full_2020 %>%
-    dplyr::mutate(acc = stringr::str_trim(tolower(acc))) %>%  # Trim and lowercase 'acc'
-    dplyr::filter(acc == tolower(species) & presence == 1)    # Lowercase comparison
-  
-  head(df)
-}
-
-my_species <- c('piab','besp')
-
-lapply(my_species, filter_species)
-
-
-# Function to calculate the proportions for each species
-calculate_proportions <- function(species,...) {
-  print(species)
-  
-  df <- future_species_full_2020 %>%
-    dplyr::filter(acc == species & presence == 1) #%>%
-  head(df)
-  
-  df <- df %>% 
-    #dplyr::filter(acc == 'piab' & presence == 1) #%>%
-    reframe(
-      species = species,                 # Add species name
-      total_sites = n(),                 # Total sites where species is currently present
-      rcp26_proportion = sum(rcp26 == 1) / total_sites,  # Proportion of sites for rcp26
-      rcp45_proportion = sum(rcp45 == 1) / total_sites,  # Proportion of sites for rcp45
-      rcp85_proportion = sum(rcp85 == 1) / total_sites   # Proportion of sites for rcp85
-    )
-  return(df)
-}
-
-
-
-
-# Use lapply to calculate proportions for all species in species_list
-proportions_list <- lapply(species_list, calculate_proportions)
-
-# Combine the list of data frames into a single data frame
-proportions_all_species <- bind_rows(proportions_list)
-
-# Print the result
-print(proportions_all_species)
-
-# TEST END ------------------
 
 
 
@@ -2905,50 +2816,215 @@ df_compare_future_species <- df_compare_future_species %>%
   left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
 
 
+# how many plots per cpuountry does not contain any currently present species??? ---------------
+# evaluate species on plot level: Share of plots where none of the currently present species 
+# remain within their climate niche until the end of the 21st century
+
+# check for single country: how many plots are there without any current species present?
+
+# seems correct
+  df_compare_future_species %>%
+  dplyr::filter(country_pooled == "SK") %>% 
+  group_by(site, country_pooled) %>%
+    dplyr::filter(site == "16_115") %>% 
+    View()
+  # summarise(
+  #   # Species that remain present (presence == 1 and also present in any future scenario)
+  #   same_rcp26 = sum(current == 1 & rcp26 == 1, na.rm = T ), # some nAs can be preent if species was in the field (pseudotsusa mensioes : psme, but does not exists in Wesely database)
+  #   same_rcp45 = sum(current == 1 & rcp45 == 1, na.rm = T ),
+  #   same_rcp85 = sum(current == 1 & rcp85 == 1, na.rm = T ) #
+  # ) %>% 
+  # ungroup() 
 
 
-# Compare presence with future scenarios
-df_compare_future_species_summary <- df_compare_future_species %>%
-  group_by(site) %>%
+
+
+
+
+# Compare presence with future scenarios: caount the number of plots that have not a single species spared between curremt and future scenarios
+df_compare_future_species_summary <-
+  
+  df_compare_future_species %>%
+  group_by(site, country_pooled) %>%
   summarise(
     # Species that remain present (presence == 1 and also present in any future scenario)
-    same_present = sum(presence == 1 & (rcp26 == 1 | rcp45 == 1 | rcp85 == 1)),
-    
-    # Species that will go extinct (present == 1 but absent in all future scenarios)
-    extinct_species = sum(presence == 1 & rcp26 == 0 & rcp45 == 0 & rcp85 == 0)#,
-    
-    # Species that will regain (present == 0 but present in any future scenario)
-    #regain_species = sum(presence == 0 & (rcp26 == 1 | rcp45 == 1 | rcp85 == 1))
-  )
+    same_rcp26 = sum(current == 1 & rcp26 == 1, na.rm = T ), # some nAs can be preent if species was in the field (pseudotsusa mensioes : psme, but does not exists in Wesely database)
+    same_rcp45 = sum(current == 1 & rcp45 == 1, na.rm = T ),
+    same_rcp85 = sum(current == 1 & rcp85 == 1, na.rm = T ) #
+  ) %>% 
+    ungroup() 
 
 # Print the result
-View(df_compare_future_species_summary)
+head(df_compare_future_species_summary)
 
 
-# Summarize data
-#country_summary <- 
+plot_summary_share <- 
+  df_compare_future_species_summary %>%
+  group_by(country_pooled) %>%
+  summarize(
+    total_plots = n(),
+    plots_none_present_rcp26 = sum(same_rcp26 < 1, na.rm = TRUE),
+    plots_none_present_rcp45 = sum(same_rcp45 < 1, na.rm = TRUE),
+    plots_none_present_rcp85 = sum(same_rcp85 < 1, na.rm = TRUE)
+  ) %>% 
+  mutate(share_none_present26 = plots_none_present_rcp26/total_plots*100,
+         share_none_present45 = plots_none_present_rcp45/total_plots*100,
+         share_none_present85 = plots_none_present_rcp85/total_plots*100)
+
+# View the result
+print(plot_summary_share)
+
+# Calculate shares (percentages) and format output for each RCP scenario
+plot_summary_formatted_share <- plot_summary_share %>%
+  mutate(
+    rcp26 = paste0(plots_none_present_rcp26, " (", round((plots_none_present_rcp26 / total_plots) * 100, 1), "%)"),
+    rcp45 = paste0(plots_none_present_rcp45, " (", round((plots_none_present_rcp45 / total_plots) * 100, 1), "%)"),
+    rcp85 = paste0(plots_none_present_rcp85, " (", round((plots_none_present_rcp85 / total_plots) * 100, 1), "%)")
+  ) %>%
+  dplyr::select(country_pooled, total_plots, rcp26, rcp45, rcp85)
+
+
+print(plot_summary_formatted_share)
+
+# Evaluate by species: what species are present/ country? and how many of them are not clim suitbale?
+
+# Test for single country: 
+
+
+current_species<- 
+  df_compare_future_species %>%  
+  dplyr::filter(country_pooled == "SK") %>% 
+  dplyr::filter(current == 1) %>% 
+  #dplyr::filter(rcp26 == 1) %>% 
+  ungroup() %>% 
+  distinct(acc) #%>%
+ # rename(current = acc)
+  #pull()
+ 
+rcp26_species<- df_compare_future_species %>%  
+  dplyr::filter(country_pooled == "SK") %>% 
+  dplyr::filter(rcp26 == 1) %>% 
+  ungroup() %>% 
+  distinct(acc)  #%>%
+  #pull() 
+
+# Add an indicator column for presence in each dataset
+current_species <- current_species %>% mutate(current_presence = 1)
+rcp26_species <- rcp26_species %>% mutate(rcp26_presence = 1)
+
+# Full join to keep all species and display their presence status
+merged_species <- full_join(current_species, rcp26_species, by = "acc") %>%
+  mutate(current_presence = ifelse(is.na(current_presence), FALSE, current_presence),
+         rcp26_presence = ifelse(is.na(rcp26_presence), FALSE, rcp26_presence))
+
+# View the result
+View(merged_species)
+
+
+
+# Try with cmmapring the vectors:
+
+current_species_v <- 
+  df_compare_future_species %>%  
+  dplyr::filter(country_pooled == "SK") %>% 
+  dplyr::filter(current == 1) %>% 
+  ungroup() %>% 
+  distinct(acc) %>%
+ pull()
+
+rcp26_species_v<- df_compare_future_species %>%  
+  dplyr::filter(country_pooled == "SK") %>% 
+  dplyr::filter(rcp26 == 1) %>% 
+  ungroup() %>% 
+  distinct(acc)  %>%
+ pull() 
+
+
+
+
+
+
+current_species_v
+rcp26_species_v
+length(unique(current_species_v, rcp26_species_v))
+
+species_lost <- setdiff(current_species_v, rcp26_species_v)
+length(species_lost)/length(current_species_v)
+
+# Create a data frame that lists all species in the current vector
+species_comparison <- data.frame(
+  species = current_species_v,
+  presence_rcp26 = ifelse(current_species_v %in% rcp26_species_v, "Present", "Lost")
+)
+
+# Display the data frame
+print(species_comparison)
+
+
+4/12
+x = c('a', 'b', 'c')
+y = c('a','c', 'd', 'e', 'f')
+
+sp_diff <- setdiff(x, y)
+length(sp_diff)/length(x)*100
+
+
+
+# TEST 2 
+
+
+
+# Define a function to calculate species loss per climate scenario
+calculate_species_loss <- function(data, country, rcp_column) {
+  # Filter species present under current conditions
+  current_species_v <- data %>%
+    dplyr::filter(country_pooled == country, current == 1) %>%
+    distinct(acc) %>%
+    pull() 
+  
+  # Filter species present under specified climate scenario
+  rcp_species_v <- data %>%
+    dplyr::filter(country_pooled == country, .data[[rcp_column]] == 1) %>%
+    distinct(acc) %>%
+    pull() 
+  
+  # Calculate species lost and loss share
+  species_lost <- setdiff(current_species_v, rcp_species_v)
+  loss_share <- length(species_lost) / length(current_species_v)
+  
+  return(loss_share)
+}
+
+# List of climate scenarios to check
+rcp_scenarios <- c("rcp26", "rcp45", "rcp85")
+
+# Run the function for each country and scenario, store results in a data frame
+species_loss_summary <- 
   df_compare_future_species %>%
-  # Group by country and species
-  group_by(country_pooled) %>%
-  # Summarize for each species if it is present in current and each climate scenario
-  summarize(
-    present_now = max(current) > 0,         # Check if present in current scenario
-    present_rcp26 = max(rcp26) > 0,         # Check if present under rcp26
-    present_rcp45 = max(rcp45) > 0,         # Check if present under rcp45
-    present_rcp85 = max(rcp85) > 0          # Check if present under rcp85
-  ) #%>%
-  ungroup() %>%
-  # Summarize at the country level
-  group_by(country_pooled) %>%
-  summarize(
-    species_present_now = sum(present_now),                         # Count of species present now
-    species_present_rcp26 = sum(present_rcp26),                     # Count of species present under rcp26
-    species_present_rcp45 = sum(present_rcp45),                     # Count of species present under rcp45
-    species_present_rcp85 = sum(present_rcp85),                     # Count of species present under rcp85
-    lost_species_share_rcp26 = mean(present_now & !present_rcp26),  # Share of species lost under rcp26
-    lost_species_share_rcp45 = mean(present_now & !present_rcp45),  # Share of species lost under rcp45
-    lost_species_share_rcp85 = mean(present_now & !present_rcp85)   # Share of species lost under rcp85
-  )
+  distinct(country_pooled) %>%
+  pull() %>%
+  expand.grid(country = ., rcp = rcp_scenarios) %>%
+    mutate(rcp = as.character(rcp)) %>%  # Convert rcp to character
+  rowwise()%>%
+   # View()
+  mutate(
+    loss_share = calculate_species_loss(df_compare_future_species, country, rcp)
+  ) %>%
+  ungroup()
 
 # Display the result
-print(country_summary)
+print(species_loss_summary)
+
+# Convert to wide format, with each RCP scenario as a column, values in %
+species_loss_summary_wide <- species_loss_summary %>%
+  mutate(loss_share = round(loss_share * 100, 1)) %>%  # Convert to % and round to 1 decimal
+  pivot_wider(
+    names_from = rcp,
+    values_from = loss_share
+  ) %>% 
+  mutate(country = as.character(country)) %>% 
+  arrange(country)
+
+# export table
+
+
