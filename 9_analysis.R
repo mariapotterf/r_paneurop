@@ -3007,40 +3007,66 @@ calculate_species_loss <- function(data, country, rcp_column) {
   # Calculate species lost and loss share
   species_lost <- setdiff(current_species_v, rcp_species_v)
   loss_share <- length(species_lost) / length(current_species_v)
+  n_species_loss <- length(species_lost)
+  n_species_current <- length(current_species_v)
   
-  return(loss_share)
+  # Return results as a list for multiple values
+  return(list(loss_share = loss_share, 
+              n_species_loss = n_species_loss, 
+              n_species_current = n_species_current))
 }
 
 # List of climate scenarios to check
 rcp_scenarios <- c("rcp26", "rcp45", "rcp85")
 
 # Run the function for each country and scenario, store results in a data frame
-species_loss_summary <- 
-  df_compare_future_species %>%
+species_loss_summary <- df_compare_future_species %>%
   distinct(country_pooled) %>%
   pull() %>%
   expand.grid(country = ., rcp = rcp_scenarios) %>%
-    mutate(rcp = as.character(rcp)) %>%  # Convert rcp to character
-  rowwise()%>%
-   # View()
+  mutate(rcp = as.character(rcp)) %>%  # Convert rcp to character
+  rowwise() %>%
   mutate(
-    loss_share = calculate_species_loss(df_compare_future_species, country, rcp)
+    results = list(calculate_species_loss(df_compare_future_species, country, rcp))
   ) %>%
+  unnest_wider(results) %>%  # Separate the list into individual columns
   ungroup()
 
-# Display the result
+# Print the resulting summary
 print(species_loss_summary)
 
-# Convert to wide format, with each RCP scenario as a column, values in %
-species_loss_summary_wide <- species_loss_summary %>%
-  mutate(loss_share = round(loss_share * 100, 1)) %>%  # Convert to % and round to 1 decimal
-  pivot_wider(
-    names_from = rcp,
-    values_from = loss_share
-  ) %>% 
+# Combine `n_species_loss` and `loss_share` into a single formatted column
+species_loss_summary <- species_loss_summary %>%
+  mutate(
+    loss_summary = paste0(n_species_loss, " (", round(loss_share * 100, 1), "%)")
+  ) %>%
+  dplyr::select(country, n_species_current, rcp, loss_summary) %>% 
   mutate(country = as.character(country)) %>% 
   arrange(country)
 
-# export table
-head(species_loss_summary_wide)
+# Reshape the data into wide format
+species_loss_summary_wide <- species_loss_summary %>%
+  pivot_wider(
+    names_from = rcp,
+    values_from = loss_summary,
+    names_prefix = "species_"
+  )
 
+# Print the resulting wide-format summary
+print(species_loss_summary_wide)
+
+# marge two tables and export
+
+df_species_by_climate <- cbind(species_loss_summary_wide, plot_summary_formatted_share)
+
+df_species_by_climate <- df_species_by_climate %>% 
+  dplyr::select(-country_pooled) #%>% 
+  #dplyr::rename(country = ) #%>% 
+  #dplyr::rename()
+
+
+sjPlot::tab_df(df_species_by_climate,
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = FALSE,
+               file="outTable/climate_suitable_species_plots.doc",
+               digits = 1) 
