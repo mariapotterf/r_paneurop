@@ -2890,11 +2890,20 @@ future_species_sum <-
   summarize(sum_presence = pmin(sum(overall_presence), 1), .groups = 'drop')
   
 wide_future_species <- future_species_sum %>%
-  pivot_wider(names_from = scenario, values_from = sum_presence)
+  pivot_wider(names_from = scenario, values_from = sum_presence) 
 
 # merge both tables: the presently recorded species and species under climate scenarios
 df_compare_future_species <- wide_future_species %>% 
-  full_join(present_species)
+  full_join(present_species) %>% 
+  dplyr::rename(current = presence)
+
+# add country indication
+df_compare_future_species <- df_compare_future_species %>%
+  # Extract the first two characters of 'site' as 'region' and convert to integer
+  mutate(region = as.integer(substr(site, 1, 2))) %>%
+  # Left join with unique_regions_per_country to get country indication
+  left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
+
 
 
 
@@ -2915,3 +2924,31 @@ df_compare_future_species_summary <- df_compare_future_species %>%
 # Print the result
 View(df_compare_future_species_summary)
 
+
+# Summarize data
+#country_summary <- 
+  df_compare_future_species %>%
+  # Group by country and species
+  group_by(country_pooled) %>%
+  # Summarize for each species if it is present in current and each climate scenario
+  summarize(
+    present_now = max(current) > 0,         # Check if present in current scenario
+    present_rcp26 = max(rcp26) > 0,         # Check if present under rcp26
+    present_rcp45 = max(rcp45) > 0,         # Check if present under rcp45
+    present_rcp85 = max(rcp85) > 0          # Check if present under rcp85
+  ) #%>%
+  ungroup() %>%
+  # Summarize at the country level
+  group_by(country_pooled) %>%
+  summarize(
+    species_present_now = sum(present_now),                         # Count of species present now
+    species_present_rcp26 = sum(present_rcp26),                     # Count of species present under rcp26
+    species_present_rcp45 = sum(present_rcp45),                     # Count of species present under rcp45
+    species_present_rcp85 = sum(present_rcp85),                     # Count of species present under rcp85
+    lost_species_share_rcp26 = mean(present_now & !present_rcp26),  # Share of species lost under rcp26
+    lost_species_share_rcp45 = mean(present_now & !present_rcp45),  # Share of species lost under rcp45
+    lost_species_share_rcp85 = mean(present_now & !present_rcp85)   # Share of species lost under rcp85
+  )
+
+# Display the result
+print(country_summary)
