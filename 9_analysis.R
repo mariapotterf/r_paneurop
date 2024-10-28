@@ -1918,7 +1918,7 @@ predictors <- df_stem_regeneration2[, c("prcp", "tmp", "spei12", "distance_edge"
                                         "disturbance_severity", "clay_extract", "av.nitro", "management_intensity")]
 
 # Calculate correlation matrix
-correlation_matrix <- cor(predictors, use = "complete.obs")
+correlation_matrix <- cor(predictors,  method = "spearman", use = "complete.obs")
 
 # Plot the correlation matrix
 corrplot(correlation_matrix, method = "color", type = "upper",
