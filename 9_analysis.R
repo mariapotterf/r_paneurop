@@ -1853,22 +1853,52 @@ summary(interaction_model_4)
 # Modify the model to use a random slope for management_intensity by country
 interaction_model_5 <- gam(
   stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) +
-    s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) +
-    s(clay_extract) + s(av.nitro, k = 20) +
+    s(distance_edge) + s(depth_extract, k = 5) + s(disturbance_severity) +
+    s(clay_extract, k = 5) + s(av.nitro, k = 5) +
     # Change from separate smooths to a random slope model for management_intensity by country
     s(management_intensity, by = country_pooled, bs = "re") +
     s(country_pooled, bs = "re") +  # Random intercept for country
-    ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) +
+    ti(prcp, tmp, k = 10) + 
+    ti(spei12, tmp, k = 10) +
+    s(x, y) + s(clim_grid, bs = "re"), 
+  family = tw(), method = "REML", data = df_stem_regeneration2
+)
+
+# remove spei as it has corr coefficeint of 0.59
+interaction_model_5_no_spei_dist_in <- gam(
+  stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + #s(spei12, k = 15) +
+    s(distance_edge) + s(depth_extract, k = 5) + s(disturbance_severity) +
+    s(clay_extract, k = 5) + s(av.nitro, k = 5) +
+    # Change from separate smooths to a random slope model for management_intensity by country
+    s(management_intensity, by = country_pooled, bs = "re") +
+    s(country_pooled, bs = "re") +  # Random intercept for country
+    ti(prcp, tmp, k = 10) + 
+    ti(distance_edge, disturbance_severity, k = 10) + 
+    #ti(spei12, tmp, k = 10) +
+    s(x, y) + s(clim_grid, bs = "re"), 
+  family = tw(), method = "REML", data = df_stem_regeneration2
+)
+
+
+
+interaction_model_5_c <- gam(
+  stem_regeneration ~ s(prcp_c, k = 15) + s(tmp_c, k = 15) + s(spei12, k = 15) +
+    s(distance_edge) + s(depth_extract, k = 5) + s(disturbance_severity) +
+    s(clay_extract, k = 5) + s(av.nitro, k = 5) +
+    # Change from separate smooths to a random slope model for management_intensity by country
+    s(management_intensity, by = country_pooled, bs = "re") +
+    s(country_pooled, bs = "re") +  # Random intercept for country
+    ti(prcp_c, tmp_c, k = 10) + ti(spei12, tmp, k = 10) +
     s(x, y) + s(clim_grid, bs = "re"), 
   family = tw(), method = "REML", data = df_stem_regeneration2
 )
 
 
 # remove spei, add interaction ebtween disturbance severity and distance_edge
-interaction_model_6 <- gam(
+interaction_model_6_c <- gam(
 stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) +
   s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) +
-  s(clay_extract) + s(av.nitro, k = 20) +
+  s(clay_extract) + s(av.nitro, k = 5) +
   # Change from separate smooths to a random slope model for management_intensity by country
   s(management_intensity, by = country_pooled, bs = "re") +
   s(country_pooled, bs = "re") +  # Random intercept for country
@@ -1878,11 +1908,33 @@ family = tw(), method = "REML", data = df_stem_regeneration2
 )
 
 
+# check again correlation between predictors:
+
+# Load necessary libraries
+library(corrplot)
+
+# Select predictors from your data frame
+predictors <- df_stem_regeneration2[, c("prcp", "tmp", "spei12", "distance_edge", "depth_extract",
+                                        "disturbance_severity", "clay_extract", "av.nitro", "management_intensity")]
+
+# Calculate correlation matrix
+correlation_matrix <- cor(predictors, use = "complete.obs")
+
+# Plot the correlation matrix
+corrplot(correlation_matrix, method = "color", type = "upper",
+         tl.col = "black", tl.srt = 45, 
+         title = "Correlation Matrix of Predictors",
+         addCoef.col = "black", number.cex = 0.7)
+
 
 # View the summary of the updated model
-summary(interaction_model_6)
+summary(interaction_model_6_c)
 summary(interaction_model_5)
-summary(interaction_model_4)
+summary(interaction_model_5_c)
+
+AIC(interaction_model_6_c, interaction_model_5, interaction_model_5_c)
+
+#summary(interaction_model_4)
 appraise(interaction_model_5)
 
 # store the best model for regeneration density
