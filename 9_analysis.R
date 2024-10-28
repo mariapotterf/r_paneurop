@@ -2736,6 +2736,8 @@ present_species <- present_species %>%
 future_species <- fread('outTable/species_presence_clim_change.csv')
 future_species_full <- fread('outTable/species_presence_clim_change_full.csv')
 
+# TEST START climate suitability current --------------------------
+
 # check how many of the filed found species are found in 2020?
 future_species_full_2020 <- future_species_full %>% 
   dplyr::filter(timestep  == 2020) %>% 
@@ -2822,7 +2824,7 @@ proportions_all_species <- bind_rows(proportions_list)
 # Print the result
 print(proportions_all_species)
 
-
+# TEST END ------------------
 
 
 
@@ -2852,11 +2854,12 @@ df_compare_future_species_summary <- df_compare_future_species %>%
     same_present = sum(presence == 1 & (rcp26 == 1 | rcp45 == 1 | rcp85 == 1)),
     
     # Species that will go extinct (present == 1 but absent in all future scenarios)
-    extinct_species = sum(presence == 1 & rcp26 == 0 & rcp45 == 0 & rcp85 == 0),
+    extinct_species = sum(presence == 1 & rcp26 == 0 & rcp45 == 0 & rcp85 == 0)#,
     
     # Species that will regain (present == 0 but present in any future scenario)
-    regain_species = sum(presence == 0 & (rcp26 == 1 | rcp45 == 1 | rcp85 == 1))
+    #regain_species = sum(presence == 0 & (rcp26 == 1 | rcp45 == 1 | rcp85 == 1))
   )
 
 # Print the result
 View(df_compare_future_species_summary)
+
