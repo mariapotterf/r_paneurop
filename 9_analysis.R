@@ -145,6 +145,7 @@ print(df_fin_clim_clust_xy)
 
 # Step 3: Export the data as a GeoPackage (GPKG)
 #st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
+fwrite(df_fin, 'outTable/df_fin.csv')
 
 # get only a ataframe of teh climate clusters and sites for easy merging to detiailed veg data
 clim_cluster_indicator <- df_fin %>% 
@@ -323,18 +324,21 @@ setdiff(top_species_layer_vect, top_species_overall_vect )
 n_colors <- length(unique(top_species_layer$Species))
 my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Extend to n_colors
 
+# set namings 
 
+# Step 2: Create a custom color palette for the total number of unique species
+my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(length(all_species))
 
 
 # Order the species based on their share
 top_species_layer$Species <- reorder(top_species_layer$Species, top_species_layer$share, decreasing = TRUE)
 
 # Create the bar plot with custom colors and ordered species
-ggplot(top_species_layer, aes(x = Species, y = share, fill = Species)) +
+p_species_share_vertical <- ggplot(top_species_layer, aes(x = Species, y = share, fill = Species)) +
   geom_bar(stat = "identity", color = 'black') +  # Create bar plot with species share
   facet_grid(VegType ~ ., scales = "free_x") +  # Facet by VegType
-  labs(title = "Species Share by vertical layer", 
-       x = "Species", y = "Share (%)") +
+  labs(title = "", 
+       x = "", y = "Share (%)") +
   scale_fill_manual(values = my_colors) +  # Apply custom color palette
   theme_classic() +  # Use a minimal theme for a clean look
   #coord_flip() + 
@@ -344,8 +348,8 @@ ggplot(top_species_layer, aes(x = Species, y = share, fill = Species)) +
         panel.grid.major = element_line(color = "grey", linetype = "dotted"),  # Add grey dashed major grid lines
         panel.grid.minor = element_blank(),  # Remove minor grid lines
         legend.position = 'none') #+  # Hide the legend
- # Rotate x-axis labels for better readability
-
+ 
+p_species_share_vertical
 ### Speceies composition: share per plot: filetr the most important species -------------
 # Summarize the total stem density per species 
 species_composition_layer_cluster <- stem_dens_species_long_cluster %>%
@@ -386,7 +390,7 @@ species_composition_layer_cluster %>%
 
 # Calculate median for each species and reorder the factor levels
 df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
-  dplyr::filter(Species %in% top_species_global_vect) %>% 
+  dplyr::filter(Species %in% top_species_overall$Species) %>% 
   dplyr::group_by(Species) %>%
   dplyr::mutate(median_stem_density = median(sum_stem_density, na.rm = TRUE)) %>% 
   dplyr::ungroup() %>% 
@@ -397,19 +401,67 @@ df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
 df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
   mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
 
+library(ggdist)
 
-# test trim values:
-df_stem_sp_sum_ordered %>% 
-  ggplot(aes(Month, x = sum_stem_density, y = Species, group = Species, height = after_stat(density))) +
-  geom_density_ridges(stat = "density", trim = TRUE)
+# test 
+mpg %>% 
+  dplyr::filter(cyl %in% c(4, 6, 8)) %>% 
+  ggplot(aes(x = factor(cyl), y = hwy, fill = factor(cyl))) +
+  # add half-violin from {ggdist} package
+  stat_halfeye(
+    # adjust bandwidth
+    adjust = 0.5,
+    # move to the right
+    justification = -0.2,
+    # remove the slub interval
+    .width = 0,
+    point_colour = NA
+  ) +
+  geom_boxplot(
+    width = 0.12,
+    # removing outliers
+    outlier.color = NA,
+    alpha = 0.5
+  )
 
+df_stem_sp_sum_ordered %>%
+  ggplot(aes(x = log_sum_stem_density, y = Species, fill = Species, color = Species)) +
+  stat_halfeye(
+    # adjust bandwidth
+    adjust = 1.2,
+    # move to the right
+    justification = -0.2,
+    # remove the slub interval
+    .width = 0,
+    point_colour = NA
+  ) +
+  # geom_boxplot(
+  #   width = 0.12,
+  #   # removing outliers
+  #   outlier.color = NA,
+  #   alpha = 0.5
+  # ) +
+  stat_summary(
+    aes(x = log_sum_stem_density, color = Species),
+    fun = median,             # Median as the central point
+    fun.min = function(x) quantile(x, 0.25),  # Q1 (25th percentile)
+    fun.max = function(x) quantile(x, 0.75),  # Q3 (75th percentile)
+    geom = "pointrange",      # Display as an error bar
+    color = "black",          # Color of the error bar
+    size = 0.5,
+    position = position_nudge(y = 0.1)  # Adjust position slightly for clarity
+  ) +
+  theme(legend.position = 'none')
+  
+
+# density ridge 
 
 # est with log values
 df_stem_sp_sum_ordered %>%
   ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
   geom_density_ridges(aes(fill = Species), alpha = 0.5) +
   stat_summary(
-    aes(x = log_sum_stem_density), 
+    aes(x = log_sum_stem_density, color = Species), 
     fun = median, 
     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
@@ -430,7 +482,7 @@ df_stem_sp_sum_ordered %>%
 # Plot the reordered ridge plot
 p_stem_density_species <- df_stem_sp_sum_ordered %>%
   ggplot(aes(x = sum_stem_density, y = Species, group = Species)) +
-  geom_density_ridges(aes(fill = Species), alpha = 0.5, trim = T) +#, quantile_lines = TRUE, quantiles = 2
+  geom_density_ridges(aes(fill = Species), alpha = 0.5) +#, quantile_lines = TRUE, quantiles = 2
   stat_summary(
     aes(x = sum_stem_density), 
     fun = median, 
@@ -456,20 +508,6 @@ ggsave(filename = 'outFigs/p_stem_density_ridge_sum_species.png',
 
 
 
-df_stem_sp_sum_ordered %>%
-  ggplot(aes(x = sum_stem_density, y = Species, group = Species)) +
-  geom_density_ridges(aes(fill = Species), alpha = 0.5, quantile_lines = TRUE, quantiles = 4) #, 
-
-
-# not much better
-df_stem_sp_sum_ordered %>% 
-  dplyr::filter(sum_stem_density<5000) %>% 
-  ggplot(aes(x = sum_stem_density, y = Species, fill = after_stat(x))) +
-  geom_density_ridges_gradient(quantile_lines = TRUE, quantiles = 2) +
-  # coord_cartesian(xlim = c(0, 5000)) +
-  scale_fill_viridis_c(option = "plasma") +
-  labs(x = "High temperature", y = NULL, color = "Temp")# +
- 
 
 
 ## Plot Stem density per species and vertical class: --------------------------------
@@ -485,34 +523,61 @@ stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
     VegType == "Saplings" ~ "sap",
     TRUE ~ as.character(VegType)  # Keep any other VegType values as they are
   )) %>% 
-  mutate(species_VegType = paste(Species, VegType_acc, sep = '_'))
+  mutate(species_VegType = paste(Species, VegType_acc, sep = '_')) %>% 
+  mutate(VegType_acc = factor(VegType_acc, 
+                              levels = c('mat', 'juv', 'sap'))) 
+  
 
 
-stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:5]  ) %>% 
+p_stem_density_error <- stem_dens_species_long_cluster %>%  
+  dplyr::filter(Species %in% top_species_overall_vect[1:7]  ) %>% 
   dplyr::filter(stem_density > 0) %>% 
-  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
-  ggplot(aes(x = log_stem_density, y = VegType, group = VegType)) +
-  geom_density_ridges(aes(fill = VegType), alpha = 0.5) +
+  mutate(Species = factor(Species, 
+                          levels = top_species_overall_vect[1:7])) %>%
+   
+  ggplot(aes(x = stem_density, 
+             y = VegType_acc, 
+             fill = VegType_acc,
+             color = VegType_acc,
+             group = species_VegType )) +
+ # geom_violin(trim = T) +
+  # geom_density_ridges(aes(fill = species_VegType ), alpha = 0.5) +
   stat_summary(
-    aes(x = log_stem_density), 
+    aes(x = stem_density), 
     fun = median, 
     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
     geom = "pointrange", 
-    color = VegType, 
-    size = 0.3,
-    position = position_nudge(y = .2)  # Adjust position slightly
+    #color = VegType, 
+    size = 0.3#,
+    #position = position_nudge(y = .2)  # Adjust position slightly
   ) +
-  facet_grid(Species ~.) +
+  #scale_color_manual(values = colorRampPalette(brewer.pal(11, "RdYlGn"))(3)) +  # Apply the color palette based on seral type
+  facet_grid(Species ~ ., switch = "y") +
+  
+  # Adjust theme
   theme_classic() +
-  coord_cartesian(xlim = c(2,5)) +  # Zoom in on the stem_density range
-  labs(
-    #title = paste("Density Ridges for Species:", species_name),
-    x = "",
-    y = ""
+  theme(
+    legend.position = 'none',
+    strip.background = element_blank(),  # Remove background from facet labels
+    strip.text.y.left = element_text(face = "bold", angle = 0,vjust = 1),  # Make facet labels bold and horizontal
+    strip.placement = "outside",  # Place facet labels further outside
+    
+    # Expand plot margins to allow space for labels on the left
+    plot.margin = margin(t = 5, r = 5, b = 5, l = 7),  # Increase left margin
+    
+    # Ensure xy lines appear only on axes
+    panel.border = element_blank(),
+    panel.grid = element_blank(),
+    axis.line.x = element_line(color = "black"),
+    axis.line.y = element_line(color = "black")
   ) +
-  theme(legend.position = 'none')
+  labs(x = "", y = "")
+
+p_stem_density_error
+ggsave(filename = 'outFigs/p_stem_density_error.png', 
+       plot = p_stem_density_error, 
+       width = 3, height = 3.5, dpi = 300, bg = 'white')
 
 
 # test density by group???  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
@@ -2015,7 +2080,7 @@ int_re_dist_prcp_simpl4 <- gam(stem_regeneration ~
                                  #s(av.nitro_c, k =5) +
                                  ti(tmp_c, prcp_c, k = 10) +
                                  #ti(disturbance_severity_c, distance_edge_c, k = 10) +
-                                 ti(disturbance_severity_c, prcp_c, k = 10) +
+                                 ti(disturbance_severity_c, prcp_c, k = 5) +
                                  s(management_intensity_c,by = country_pooled, k = 4) + 
                                  s(country_pooled, bs = "re") + 
                                  s(x,y) +
@@ -2029,8 +2094,13 @@ summary(int_re_dist_prcp_simpl4)
 
 # quick plotting --------------------------------------
 
+df_pred_test <- ggpredict(int_re_dist_prcp_simpl4, 
+                          terms = c("disturbance_severity_c", "prcp_c", "country_pooled [AT]"),
+                          type = "fixed")
 
-
+ggplot(df_pred_test, aes(x = x, y = predicted )) +
+  geom_line(aes(color = group), size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) #+
 
 # add interaction istance_edge and prcp
 int_re_edge_prcp <- gam(stem_regeneration ~
@@ -2227,7 +2297,9 @@ plot_interaction3 <- create_interaction_plot(fin.m.reg.density,
 
 # uderstand why data are different
 
-predicted_interaction <- ggpredict(fin.m.reg.density, terms = c("disturbance_severity_c", "prcp_c"))
+predicted_interaction <- ggpredict(fin.m.reg.density, 
+                                   terms = c("disturbance_severity_c", "prcp_c"),
+                                   type = "fixed")
 
 ggplot(predicted_interaction, aes(x = x, y = predicted )) +
   geom_line(aes(color = group), size = 1) +
