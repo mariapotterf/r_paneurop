@@ -1705,6 +1705,23 @@ df_stem_regeneration2 <- df_fin %>%
                                                           "country_pooled", "clim_grid", "clim_class", "x", "y")))
 
 
+# Centering the variables in your data frame
+# Centering all relevant continuous variables in your data frame
+df_stem_regeneration2 <- df_stem_regeneration2 %>%
+  mutate(
+    prcp_c = prcp - mean(prcp, na.rm = TRUE),
+    tmp_c = tmp - mean(tmp, na.rm = TRUE),
+    spei12_c = spei12 - mean(spei12, na.rm = TRUE),
+    distance_edge_c = distance_edge - mean(distance_edge, na.rm = TRUE),
+    disturbance_severity_c = disturbance_severity - mean(disturbance_severity, na.rm = TRUE),
+    clay_extract_c = clay_extract - mean(clay_extract, na.rm = TRUE),
+    av.nitro_c = av.nitro - mean(av.nitro, na.rm = TRUE),
+    depth_extract_c = depth_extract - mean(depth_extract, na.rm = TRUE),
+    management_intensity_c = management_intensity - mean(management_intensity, na.rm = TRUE)
+  )
+
+summary(df_stem_regeneration2)
+
 ## Drivers: ---------------------------------------------------------------------
 
 
@@ -1775,95 +1792,313 @@ sum(is.na(df_stem_regeneration2))
 hist(df_stem_regeneration2$prcp, main="Histogram of Precipitation (prcp)", xlab="prcp")
 hist(df_stem_regeneration2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
 
-# Check collinearity using the VIF
-vif_check <- performance::check_collinearity(df_stem_regeneration2)
-print(vif_check)
-
-
-
+# check corelation between predictors
 library(corrplot)
-numeric_vars <- df_stem_regeneration2[, sapply(df_stem_regeneration2, is.numeric)]
-cor_matrix <- cor(na.omit(numeric_vars))
-corrplot(cor_matrix)
 
-basic_gam <- gam(stem_regeneration     ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
-                   s(distance_edge) +
-                   s(depth_extract, k = 15) +
-                   s(disturbance_severity) +
-                   s(clay_extract) +
-                   s(av.nitro, k =20) +
+# Select the relevant predictors from your data frame
+predictors <- df_stem_regeneration2 %>%
+  dplyr::select(prcp_c, tmp_c, spei12_c, distance_edge_c, depth_extract_c, 
+                disturbance_severity_c, clay_extract_c, av.nitro_c, management_intensity_c)
+
+# Calculate the correlation matrix
+correlation_matrix <- cor(predictors, use = "complete.obs")
+
+# Display the correlation matrix
+print(correlation_matrix)
+# get basic gam with all preictors
+basic_gam <- gam(stem_regeneration     ~ s(prcp_c, k = 5) + s(tmp_c, k = 5) + s(spei12_c, k = 5) + 
+                   s(distance_edge_c, k = 5) +
+                   s(depth_extract_c, k = 5) +
+                   s(disturbance_severity_c, k = 5) +
+                   s(clay_extract_c, k = 5) +
+                   s(av.nitro_c, k =5) +
                    s(management_intensity, k = 10) +
                    s(country_pooled, bs = 're') # + clim_grid + clim_class
                  , 
                  family = Tweedie(p=1.5), data = df_stem_regeneration2, method = "REML")
+
+int_clim <- gam(stem_regeneration     ~ s(prcp_c, k = 5) + s(tmp_c, k = 5) + s(spei12_c, k = 5) + 
+                           s(distance_edge_c, k = 5) +
+                           s(depth_extract_c, k = 5) +
+                           s(disturbance_severity_c, k = 5) +
+                           s(clay_extract_c, k = 5) +
+                           s(av.nitro_c, k =5) +
+                           s(management_intensity, k = 10) +
+                    ti(tmp_c, prcp_c) +
+                   s(country_pooled, bs = 're') # + clim_grid + clim_class
+                 , 
+                 family = Tweedie(p=1.5), data = df_stem_regeneration2, method = "REML")
+
+int_dist <- gam(stem_regeneration     ~ s(prcp_c, k = 5) + s(tmp_c, k = 5) + s(spei12_c, k = 5) + 
+                              s(distance_edge_c, k = 5) +
+                              s(depth_extract_c, k = 5) +
+                              s(disturbance_severity_c, k = 5) +
+                              s(clay_extract_c, k = 5) +
+                              s(av.nitro_c, k =5) +
+                              s(management_intensity, k = 10) +
+                             # ti(tmp_c, prcp_c) +
+                      ti(disturbance_severity_c, distance_edge_c) +
+                      s(country_pooled, bs = 're') # + clim_grid + clim_class
+                    , 
+                    family = Tweedie(p=1.5), data = df_stem_regeneration2, method = "REML")
+
+
+AIC(basic_gam,int_clim, int_dist  )
 summary(basic_gam)
+summary(int_clim)
+summary(int_dist)
+summary(interaction_model_5_k5)
+
 gam.check(basic_gam)
 appraise(basic_gam)
 windows()
+
 plot.gam(basic_gam, page = 1)
+plot.gam(basic_gam_ti_disturb, page = 1)
+plot.gam(basic_gam_ti_clim, page = 1)
 
 
-# Model 1: Adding interaction between prcp and tmp
-interaction_model_1 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
-                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(clay_extract) + 
-                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
-                             s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10),
-                           family = tw(), method = "REML", data = df_stem_regeneration2)
-
-summary(interaction_model_1)
-
-# Model 2: Adding interaction between spei12 and tmp
-interaction_model_2 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
-                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(clay_extract) + 
-                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
-                             s(country_pooled, bs = "re") + ti(spei12, tmp, k = 10),
-                           family = tw(), method = "REML", data = df_stem_regeneration2)
-
-summary(interaction_model_2)
-
-# Model 3: Adding interaction between prcp and management_intensity
-interaction_model_3 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
-                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(clay_extract) + 
-                             s(av.nitro, k = 20) + s(management_intensity, k = 10) + 
-                             s(country_pooled, bs = "re") + ti(prcp, management_intensity, k = 10),
-                           family = tw(), method = "REML", data = df_stem_regeneration2)
-
-summary(interaction_model_3)
-
-# Model 4: Multiple interactions & account for clim_grid to avoid spatial autocorrelation
-interaction_model_4 <- gam(stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + 
-                             s(spei12, k = 15) + s(distance_edge) + s(depth_extract, k = 15) + 
-                             s(disturbance_severity) + s(clay_extract) + 
-                             s(av.nitro, k = 20) + s(management_intensity,by = country_pooled, k = 10) + 
-                             s(country_pooled, bs = "re") + ti(prcp, tmp, k = 10) + 
-                             ti(spei12, tmp, k = 10) +
+# Model with random effect and random slopes for management across countries: account  account for clim_grid to avoid spatial autocorrelation
+int_re <- gam(stem_regeneration ~
+                             s(prcp_c, k = 5) + s(tmp_c, k = 5) + s(spei12_c, k = 5) + 
+                             s(distance_edge_c, k = 5) +
+                             s(depth_extract_c, k = 5) +
+                             s(disturbance_severity_c, k = 5) +
+                             s(clay_extract_c, k = 5) +
+                             s(av.nitro_c, k =5) +
+                             ti(tmp_c, prcp_c) +
+                             ti(disturbance_severity_c, distance_edge_c) +
+                             s(management_intensity_c,by = country_pooled, k = 10) + 
+                             s(country_pooled, bs = "re") + 
                              s(x,y) +
-                             s(clim_grid, bs = "re") +
-                             country_pooled
-                             #ti(prcp, management_intensity, k = 10)
+                             s(clim_grid, bs = "re") 
                              ,
                            family = tw(), method = "REML", data = df_stem_regeneration2)
 
-summary(interaction_model_4)
+summary(int_re)
+AIC(basic_gam,int_clim, int_dist,int_re ,int_re_dist_spei ,int_re_dist_patch_spei,
+    int_re_dist_patch_tmp,
+    int_re_dist_prcp,
+    int_re_edge_prcp,
+    interaction_model_5_k5,
+    int_re_dist_prcp_simpl,
+    int_re_dist_prcp_simpl2,
+    int_re_dist_prcp_simpl3)
 
 
 # Modify the model to use a random slope for management_intensity by country
-interaction_model_5 <- gam(
-  stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) +
-    s(distance_edge) + s(depth_extract, k = 5) + s(disturbance_severity) +
-    s(clay_extract, k = 5) + s(av.nitro, k = 5) +
-    # Change from separate smooths to a random slope model for management_intensity by country
-    s(management_intensity, by = country_pooled, bs = "re") +
-    s(country_pooled, bs = "re") +  # Random intercept for country
-    ti(prcp, tmp, k = 10) + 
-    ti(spei12, tmp, k = 10) +
-    s(x, y) + s(clim_grid, bs = "re"), 
-  family = tw(), method = "REML", data = df_stem_regeneration2
-)
+int_re_dist_spei <- gam(stem_regeneration ~
+                             s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                             s(spei12_c, k = 5) + 
+                             s(distance_edge_c, k = 5) +
+                             s(depth_extract_c, k = 5) +
+                             s(disturbance_severity_c, k = 5) +
+                             s(clay_extract_c, k = 5) +
+                             s(av.nitro_c, k =5) +
+                             ti(tmp_c, prcp_c, k = 10) +
+                             ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                             ti(disturbance_severity_c, spei12_c, k = 5) +
+                             s(management_intensity_c,by = country_pooled, k = 10) + 
+                             s(country_pooled, bs = "re") + 
+                             s(x,y) +
+                             s(clim_grid, bs = "re") 
+                        ,
+                           family = tw(), method = "REML", data = df_stem_regeneration2)
 
+# Modify the model to use a random slope for management_intensity by country
+int_re_dist_tmp <- gam(stem_regeneration ~
+                          s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                          s(spei12_c, k = 5) + 
+                          s(distance_edge_c, k = 5) +
+                          s(depth_extract_c, k = 5) +
+                          s(disturbance_severity_c, k = 5) +
+                          s(clay_extract_c, k = 5) +
+                          s(av.nitro_c, k =5) +
+                          ti(tmp_c, prcp_c, k = 5) +
+                          ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                          ti(disturbance_severity_c, tmp_c, k = 5) +
+                          s(management_intensity_c,by = country_pooled, k = 10) + 
+                          s(country_pooled, bs = "re") + 
+                          s(x,y) +
+                          s(clim_grid, bs = "re") 
+                        ,
+                        family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+# Modify the model to use a random slope for management_intensity by country
+int_re_dist_prcp <- gam(stem_regeneration ~
+                         s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                         s(spei12_c, k = 5) + 
+                         s(distance_edge_c, k = 5) +
+                         s(depth_extract_c, k = 5) +
+                         s(disturbance_severity_c, k = 5) +
+                         s(clay_extract_c, k = 5) +
+                         s(av.nitro_c, k =5) +
+                         ti(tmp_c, prcp_c, k = 5) +
+                         ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                         ti(disturbance_severity_c, prcp_c, k = 5) +
+                         s(management_intensity_c,by = country_pooled, k = 10) + 
+                         s(country_pooled, bs = "re") + 
+                         s(x,y) +
+                         s(clim_grid, bs = "re") 
+                       ,
+                       family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+# simpler: remove the interaction between 
+
+int_re_dist_prcp_simpl <- gam(stem_regeneration ~
+                          s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                          s(spei12_c, k = 5) + 
+                          s(distance_edge_c, k = 5) +
+                          s(depth_extract_c, k = 5) +
+                          s(disturbance_severity_c, k = 5) +
+                          s(clay_extract_c, k = 5) +
+                          s(av.nitro_c, k =5) +
+                          ti(tmp_c, prcp_c, k = 10) +
+                         # ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                          ti(disturbance_severity_c, prcp_c, k = 10) +
+                          s(management_intensity_c,by = country_pooled, k = 10) + 
+                          s(country_pooled, bs = "re") + 
+                          s(x,y) +
+                          s(clim_grid, bs = "re") 
+                        ,
+                        family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+
+int_re_dist_prcp_simpl2 <- gam(stem_regeneration ~
+                                s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                                s(spei12_c, k = 5) + 
+                                s(distance_edge_c, k = 5) +
+                                s(depth_extract_c, k = 5) +
+                                s(disturbance_severity_c, k = 5) +
+                                s(clay_extract_c, k = 5) +
+                                s(av.nitro_c, k =5) +
+                                ti(tmp_c, prcp_c, k = 10) +
+                                 ti(disturbance_severity_c, distance_edge_c, k = 10) +
+                                #ti(disturbance_severity_c, prcp_c, k = 10) +
+                                s(management_intensity_c,by = country_pooled, k = 4) + 
+                                s(country_pooled, bs = "re") + 
+                                s(x,y) +
+                                s(clim_grid, bs = "re") 
+                              ,
+                              family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+int_re_dist_prcp_simpl3 <- gam(stem_regeneration ~
+                                 s(prcp_c, k = 4) + s(tmp_c, k = 4) + 
+                                 s(spei12_c, k = 4) + 
+                                 s(distance_edge_c, k = 7) +
+                                 s(depth_extract_c, k = 4) +
+                                 s(disturbance_severity_c, k = 4) +
+                                 s(clay_extract_c, k = 5) +
+                                 s(av.nitro_c, k =5) +
+                                 ti(tmp_c, prcp_c, k = 7) +
+                                 #ti(disturbance_severity_c, distance_edge_c, k = 10) +
+                                 ti(disturbance_severity_c, prcp_c, k = 7) +
+                                 s(management_intensity_c,by = country_pooled, k = 4) + 
+                                 s(country_pooled, bs = "re") + 
+                                 s(x,y) +
+                                 s(clim_grid, bs = "re") 
+                               ,
+                               family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+int_re_dist_prcp_simpl4 <- gam(stem_regeneration ~
+                                 s(prcp_c, k = 10) + s(tmp_c, k = 10) + 
+                                # s(spei12_c, k = 4) + 
+                                 s(distance_edge_c, k = 7) +
+                                 #s(depth_extract_c, k = 4) +
+                                 s(disturbance_severity_c, k = 4) +
+                                 s(clay_extract_c, k = 5) +
+                                 #s(av.nitro_c, k =5) +
+                                 ti(tmp_c, prcp_c, k = 10) +
+                                 #ti(disturbance_severity_c, distance_edge_c, k = 10) +
+                                 ti(disturbance_severity_c, prcp_c, k = 10) +
+                                 s(management_intensity_c,by = country_pooled, k = 4) + 
+                                 s(country_pooled, bs = "re") + 
+                                 s(x,y) +
+                                 s(clim_grid, bs = "re") 
+                               ,
+                               family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+k.check(int_re_dist_prcp_simpl4)
+summary(int_re_dist_prcp_simpl4)
+
+# quick plotting --------------------------------------
+
+
+
+
+# add interaction istance_edge and prcp
+int_re_edge_prcp <- gam(stem_regeneration ~
+                          s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                          s(spei12_c, k = 5) + 
+                          s(distance_edge_c, k = 5) +
+                          s(depth_extract_c, k = 5) +
+                          s(disturbance_severity_c, k = 5) +
+                          s(clay_extract_c, k = 5) +
+                          s(av.nitro_c, k =5) +
+                          ti(tmp_c, prcp_c, k = 5) +
+                          ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                          ti(disturbance_severity_c, prcp_c, k = 5) +
+                          ti(distance_edge_c, prcp_c, k = 5) +
+                          s(management_intensity_c,by = country_pooled, k = 10) + 
+                          s(country_pooled, bs = "re") + 
+                          s(x,y) +
+                          s(clim_grid, bs = "re") 
+                        ,
+                        family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+
+
+# interaction istance_edge and spei - not improves moel that much
+int_re_dist_patch_spei <- gam(stem_regeneration ~
+                          s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                          s(spei12_c, k = 5) + 
+                          s(distance_edge_c, k = 5) +
+                          s(depth_extract_c, k = 5) +
+                          s(disturbance_severity_c, k = 5) +
+                          s(clay_extract_c, k = 5) +
+                          s(av.nitro_c, k =5) +
+                          ti(tmp_c, prcp_c, k = 5) +
+                          ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                          ti(disturbance_severity_c, spei12_c, k = 5) +
+                            ti(distance_edge_c, spei12_c, k = 5) +
+                          s(management_intensity_c,by = country_pooled, k = 10) + 
+                          s(country_pooled, bs = "re") + 
+                          s(x,y) +
+                          s(clim_grid, bs = "re") 
+                        ,
+                        family = tw(), method = "REML", data = df_stem_regeneration2)
+
+# ad interaction severity with tmp:
+int_re_dist_patch_tmp <- gam(stem_regeneration ~
+                                s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                                s(spei12_c, k = 5) + 
+                                s(distance_edge_c, k = 5) +
+                                s(depth_extract_c, k = 5) +
+                                s(disturbance_severity_c, k = 5) +
+                                s(clay_extract_c, k = 5) +
+                                s(av.nitro_c, k =5) +
+                                ti(tmp_c, prcp_c, k = 5) +
+                                ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                                ti(disturbance_severity_c, spei12_c, k = 5) +
+                                ti(distance_edge_c, tmp_c, k = 5) +
+                                s(management_intensity_c,by = country_pooled, k = 10) + 
+                                s(country_pooled, bs = "re") + 
+                                s(x,y) +
+                                s(clim_grid, bs = "re") 
+                              ,
+                              family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+
+
+summary(int_re_dist_patch_tmp)
 interaction_model_5_k5 <- gam(
      stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) + s(spei12, k = 5) +
         s(distance_edge, k = 5) + s(depth_extract, k = 5) + s(disturbance_severity, k = 5) +
@@ -1880,48 +2115,37 @@ interaction_model_5_k5 <- gam(
     data = df_stem_regeneration2)
 
 
-# remove spei as it has corr coefficeint of 0.59
-interaction_model_5_no_spei_dist_in <- gam(
-  stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + #s(spei12, k = 15) +
-    s(distance_edge) + s(depth_extract, k = 5) + s(disturbance_severity) +
+interaction_model_5_k5_no_spei <- gam(
+  stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) +# s(spei12, k = 5) +
+    s(distance_edge, k = 5) + s(depth_extract, k = 5) + s(disturbance_severity, k = 5) +
     s(clay_extract, k = 5) + s(av.nitro, k = 5) +
     # Change from separate smooths to a random slope model for management_intensity by country
     s(management_intensity, by = country_pooled, bs = "re") +
     s(country_pooled, bs = "re") +  # Random intercept for country
     ti(prcp, tmp, k = 10) + 
-    ti(distance_edge, disturbance_severity, k = 10) + 
     #ti(spei12, tmp, k = 10) +
-    s(x, y) + s(clim_grid, bs = "re"), 
-  family = tw(), method = "REML", data = df_stem_regeneration2
-)
+    s(x, y) + 
+    s(clim_grid, bs = "re"), 
+  family = tw(), 
+  method = "REML", 
+  data = df_stem_regeneration2)
 
 
 
-interaction_model_5_c <- gam(
-  stem_regeneration ~ s(prcp_c, k = 15) + s(tmp_c, k = 15) + s(spei12, k = 15) +
-    s(distance_edge) + s(depth_extract, k = 5) + s(disturbance_severity) +
-    s(clay_extract, k = 5) + s(av.nitro, k = 5) +
-    # Change from separate smooths to a random slope model for management_intensity by country
-    s(management_intensity, by = country_pooled, bs = "re") +
-    s(country_pooled, bs = "re") +  # Random intercept for country
-    ti(prcp_c, tmp_c, k = 10) + ti(spei12, tmp, k = 10) +
-    s(x, y) + s(clim_grid, bs = "re"), 
-  family = tw(), method = "REML", data = df_stem_regeneration2
-)
+# store the best model for regeneration density
+fin.m.reg.density <- int_re_dist_prcp_simpl3 
 
+vis.gam(fin.m.reg.density, view = c("prcp_c", "tmp_c"), plot.type = "persp",
+        main = "Interaction between Precipitation and Temperature",
+        zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
 
-# remove spei, add interaction ebtween disturbance severity and distance_edge
-interaction_model_6_c <- gam(
-stem_regeneration ~ s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) +
-  s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) +
-  s(clay_extract) + s(av.nitro, k = 5) +
-  # Change from separate smooths to a random slope model for management_intensity by country
-  s(management_intensity, by = country_pooled, bs = "re") +
-  s(country_pooled, bs = "re") +  # Random intercept for country
-  ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) +
-  s(x, y) + s(clim_grid, bs = "re"), 
-family = tw(), method = "REML", data = df_stem_regeneration2
-)
+# ti(disturbance_severity, distance_edge): Interaction between disturbance severity and distance to edge
+vis.gam(fin.m.reg.density, view = c("disturbance_severity_c", "distance_edge_c"), plot.type = "persp",
+        zlab = "Stem Regeneration")
+
+# ti(disturbance_severity, distance_edge): Interaction between disturbance severity and distance to edge
+vis.gam(fin.m.reg.density, view = c("disturbance_severity_c", "prcp_c"), plot.type = "persp",
+        zlab = "Stem Regeneration")
 
 
 # check again correlation between predictors:
@@ -1930,8 +2154,11 @@ family = tw(), method = "REML", data = df_stem_regeneration2
 library(corrplot)
 
 # Select predictors from your data frame
-predictors <- df_stem_regeneration2[, c("prcp", "tmp", "spei12", "distance_edge", "depth_extract",
-                                        "disturbance_severity", "clay_extract", "av.nitro", "management_intensity")]
+predictors <- df_stem_regeneration2[, c("prcp_c", "tmp_c", "spei12_c", 
+                                        "distance_edge_c", "depth_extract_c",
+                                        "disturbance_severity_c", 
+                                        "clay_extract_c", "av.nitro_c", 
+                                        "management_intensity_c")]
 
 # Calculate correlation matrix
 correlation_matrix <- cor(predictors,  method = "spearman", use = "complete.obs")
@@ -1943,20 +2170,11 @@ corrplot(correlation_matrix, method = "color", type = "upper",
          addCoef.col = "black", number.cex = 0.7)
 
 
-# View the summary of the updated model
-summary(interaction_model_6_c)
-summary(interaction_model_5)
-summary(interaction_model_5_c)
-
-AIC(interaction_model_6_c, interaction_model_5, interaction_model_5_c,interaction_model_5_no_spei_dist_in)
-
 #summary(interaction_model_4)
-appraise(interaction_model_5)
+appraise(fin.m.reg.density)
 
-# store the best model for regeneration density
-fin.m.reg.density <- interaction_model_5 
 
-# test for autocorrelation
+# test for spatial autocorrelation
 
 # Extract model residuals
 model_residuals <- residuals(fin.m.reg.density, type = "pearson")
@@ -1978,94 +2196,44 @@ moran_test <- moran.test(model_residuals, listw)
 print(moran_test)
 
 
-# Compare models
-AIC(basic_gam, interaction_model_1, interaction_model_2, interaction_model_3, interaction_model_4,
-    interaction_model_5,
-    interaction_model_random_smooth,interaction_model_updated)
-
-# Display model summaries to understand which terms are significant
-summary(basic_gam)
-summary(interaction_model_1)
-summary(interaction_model_2)
-summary(interaction_model_3)
-summary(interaction_model_4)
-summary(interaction_model_5)
-
-
-# Update model to include interaction between management_intensity and country_pooled
-interaction_model_updated <- gam(stem_regeneration ~ 
-                                   s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
-                                   s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) + 
-                                   s(clay_extract) + s(av.nitro, k = 20) + 
-                                   ti(management_intensity, country_pooled, bs = "fs") + 
-                                   ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) + 
-                                   s(x,y) +
-                                   country_pooled, 
-                                 family = tw(), method = "REML", data = df_stem_regeneration2)
-summary(interaction_model_updated)
-
-
-# Adding random smooth effect for country
-interaction_model_random_smooth <- gam(stem_regeneration ~ 
-                                         s(prcp, k = 15) + s(tmp, k = 15) + s(spei12, k = 15) + 
-                                         s(distance_edge) + s(depth_extract, k = 15) + s(disturbance_severity) + 
-                                         s(clay_extract) + s(av.nitro, k = 20) + 
-                                         s(management_intensity, by = country_pooled) + 
-                                         ti(prcp, tmp, k = 10) + ti(spei12, tmp, k = 10) + 
-                                         s(x,y) +
-                                         s(country_pooled, bs = "re"),
-                                       family = tw(), method = "REML", data = df_stem_regeneration2)
-summary(interaction_model_random_smooth)
-
-
-
-
-
-# PLot 
-y_lab = 'Stem dens [#/ha]'
+# PLot  ---------------------------------------------------------------------------
+y_lab = 'Stem density [#/ha]'
 
 summary(fin.m.reg.density)
-# Predict management intensity effects by country
-predicted_mgmt_intensity <- ggpredict(fin.m.reg.density, terms = c("management_intensity", "country_pooled"))
-# Generate predictions for stem regeneration across different countries
-predicted_countries <- ggpredict(fin.m.reg.density, terms = "country_pooled")
-
 
 # Create plots for individual variables
-plot_prcp <- create_plot(fin.m.reg.density, "prcp", df_stem_regeneration2, "prcp**", line_color = "blue", fill_color = "blue")
-plot_tmp <- create_plot(fin.m.reg.density, "tmp", df_stem_regeneration2, "tmp**", line_color = "red", fill_color = "red")
-plot_spei12 <- create_plot(fin.m.reg.density, "spei12", df_stem_regeneration2, "spei12 0.9", line_color = "darkgreen", fill_color = "green")
-plot_disturbance_severity <- create_plot(fin.m.reg.density, "disturbance_severity", df_stem_regeneration2, "Dist Severity*", line_color = "purple", fill_color = "purple")
-plot_distance_edge <- create_plot(fin.m.reg.density, "distance_edge", df_stem_regeneration2, "Dist edge 0.12", x_limit = c(0, 600), line_color = "grey", fill_color = "grey")
-plot_management_intensity <- create_plot(fin.m.reg.density, "management_intensity", df_stem_regeneration2, "Management_intensity", line_color = "grey", fill_color = "grey")
-
+plot_prcp <- create_plot(fin.m.reg.density, "prcp_c", df_stem_regeneration2, "prcp**", line_color = "blue", fill_color = "blue")
+plot_tmp <- create_plot(fin.m.reg.density, "tmp_c", df_stem_regeneration2, "tmp**", line_color = "red", fill_color = "red")
+plot_disturbance_severity <- create_plot(fin.m.reg.density, "disturbance_severity_c", df_stem_regeneration2, "Dist Severity*", line_color = "purple", fill_color = "purple")
+plot_distance_edge <- create_plot(fin.m.reg.density, "distance_edge_c", df_stem_regeneration2, "Dist edge 0.12", x_limit = c(0, 600), line_color = "grey", fill_color = "grey")
+(plot_disturbance_severity)
 
 # Create interaction plots
 plot_interaction1 <- create_interaction_plot(fin.m.reg.density, 
-                                             c("prcp", "tmp[8,9,10]"), "prcp & tmp 0.05", df_stem_regeneration2) +
+                                             c("prcp_c", "tmp_c"), "prcp & tmp 0.05", df_stem_regeneration2) +
   labs(color = "tmp", fill = "tmp") 
+(plot_interaction1)
+
 plot_interaction2 <- create_interaction_plot(fin.m.reg.density, 
-                                             c("spei12", "tmp[8,9,10]"), "spei12 & tmp 0.5",
-                                             df_stem_regeneration2) +labs(color = "tmp", fill = "tmp") 
+                                             c("disturbance_severity_c", "distance_edge_c"), "lalal", df_stem_regeneration2) +
+  labs(color = "disturbance_severity_c", fill = "distance_edge_c") 
+(plot_interaction2)
 
-# Plot predicted effects by country
-plot_countries <- ggplot(predicted_countries, aes(x = x, y = predicted, fill = x)) +
-  geom_bar(stat = "identity", position = "dodge", color = "black") +
-  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2, position = position_dodge(width = 0.9)) +
-  labs(title = "", x = "Country", y = y_lab) +
-  theme_minimal() +
-  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
+plot_interaction3 <- create_interaction_plot(fin.m.reg.density, 
+                                             c("disturbance_severity_c", "prcp_c"), "lala", df_stem_regeneration2) +
+  labs(color = "disturbance_severity_c", fill = "prcp_c") 
+(plot_interaction3)
 
-# Plot the effect of management intensity on stem regeneration by country
-plot_mgmt_intensity <- ggplot(predicted_mgmt_intensity, aes(x = x, y = predicted, group = group)) +
+
+# uderstand why data are different
+
+predicted_interaction <- ggpredict(fin.m.reg.density, terms = c("disturbance_severity_c", "prcp_c"))
+
+ggplot(predicted_interaction, aes(x = x, y = predicted )) +
   geom_line(aes(color = group), size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-  labs(title = "", 
-       x = "Manag Intensity", y = y_lab, color = "Country", fill = "Country") +
-  theme_minimal() +
-  facet_wrap(~group) +
-  theme(legend.position = "none")
-
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) #+
+  #' labs(title = title, x = x_label, y = y_label, color = "Group", fill = "Group") +
+  #' theme_classic2()
 
 # Combine the individual plots into one figure
 
