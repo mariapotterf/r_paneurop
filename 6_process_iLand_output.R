@@ -73,9 +73,13 @@ df_sites_clusters <- data.frame(
   site = c("23_132", 
            "26_134", "15_133", "17_104", "22_101", "12_151",
            "24_146", "20_116", "12_117", "11_145", "19_160", "25_150"),
-  cluster = c("1_1", "1_2", "1_3", "1_4", "2_1", "2_2",
+  landscape = c("1_1", "1_2", "1_3", "1_4", "2_1", "2_2",
               "2_3", "2_4", "2_5", "3_1", "3_2", "3_3")
 )
+
+
+df_delayed_advanced_sub <- df_delayed_advanced %>% 
+  right_join(df_sites_clusters)
 
 # split into delayed vs advanced
 df_vegetation_sub <- df_fin %>% 
@@ -87,7 +91,7 @@ df_vegetation_sub <- df_fin %>%
                 sum_stems_mature) %>% 
   mutate(stem_regeneration = sum_stems_juvenile + sum_stems_sapling) %>% 
   mutate(adv_delayed = ifelse(stem_regeneration <= 50, "Delayed", 
-                              ifelse(sum_stems_juvenile >= 1000, "Advanced", "Med"))) %>% # Add the 3rd category
+                              ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other"))) %>% # Add the 3rd category
   right_join(df_sites_clusters)
 
 
@@ -112,28 +116,21 @@ df_vegetation_sub <- df_fin %>%
 # check the naming from plots (boxplot) an rename them to fit
 df_sim_class <- df_sim %>%
   rename(landscape = cluster) %>% 
-  mutate(clim_class = case_when(
-    clim_cluster == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-    clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
-    clim_cluster == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-  ))  %>% 
+  # mutate(clim_class = case_when(
+  #   clim_cluster == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+  #   clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+  #   clim_cluster == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+  # ))  %>% 
   mutate(landscape_run = paste(landscape, run_nr))  # yunique run per lanscape scenario
 
 str(df_sim_class)
 head(df_sim_class)
 
-df_sim_class <- df_sim_class %>% 
-  mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, landscape_run, sep = "_"))  # yunique run per lanscape scenario
 
 # get delayed vs adanced regeeneration indication ------------------------------
-# split into delayed vs advanced
-#df_fin_sub <- 
-  df_fin_sub %>%
-  #rename(landscape = cluster) %>%
-  right_join(df_sites_clusters) #%>%
-
-
-
+df_sim_class <- df_sim_class %>% 
+  mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, landscape_run, sep = "_")) %>%  # yunique run per lanscape scenario
+  right_join(df_delayed_advanced_sub)
 
 
 ## filter field data for selected clusters (simulated landscapes) --------------
@@ -171,14 +168,13 @@ mutate(
 
 # select only 12 landscapes form field data
 df_field_ind_sub <- df_indicators %>% 
-  dplyr::select(site,  rIVI, richness, stem_density, n_vertical, tmp, prcp, spei3, clay_extract, sand_extract,
+  dplyr::select(site,  rIVI, richness, stem_density, 
+                n_vertical, tmp, prcp, spei3, clay_extract, sand_extract,
                 clim_cluster_spei3, clim_class, env_stnd_clust, env_cluster, stnd_cluster) %>% 
 #  rename(site = cluster) %>% 
   right_join(df_sites_clusters) %>% 
-  mutate(#clim_cluster_Kilian = str_sub(cluster, 1, 1),  # add indication of the climatic cluster (1,2,3)
-         #str_cluster_Kilian = str_sub(cluster, -1, -1), # not needed anymore as teh structural clusters do not represent the same condistions
-         clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%  # add indication of the strutural cluster (1,2,3,4,5)
-  rename(landscape = cluster)
+  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) #%>%  # add indication of the strutural cluster (1,2,3,4,5)
+ # rename(landscape = cluster)
 
 # chcek composite score: try to order variables ----
 
@@ -209,24 +205,6 @@ df_field_ind_sub <- df_field_ind_sub %>%
 # Process simulated data --------------------------------------------------------
 ## filter teh data for teh baseic scenario: one lansca, one clim scenarions, ... --------------------
 # the most basic example:
-
-df_sim %>% 
-  dplyr::filter(clim_model == 'ICHEC' & clim_scenario == 'HISTO' &
-                  cluster == '1_4' & 
-                  run_nr == '1'&
-                  ext_seed  == 'noseed' &
-                  count_ha > 0
-                ) %>% 
-  #View()#
-  ggplot(aes(x = year,
-             y = count_ha,
-             color = interaction(species, category  ),
-             group = interaction(species, category  ))) +
-  geom_line() +
-    facet_wrap(species~category)
-
-
-
 
 
 ## Inspect simulated data: ------------------------------------------------------
