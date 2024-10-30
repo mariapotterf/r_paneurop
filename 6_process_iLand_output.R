@@ -62,9 +62,12 @@ df_str_compos_clusters_full <- fread('rawData/iLand/Cluster_Plots.csv')  # struc
 
 # final tables on site level
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
+df_delayed_advanced <- fread('outTable/df_delayed_advanced.csv') # indication of the delayed, advanced vs other -
+# compare the stem desity development across this
 
 
-# create table to subset the full field data into landscapes
+
+# create table to subset the  field data into landscapes
 # Create the data frame with the given pairs
 df_sites_clusters <- data.frame(
   site = c("23_132", 
