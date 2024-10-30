@@ -388,7 +388,7 @@ df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
 # test with log values
 p_stem_density_species <- df_stem_sp_sum_ordered %>%
   ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
-  geom_density_ridges(aes(fill = Species), alpha = 0.5, color = 'NA') +
+  geom_density_ridges(aes(fill = Species), alpha = 0.8, color = 'NA') +
   scale_fill_manual(values = species_colors) +
   stat_summary(
     aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
@@ -400,29 +400,49 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
     #fill = "grey",  # Default fill color (or leave as `Species` to map by color)
     shape = 21,  # Shape 21 is a circle with a fill and border
     size = 0.5,
-    position = position_nudge(y = 0.5)  # Adjust position slightly
+    position = position_nudge(y = 0.3)  # Adjust position slightly
   ) +
   theme_classic() +
   labs(title = "",
        x = "Stem Density (log10)",
        y = "")  +
-  theme(legend.position = 'none') +
   scale_x_continuous(
     labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
-  )
+  ) +
+   theme(#axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate the y-axis text (Species)
+        panel.border = element_rect(color = "black", fill = NA, size = 1),  # Black border around facets
+        strip.background = element_rect(color = "black", linewidth = 1),  # Black border around facet labels
+        panel.grid.major = element_line(color = "grey", linetype = "dotted"),  # Add grey dashed major grid lines
+        panel.grid.minor = element_blank(),  # Remove minor grid lines
+        legend.position = 'none') #+  # Hide the legend
+
 
 p_stem_density_species
 
 ggsave(filename = 'outFigs/p_stem_density_ridge_log.png', 
        plot = p_stem_density_species, 
-       width = 4, height = 10, dpi = 300, bg = 'white')
+       width = 3, height = 3.5, dpi = 300, bg = 'white')
 
 
+# export plot together with vertical layers
+p_stem_dens_composition <- ggarrange(p_stem_density_species, 
+                                     p_species_vert_layer,
+                                     #align = 'hv', 
+                                     #axis = "tb",
+          labels = c("[a]", "[b]"), font.label = list(size = 8, face = "plain") )
 
-## Plot Stem density per species and vertical class: --------------------------------
+p_stem_dens_composition
+
+ggsave(filename = 'outFigs/p_stem_dens_composition.png', 
+       plot = p_stem_dens_composition, 
+       width = 5, height = 3.5, dpi = 300, bg = 'white')
+
+
+## Error plot:  Stem density per species and vertical class: --------------------------------
 # Add a log-transformed column for sum_stem_density
 stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
   mutate(log_stem_density = log10(stem_density + 1))  # Adding 1 to avoid log(0)
+
 
 # simplify naming and make new categories for proper stem density
 stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
@@ -432,8 +452,106 @@ stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
     VegType == "Saplings" ~ "sap",
     TRUE ~ as.character(VegType)  # Keep any other VegType values as they are
   )) %>% 
-  mutate(species_VegType = paste(Species, VegType_acc, sep = '_'))
+  mutate(species_VegType = paste(Species, VegType_acc, sep = '_')) %>% 
+  mutate(VegType_acc = factor(VegType_acc, 
+                              levels = c('mat', 'juv', 'sap'))) 
 
+
+
+p_stem_density_error <- stem_dens_species_long_cluster %>%  
+  dplyr::filter(Species %in% top_species_overall_vect[1:7]  ) %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  mutate(Species = factor(Species, 
+                          levels = top_species_overall_vect[1:7])) %>%
+  
+  ggplot(aes(x = stem_density, 
+             y = VegType_acc, 
+             fill = VegType_acc,
+             color = VegType_acc,
+             group = species_VegType )) +
+  # geom_violin(trim = T) +
+  # geom_density_ridges(aes(fill = species_VegType ), alpha = 0.5) +
+  stat_summary(
+    aes(x = stem_density), 
+    fun = median, 
+    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+    geom = "pointrange", 
+    #color = VegType, 
+    size = 0.3#,
+    #position = position_nudge(y = .2)  # Adjust position slightly
+  ) +
+  #scale_color_manual(values = colorRampPalette(brewer.pal(11, "RdYlGn"))(3)) +  # Apply the color palette based on seral type
+  facet_grid(Species ~ ., switch = "y") +
+  
+  # Adjust theme
+  theme_classic() +
+  theme(
+    legend.position = 'none',
+    strip.background = element_blank(),  # Remove background from facet labels
+    strip.text.y.left = element_text(face = "bold", angle = 0,vjust = 1),  # Make facet labels bold and horizontal
+    strip.placement = "outside",  # Place facet labels further outside
+    
+    # Expand plot margins to allow space for labels on the left
+    plot.margin = margin(t = 5, r = 5, b = 5, l = 7),  # Increase left margin
+    
+    # Ensure xy lines appear only on axes
+    panel.border = element_blank(),
+    panel.grid = element_blank(),
+    axis.line.x = element_line(color = "black"),
+    axis.line.y = element_line(color = "black")
+  ) +
+  labs(x = "", y = "")
+
+p_stem_density_error
+ggsave(filename = 'outFigs/p_stem_density_error.png', 
+       plot = p_stem_density_error, 
+       width = 3, height = 3.5, dpi = 300, bg = 'white')
+
+
+## Density plot per vertical class: -----------------------------------------------
+
+stem_dens_species_long_cluster %>%  
+  dplyr::filter(Species %in% top_species_overall_vect[1:7]  ) %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  ggplot(aes(x = log_stem_density , y = VegType_acc, 
+             fill = VegType_acc,
+             color = VegType_acc,
+             group = species_VegType )) +
+  geom_density_ridges(aes(fill = Species), alpha = 0.5, color = 'NA') +
+  #scale_fill_manual(values = species_colors) +
+  stat_summary(
+    aes(x = log_stem_density), 
+    fun = median, 
+    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+    geom = "pointrange", 
+    size = 0.3,
+    position = position_nudge(y = .2)  # Adjust position slightly
+  ) +
+  #scale_color_manual(values = colorRampPalette(brewer.pal(11, "RdYlGn"))(3)) +  # Apply the color palette based on seral type
+  facet_grid(Species ~ ., switch = "y") +
+  
+  # Adjust theme
+  theme_classic() +
+  theme(
+    legend.position = 'none',
+    strip.background = element_blank(),  # Remove background from facet labels
+    strip.text.y.left = element_text(face = "bold", angle = 0,vjust = 1),  # Make facet labels bold and horizontal
+    strip.placement = "outside",  # Place facet labels further outside
+    
+    # Expand plot margins to allow space for labels on the left
+    plot.margin = margin(t = 5, r = 5, b = 5, l = 7),  # Increase left margin
+    
+    # Ensure xy lines appear only on axes
+    panel.border = element_blank(),
+    panel.grid = element_blank(),
+    axis.line.x = element_line(color = "black"),
+    axis.line.y = element_line(color = "black")
+  ) +
+  labs(x = "", y = "")
+ 
+  
 
 
 
@@ -598,14 +716,14 @@ ggsave(filename = 'outFigs/fig_p_species_distribution_global_country.png',
 
 # Group by cluster and VegType, check if stem_density > 0
 vert_class_presence_absence <- stem_dens_species_long_cluster %>%
-  group_by(cluster, VegType) %>%
+  group_by(cluster, VegType_acc) %>%
   summarise(has_stem_density = sum(stem_density > 0, na.rm = TRUE) > 0) %>%
   ungroup() %>%
   # Filter only where there is stem density present
   dplyr::filter(has_stem_density) %>%
-  dplyr::select(cluster, VegType) %>% 
+  dplyr::select(cluster, VegType_acc) %>% 
   mutate(Presence = 1) %>%  # Add a column with 1 indicating presence
-  pivot_wider(names_from = VegType, values_from = Presence, values_fill = 0)  # Convert to wide format, filling NAs with 0
+  pivot_wider(names_from = VegType_acc, values_from = Presence, values_fill = 0)  # Convert to wide format, filling NAs with 0
 
 
 
@@ -613,7 +731,7 @@ vert_class_presence_absence <- stem_dens_species_long_cluster %>%
 # Find clusters where no vegType has stem_density
 all_clusters <- stem_dens_species_long_cluster %>%
   ungroup() %>% 
-  dplyr::select(cluster, VegType) %>% 
+  dplyr::select(cluster, VegType_acc) %>% 
   distinct(cluster)
 
 # Combine clusters with and without stem density
@@ -627,18 +745,68 @@ vert_class_presence_absence_fin <- vert_class_presence_absence  %>%
 # Upset plot -----------------------------------
 
 library(UpSetR)
+library("ComplexUpset")
 
+
+library(ggupset)
+
+tidy_movies %>%
+  distinct(title, year, length, .keep_all=TRUE) %>%
+  str()
+  ggplot(aes(x=Genres)) +
+  geom_bar() +
+  scale_x_upset(n_intersections = 20)
+  
+vert_class_presence_absence_fin %>% 
+  ggplot(aes(x=))
+
+  
+upset_data <- vert_class_presence_absence_fin %>%
+  rowwise() %>%
+  mutate(
+    sets = list(
+      c(
+        if (sap == 1) "sap" else NULL,
+        if (juv == 1) "juv" else NULL,
+        if (mat == 1) "mat" else NULL
+      )
+    )
+  ) %>%
+  ungroup() %>%
+  filter(lengths(sets) > 0)  # Remove rows with no sets
 
 
 # full data:
 
 # Step 2: Select only the columns with presence/absence data
-upset_data <- vert_class_presence_absence_fin %>% dplyr::select(Saplings, Juveniles, Mature) %>% 
+upset_data <- vert_class_presence_absence_fin %>% dplyr::select(sap, juv, mat) %>% 
   as.data.frame()
 
 # Step 3: Create the UpSet plot
-upset(upset_data, sets = c('Saplings', 'Juveniles', 'Mature'), order.by = "freq")
+p_upset_test <- upset(upset_data, sets = c('sap', 'juv', 'mat'), order.by = "freq")
+p_upset_test
 
+# Define your color palette with colorBrewer
+upset_colors <- brewer.pal(3, "Set2")  # Change 'Set2' to your desired palette
+
+
+# Create the UpSet plot with ComplexUpset
+# Create the UpSet plot
+p_upset_test <- ComplexUpset::upset(
+  upset_data, 
+  intersect = c('sap', 'juv', 'mat'),  # Specify your sets
+  name = "Intersection", 
+  base_annotations = list(
+    'Intersection size' = intersection_size(
+      text = list(vjust = -0.5)  # Adjusts text position
+    ) + scale_fill_manual(values = upset_colors)  # Use a manual fill scale based on color palette
+  ),
+  themes = ggplot2::theme_minimal() +  # Minimal theme for ggplot
+    theme(legend.position = "none")     # Remove unnecessary legend if not needed
+)
+
+# Display the plot
+p_upset_test
 
 # upset data test ---------------------------------------------------------
 
@@ -667,60 +835,6 @@ upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
 
 
 
-
-
-
-# PLOT: summary inicators -----------------------------------------------------
-# Define the function to create a customizable violin plot
-create_violin_plot <- function(df, y_var, y_label) {
-  df %>%
-    ggplot(aes(x = clim_class, y = !!sym(y_var))) +  # Use dynamic y variable
-    geom_violin(aes(fill = clim_class), 
-                trim = TRUE, alpha = 0.6) +  # Create the violin plot
-    geom_boxplot(width = 0.15) +
-    scale_fill_manual(values = c("orange", "red", "blue")) +
-    labs(x = '',
-         fill = 'Clim_ENV cluster',
-         y = y_label) +  # Use dynamic y label
-    theme_classic2() +
-    theme(legend.position = "none")
-}
-
-df_fin$plot_stem_density <- df_fin$stem_density/1000
-df_fin$plot_rIVI <- df_fin$rIVI*100
-# Example usage for rIVI, n_vertical, and richness
-
-# For rIVI
-p_viol_stem_density <- create_violin_plot(df_fin, "plot_stem_density", "Stem density [#*1000]")
-
-# For rIVI
-p_viol_rIVI <- create_violin_plot(df_fin, "plot_rIVI", "rIVI [%]")
-
-# For n_vertical
-p_viol_vert <- df_fin %>%
-  ggplot(aes(x = clim_class, y = n_vertical)) +  # Use dynamic y variable
-  geom_violin(aes(fill = clim_class), 
-              trim = TRUE, alpha = 0.6) +  # Create the violin plot
-  # geom_boxplot(width = 0.15) +
-  scale_fill_manual(values = c("orange", "red", "blue")) +
-  labs(x = '',
-       fill = 'Clim_ENV cluster',
-       y = 'Vertical layers [#]') + 
-  theme_classic2() +
-  theme(legend.position = "none") #create_violin_plot(df_fin, "n_vertical", "Vertical layers [#]")
-
-# For richness
-p_viol_richness <- create_violin_plot(df_fin, "richness", "Richness [#]")
-
-p_indicators_violin <- ggarrange(p_viol_stem_density,p_viol_vert, p_viol_rIVI, p_viol_richness,
-                                 labels = c("[a]", "[b]", "[c]", "[d]"),  # Add labels for each subplot,
-                                 legend = "none",
-                                 font.label = list(size = 10, face = "plain") ) # Adjust legend position if needed)
-
-(p_indicators_violin)
-ggsave(filename = 'outFigs/fig_indicators_violin.png', 
-       plot = p_indicators_violin, 
-       width = 7, height = 7, dpi = 300, bg = 'white')
 
 
 
