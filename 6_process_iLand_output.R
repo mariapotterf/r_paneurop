@@ -203,8 +203,6 @@ df_field_ind_sub <- df_field_ind_sub %>%
 
 
 # Process simulated data --------------------------------------------------------
-## filter teh data for teh baseic scenario: one lansca, one clim scenarions, ... --------------------
-# the most basic example:
 
 
 ## Inspect simulated data: ------------------------------------------------------
@@ -245,18 +243,16 @@ df_field_ind_sub <- df_field_ind_sub %>%
 
 # Get grouping table : 1380 unique simulations combination
 df_simulations_groups <- df_sim_class %>% 
-  dplyr::select(year, clim_model,clim_cluster,str_cluster, ext_seed,landscape_run, unique_sim_run) %>% 
-  distinct() %>%  # remove duplicated rows
-  mutate(landscape = paste(clim_cluster,str_cluster, sep = "_"))
+  dplyr::select(year, clim_model, ext_seed,landscape_run, unique_sim_run) %>% 
+  distinct() #%>%  # remove duplicated rows
+  #mutate(landscape = paste(clim_cluster,str_cluster, sep = "_"))
 # nrows with years: 42720
   
   
 df_simulations_groups_simple <- df_sim_class %>% 
-    dplyr::select(clim_model,clim_cluster,str_cluster, ext_seed,landscape_run, unique_sim_run) %>% 
-    distinct() %>%  # remove duplicated rows
-    mutate(landscape = paste(clim_cluster,str_cluster, sep = "_"))
+    dplyr::select(clim_model,ext_seed,landscape_run, unique_sim_run) %>% 
+    distinct() #%>%  
   
-
 # Richness
 df_richness <- 
   df_sim_class %>% 
@@ -332,7 +328,8 @@ df_sim_indicators <-
   df_simulations_groups %>% # keep all simulations
   left_join(df_richness) %>% 
   left_join(df_IVI) %>%
-  left_join(df_structure) #%>% 
+  left_join(df_structure) %>%
+  mutate(landscape = substr(landscape_run, 1, 3))
   
 # landscaepe 3_2 has only 'seed' scenario: no seed would lead to no tree regeneration
 # replace NA values by 0 
@@ -360,8 +357,90 @@ df_sim_indicators <- df_sim_indicators %>%
 
 # add indication of advanced vs delayed vegetation: advanced >1000 juveniles, delayed < 50 stems/ha
 df_sim_indicators <- df_sim_indicators %>% 
-  left_join(df_vegetation_sub, by= c("landscape" = "cluster"))
+  left_join(df_delayed_advanced_sub, by = join_by(landscape))
 
+
+# Plot: differentiate only by the advanced vs delayed ---------------------------
+# only stem density
+df_sim_indicators %>% 
+  ggplot(aes(x = year,
+             y = stem_density,
+             group= unique_sim_run,
+             color =adv_delayed )) + 
+  geom_line(alpha = 0.1) +
+  facet_grid(. ~adv_delayed) +
+  stat_summary(
+    aes(group = adv_delayed,
+        color = adv_delayed),          # Group by `adv_delayed` for the median line
+    fun = median,                      # Calculate the median
+    geom = "line",                     # Draw the median line
+   # color = "black",                   # Set the color of the median line (e.g., black)
+    linewidth = 1,                          # Set the line thickness
+    linetype = "dashed"                # Optional: make the line dashed for emphasis
+  ) +
+  theme_classic()
+
+
+
+# with shaded zones
+
+# Calculate IQR for each year and adv_delayed group
+df_summary <- df_sim_indicators %>%
+  group_by(year, adv_delayed) %>%
+  summarize(
+    median_density = median(stem_density, na.rm = TRUE),
+    Q1 = quantile(stem_density, 0.25, na.rm = TRUE),
+    Q3 = quantile(stem_density, 0.75, na.rm = TRUE)
+  )
+
+df_summary <- df_summary %>% 
+  mutate(adv_delayed = factor(adv_delayed,
+                              levels = c("Delayed",  "Other","Advanced" )))  #%>% 
+  
+# Ensure the levels of adv_delayed are in the desired order
+df_sim_indicators <- df_sim_indicators %>%
+  mutate(adv_delayed = factor(adv_delayed, levels = c("Delayed",  "Other","Advanced" )))
+
+# Plot with median line and IQR ribbon
+p_simulated_stem_dens <- df_sim_indicators %>% 
+   ggplot(aes(x = year, y = stem_density, group = unique_sim_run, color = adv_delayed)) + 
+   # Add IQR ribbon
+  geom_ribbon(data = df_summary, aes(x = year, ymin = Q1, ymax = Q3, fill = adv_delayed), 
+              alpha = 0.2, inherit.aes = FALSE) +  # Adjust transparency for the ribbon
+  # Add median line
+  geom_line(data = df_summary, aes(x = year, y = median_density, 
+                                   group = adv_delayed,
+                                   color = adv_delayed,
+                                   linetype = adv_delayed), 
+            linewidth = 1, inherit.aes = FALSE) +
+  scale_color_manual(values = c("#A50026", 
+                                "#FDAE61",
+                                "#006837")) +
+  scale_fill_manual(values = c("#A50026", 
+                                "#FDAE61",
+                                "#006837")) +
+  labs(title = "",
+       x = "Year",
+       y = "Stem Density",
+       color = "",
+       linetype = "",#Reg. status
+       fill = "") +#Reg. status
+  theme_classic2() +
+  theme(legend.position = 'right',
+        panel.border = element_rect(color = "black", size = 0.7, fill = NA),
+        text = element_text(size = 8),             # Set base text size
+        axis.text = element_text(size = 8),        # Axis tick labels
+        axis.title = element_text(size = 8),       # Axis titles
+        strip.text = element_text(size = 8),       # Facet labels
+        legend.text = element_text(size = 8),      # Legend text
+        legend.title = element_text(size = 8),     # Legend title
+        plot.title = element_text(size = 8)        # Plot title)
+)
+
+
+p_simulated_stem_dens
+ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png', 
+       plot = p_simulated_stem_dens, width = 4, height = 3, dpi = 300, bg = 'white')
 
 ##### evaluate initial state with my sites (only 12 sites! )   -------------------------
 # filterr initial state: year == 0
@@ -392,112 +471,6 @@ table(df_compare0$richness_simul)
 plot(df_compare0$richness_field, df_compare0$richness_simul)
 
 
-## merge field data with simulaton at the end -------------------
-df_compare_end <- 
-  df_field_ind_sub %>% 
-  left_join(df_sim_indicators_end, by = c("landscape"), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
-  dplyr::select(landscape, site, ext_seed, ends_with("_field"), ends_with("_simul")) %>% 
-  na.omit() #%>% # remove empty one
-  
-
-
-  
-create_scatter_plot <- function(data, x_var, y_var, x_label, y_label, title) {
-  # Get unique clusters and assign colors
-  unique_clusters <- unique(data$landscape)
-  
-  # Create a color palette with enough colors for each cluster
-  colors <- rainbow(length(unique_clusters))  # or any other palette function
-  
-  # Create the scatter plot using aes with .data[[var]]
-  ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]], color = factor(landscape))) +
-    geom_jitter(alpha = 0.2) +  # Apply alpha to jittered points
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
-    labs(title = title, x = x_label, y = y_label) +
-    theme_classic() +
-    scale_color_manual(values = colors, 
-                       guide = guide_legend(override.aes = list(size = 4, alpha = 1))) +
-   facet_wrap(.~ext_seed)
-}
-
-dim(df_compare0)
-dim(df_compare_end)
-
-# Create individual plots using the function
-p0.1 <- create_scatter_plot(df_compare0, 
-                          x_var = "rIVI_simul", 
-                          y_var = "rIVI_field", 
-                          x_label = "Simulated rIVI", 
-                          y_label = "Field rIVI", 
-                          title = "rIVI")
-
-p0.2 <- create_scatter_plot(df_compare0, 
-                          x_var = "richness_simul", 
-                          y_var = "richness_field", 
-                          x_label = "Simulated Richness", 
-                          y_label = "Field Richness", 
-                          title = "Richness")
-
-p0.3 <- create_scatter_plot(df_compare0, 
-                          x_var = "stem_density_simul", 
-                          y_var = "stem_density_field", 
-                          x_label = "Simulated Stem Density", 
-                          y_label = "Field Stem Density", 
-                          title = "Stem Density")
-
-p0.4 <- create_scatter_plot(df_compare0, 
-                          x_var = "n_vertical_simul", 
-                          y_var = "n_vertical_field", 
-                          x_label = "Simulated ", 
-                          y_label = "Field ", 
-                          title = "n Vertical")
-
-# Arrange the plots in a 2x2 grid
-ggarrange(p0.1, p0.2, p0.3, p0.4, ncol = 2, nrow = 2, common.legend = T, align = 'hv')
-
-
-
-# for values 20-30 years in the future
-
-# Create individual plots using the function
-p1 <- create_scatter_plot(df_compare_end, 
-                          x_var = "rIVI_simul", 
-                          y_var = "rIVI_field", 
-                          x_label = "Simulated rIVI", 
-                          y_label = "Field rIVI", 
-                          title = "rIVI: Simulated vs Field")
-
-p2 <- create_scatter_plot(df_compare_end, 
-                          x_var = "richness_simul", 
-                          y_var = "richness_field", 
-                          x_label = "Simulated Richness", 
-                          y_label = "Field Richness", 
-                          title = "Richness: Simulated vs Field")
-
-p3 <- create_scatter_plot(df_compare_end, 
-                          x_var = "stem_density_simul", 
-                          y_var = "stem_density_field", 
-                          x_label = "Simulated Stem Density", 
-                          y_label = "Field Stem Density", 
-                          title = "Stem Density: Simulated vs Field")
-
-p4 <- create_scatter_plot(df_compare_end, 
-                          x_var = "n_vertical_simul", 
-                          y_var = "n_vertical_field", 
-                          x_label = "Simulated n Vertical", 
-                          y_label = "Field n Vertical", 
-                          title = "n Vertical: Simulated vs Field")
-
-# Arrange the plots in a 2x2 grid
-windows()
-ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2, common.legend = TRUE,
-          align = 'hv')
-
-
-
-
-# understand structural clusters :  ------------------
-  
 
 # Check the updated data with the ordered factor levels
 df_field_ind_sub %>% 
@@ -512,17 +485,16 @@ plot(df_field_ind_sub$composite_score,
 # plot over one plot
 
 df_indicators_field <- df_indicators %>% 
-  dplyr::select(site,  rIVI, richness, stem_density, n_vertical, clim_cluster_spei3, clim_class) %>%
+  dplyr::select(site,  rIVI, richness, stem_density, n_vertical) %>%
   mutate(year = 1) %>% 
   mutate(type = 'field',
-         landscape_run = 'field') %>% 
-  rename(clim_cluster = clim_cluster_spei3)
+         landscape_run = 'field') 
 
 
 df_simulated <- df_sim_indicators %>% 
   ungroup() %>%  
   mutate(type = 'simulated') %>% 
-  dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, clim_cluster,   clim_class,  year,   type, landscape_run)
+  dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, year,   type, landscape_run)
  
 
 head(df_indicators_field)
