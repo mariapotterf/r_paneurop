@@ -990,6 +990,25 @@ gam.check(m.tw1)
 k.check(m.tw1)
 
 # TW has a better fit, also can handle zero!
+# select main variables as predictors 
+predictor_vars_sub <- c(
+  "spei12",
+  "tmp", 
+
+  "prcp", 
+    "management_intensity",
+ 
+  "distance_edge", 
+  "disturbance_severity",
+   "clay_extract", 
+  "depth_extract", 
+  
+  # site info
+  "av.nitro",
+  "richness",
+  'rIVI',
+  "sum_stems_mature",
+  "n_vertical")
 
 
 
@@ -998,8 +1017,8 @@ k.check(m.tw1)
 # Subset the data
 
 df_stem_regeneration2 <- df_fin %>% 
-  dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,"management_intensity",
-                                                          "country_pooled", "clim_grid", "clim_class", "x", "y")))
+  dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,
+                         "country_pooled", "clim_grid", "clim_class", "x", "y")))
 
 
 # Centering the variables in your data frame
@@ -1063,16 +1082,6 @@ create_interaction_plot <- function(model, terms, title, data, x_label = terms[1
   
   return(plot)
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1608,28 +1617,29 @@ sjPlot::tab_model(fin.m.advanced,
 
 # two categories: count how many plots i have?
 
-prop.table(table(df_fin$adv_delayed_wider))
+#prop.table(table(df_fin$adv_delayed_wider))
 prop.table(table(df_fin$adv_delayed))
+table(df_fin$adv_delayed)
 
 
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
   "tmp",
   "prcp",     
-  "spei12", 
-  "stem_regeneration",
-  "sum_stems_juvenile"  ,
-  "sum_stems_sapling", 
-  "sum_stems_mature",
-  "av.nitro", 
-  "depth_extract", 
-  "management_intensity", 
-  "salvage_intensity", 
-  "protection_intensity", 
+  #"spei12", 
+  #"stem_regeneration",
+  #"sum_stems_juvenile"  ,
+  #"sum_stems_sapling", 
+  #"sum_stems_mature",
+  #"av.nitro", 
+  #"depth_extract", 
+ # "management_intensity", 
+  #"salvage_intensity", 
+  #"protection_intensity", 
   "distance_edge" , 
-  "disturbance_severity",
-  "salvage_intensity",
-  "clay_extract"#,
+  "disturbance_severity" #,
+  #"salvage_intensity",
+  #"clay_extract"#,
  # "adv_delayed"
                        )
 
@@ -1644,44 +1654,18 @@ summary_stats_narrow <-
   group_by(adv_delayed, Variable) %>%
   summarise(
     Median = median(Value, na.rm = TRUE),
-    Q1 = quantile(Value, 0.25, na.rm = TRUE),
-    Q3 = quantile(Value, 0.75, na.rm = TRUE)
-  ) %>%
-  mutate(IQR_Lower = Median - Q1, 
-         IQR_Upper = Q3 - Median)
+    IQR = IQR(Value, na.rm = TRUE)) %>% 
+  arrange(adv_delayed)
+print(summary_stats_narrow)
 
-
-# make wider categories: for delayed and advanced
-
-summary_stats_wider <- 
   df_fin %>%
   na.omit() %>% 
-    dplyr::select(all_of(c(variables_to_plot, 'adv_delayed_wider'))) %>% 
-  gather(key = "Variable", value = "Value", -adv_delayed_wider) %>%
-  group_by(adv_delayed_wider, Variable) %>%
+  dplyr::select(all_of(c(variables_to_plot, 'adv_delayed'))) %>% 
+  gather(key = "Variable", value = "Value", -adv_delayed) %>%
+  group_by(Variable) %>%
   summarise(
     Median = median(Value, na.rm = TRUE),
-    Q1 = quantile(Value, 0.25, na.rm = TRUE),
-    Q3 = quantile(Value, 0.75, na.rm = TRUE)
-  ) %>%
-  mutate(IQR_Lower = Median - Q1, 
-         IQR_Upper = Q3 - Median)
-
-
-
-# chack my categories?
-df_fin %>% 
-  dplyr::select(site, 
-                stem_density,
-                stem_regeneration,
-                sum_stems_juvenile,
-                 sum_stems_sapling, 
-                 sum_stems_mature,
-                adv_delayed,
-                adv_delayed_wider
-                ) %>% 
-  View()
-
+    IQR = IQR(Value, na.rm = TRUE)) 
 
 # Step 3: Create the median and IQR plot using ggplot2
 ggplot(summary_stats_narrow, aes(x = Variable, y = Median, color = adv_delayed)) +
@@ -1698,20 +1682,6 @@ ggplot(summary_stats_narrow, aes(x = Variable, y = Median, color = adv_delayed))
 
 # for wider interavls:
 
-# Step 3: Create the median and IQR plot using ggplot2
-ggplot(summary_stats_wider , aes(x = Variable, y = Median, color = adv_delayed_wider  )) +
-  geom_point(position = position_dodge(width = 0.5), size = 3) +  # Points for median
-  geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, 
-                position = position_dodge(width = 0.5)) +          # Error bars for IQR
-  labs(title = "Median and IQR Plot for Delayed vs Advanced Regeneration: wider intervals",
-       x = "Variables", y = "Median and IQR") +
-  theme_classic() +
-  facet_wrap(.~Variable, scales = 'free')+
-  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  #scale_color_manual(values = c("blue", "red")) +  # Set colors for delayed vs advanced
-  theme(legend.title = element_blank())            # Remove legend title
-
-
 
 
 ### test differences between groups: Narrow --------------------------------------
@@ -1720,7 +1690,7 @@ df_long_narrow <- df_fin %>%
   na.omit() %>% 
   dplyr::select(tmp, 
                 prcp, 
-                spei12,
+                #spei12,
                 disturbance_severity, 
                 distance_edge, 
                 adv_delayed) %>% 
@@ -1744,7 +1714,7 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
                      #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
                      size = 2,
                      label.x = 1.5) +  # Position labels between the groups+
-  labs(title = "Delayed <=50, advanced >= 1000 juv",
+  labs(title = "",
        x = "Reg. Status", y = "Vals")+
   theme(
     legend.position = 'none',
@@ -1761,6 +1731,61 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
 
 p_boxplot_wilcox_narrow
 
+# get summary table for variables:
+df_long_narrow %>% 
+  group_by(adv_delayed) %>% 
+  summarize(med_prcp = )
+
+# filter out outliers
+df_long_narrow_filtered <- df_long_narrow %>%
+  group_by(adv_delayed, Variable) %>%
+  dplyr::filter(
+    Value > quantile(Value, 0.25) - 1.5 * IQR(Value) & 
+      Value < quantile(Value, 0.75) + 1.5 * IQR(Value)
+  ) %>%
+  ungroup()
+
+p_boxplot_wilcox_narrow <- 
+  df_long_narrow_filtered %>% 
+  mutate(Variable = factor(Variable, 
+                           levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity"))) %>% 
+  ggboxplot(
+          x = "adv_delayed", y = "Value", 
+          fill = "adv_delayed", 
+          palette = c("#A50026", 
+                      "#FDAE61",
+                      "#006837"),
+          alpha = 0.5,
+          facet.by = "Variable", 
+          scales = "free_y", 
+          ylab = "Values", xlab = "Regeneration Status",
+          outlier.shape = NA,  # Hide outliers
+          size = 0.2) +
+    geom_jitter(size = 0.1, alpha = 0.5, aes(color = adv_delayed)) +
+  scale_color_manual(values = c("#A50026", 
+                                "#FDAE61",
+                                "#006837")) +
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+                     label = "p.signif", 
+                     size = 2,
+                     label.x = 1.5) +  # Position labels between the groups
+  labs(title = "",
+       x = "", y = "Vals") +
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 5),         # Set all text to size 3
+    axis.text = element_text(size = 5),    # Axis tick labels
+    axis.title = element_text(size = 5),   # Axis titles
+    strip.text = element_text(size = 5),   # Facet labels
+    legend.text = element_text(size = 5),  # Legend text
+    plot.title = element_text(size = 5),   # Plot title
+    strip.background = element_blank(),    # Remove the box around facet names
+    strip.placement = "outside",           # Optional: Move facet label outside the plot area
+    #panel.border = element_blank(),        # Remove top and right border
+    panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
+    axis.line = element_line(color = "black", linewidth = 0.5)  # Add bottom and left axis lines
+  )
+ #"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
 # Save the combined plot (optional)
 # Save the plot ensuring text sizes are preserved
 ggsave("outFigs/p_boxplot_wilcox_delayed_50.png", plot = p_boxplot_wilcox_narrow, 
