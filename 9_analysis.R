@@ -386,7 +386,7 @@ df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
   mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
 
 # test with log values
-df_stem_sp_sum_ordered %>%
+p_stem_density_species <- df_stem_sp_sum_ordered %>%
   ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
   geom_density_ridges(aes(fill = Species), alpha = 0.5, color = 'NA') +
   scale_fill_manual(values = species_colors) +
@@ -411,32 +411,9 @@ df_stem_sp_sum_ordered %>%
     labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
   )
 
+p_stem_density_species
 
-
-# Plot the reordered ridge plot: original values - trimming not working
-p_stem_density_species <- df_stem_sp_sum_ordered %>%
-  ggplot(aes(x = sum_stem_density, y = Species, group = Species)) +
-  geom_density_ridges(aes(fill = Species), alpha = 0.5) +#, quantile_lines = TRUE, quantiles = 2
-  stat_summary(
-    aes(x = sum_stem_density), 
-    fun = median, 
-    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-    geom = "pointrange", 
-    color = "black", 
-    size = 0.5,
-    position = position_nudge(y = .2)  # Adjust position slightly
-  ) +
-  theme_classic() +
-  coord_cartesian(xlim = c(0, 5000)) +
-  labs(title = "",
-       x = "Stem Density",
-       y = "Species")  +
-  theme(legend.position = 'none') 
-
-(p_stem_density_species)
-
-ggsave(filename = 'outFigs/p_stem_density_ridge_sum_species.png', 
+ggsave(filename = 'outFigs/p_stem_density_ridge_log.png', 
        plot = p_stem_density_species, 
        width = 4, height = 10, dpi = 300, bg = 'white')
 
@@ -458,89 +435,6 @@ stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
   mutate(species_VegType = paste(Species, VegType_acc, sep = '_'))
 
 
-stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:5]  ) %>% 
-  dplyr::filter(stem_density > 0) %>% 
-  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
-  ggplot(aes(x = log_stem_density, y = VegType, group = VegType)) +
-  geom_density_ridges(aes(fill = VegType), alpha = 0.5) +
-  stat_summary(
-    aes(x = log_stem_density), 
-    fun = median, 
-    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-    geom = "pointrange", 
-    color = VegType, 
-    size = 0.3,
-    position = position_nudge(y = .2)  # Adjust position slightly
-  ) +
-  facet_grid(Species ~.) +
-  theme_classic() +
-  coord_cartesian(xlim = c(2,5)) +  # Zoom in on the stem_density range
-  labs(
-    #title = paste("Density Ridges for Species:", species_name),
-    x = "",
-    y = ""
-  ) +
-  theme(legend.position = 'none')
-
-
-# test density by group???  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
-# does not work very well
-stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:5]  ) %>% 
-  dplyr::filter(stem_density > 0) %>% 
-  mutate(Species = factor(Species, levels = top_species_overall_vect[1:5])) %>%
-  ggplot(aes(x = log_stem_density, group = VegType, fill = VegType)) +#, , y = VegType
-  geom_density(alpha=0.6) +
-  facet_grid(Species ~.)
-
-
-# test plotting function ridge density 
-plot_ridge_density <- function(data, species_name, xlim_range = c(0, 5)) {
-  data %>%
-    dplyr::filter(log_stem_density > 0) %>% 
-    dplyr::filter(Species == species_name) %>% 
-    ggplot(aes(x = log_stem_density, y = VegType, group = VegType)) +
-    geom_density_ridges(aes(fill = VegType), alpha = 0.5, trim = T) +
-    stat_summary(
-      aes(x = log_stem_density), 
-      fun = median, 
-      fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-      fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-      geom = "pointrange", 
-      color = "black", 
-      size = 0.5,
-      position = position_nudge(y = .2)  # Adjust position slightly
-    ) +
-    theme_classic() +
-    coord_cartesian(xlim = xlim_range) +  # Zoom in on the stem_density range
-    labs(
-      #title = paste("Density Ridges for Species:", species_name),
-      x = "",
-      y = ""
-    )
-}
-
-# Example usage for species 'fasy'
-p_piab <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'piab')
-p_fasy <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'fasy')
-p_pisy <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'pisy')
-p_acps <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'acps')
-p_soau <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'soau')
-p_quro <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'quro')
-p_potr <- plot_ridge_density(stem_dens_species_long_cluster, species_name = 'potr')
-
-p_stem_density_ridge <- ggarrange(p_piab,p_fasy,p_pisy,
-          p_acps,p_soau,p_quro,p_potr, 
-          common.legend = T, ncol = 1,
-          labels = top_species_global_vect)#, nrow = 7
-
-p_stem_density_ridge
-
-ggsave(filename = 'outFigs/p_stem_density_ridge.png', 
-       plot = p_stem_density_ridge, 
-       width = 4, height = 10, dpi = 300, bg = 'white')
 
 
 ## stem density: show only median and IQR?  ----------------------------------
@@ -594,18 +488,9 @@ mean_stems_vertical <- mean_stems_vertical %>%
 mean_stems_vertical <- mean_stems_vertical %>%
   mutate(VegType = factor(VegType, levels = c("Saplings", "Juveniles", "Mature")))
 
-#### Fix the color mapping ----------------------
-
-# Create a color palette based on the number of unique species
-n_colors <- length(unique(mean_stems_vertical$Species))
-species_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)
-
-# Map colors to each species
-mean_stems_vertical$color <- species_colors[as.numeric(mean_stems_vertical$Species)]
 
 
-
-#### Global species composition ----------------------
+#### Species composition : Richness ----------------------
 # Summarize the total stem density per species
 species_composition <- stem_dens_species_long_cluster %>%
   group_by(Species) %>%
@@ -633,7 +518,7 @@ stem_dens_species_long_cluster %>%
  
 
 
-# Use different gradient depepnding fof teh seral stage: 
+# Use different gradient depepnding fof teh seral stage:  ---------------------------
 
 # Find the top 5 species per climate class based on share
 top_species_per_clim_class <- species_composition %>%
@@ -644,69 +529,12 @@ top_species_per_clim_class <- species_composition %>%
 
 # Ensure species are arranged by seral type and within each climate class
 top_species_per_clim_class <- top_species_per_clim_class %>%
-  arrange(clim_class, seral_type, Species)  # First arrange by seral type and then by Species alphabetically
+  arrange(seral_type, Species)  # First arrange by seral type and then by Species alphabetically
 
 # Reorder the Species factor based on the seral type
 top_species_per_clim_class$Species <- factor(top_species_per_clim_class$Species, 
                                              levels = unique(top_species_per_clim_class$Species[order(top_species_per_clim_class$seral_type)]))
 
-
-
-# Load the RColorBrewer package for color palettes
-library(RColorBrewer)
-# species_table <- table(top_species_per_clim_class$seral_type, top_species_per_clim_class$Species)
-# 
-# # Count non-zero species in each seral type
-# species_counts <- apply(species_table, 1, function(x) sum(x > 0))
-# 
-# # Extract the count for "Early seral"
-# pioneer_n     <- species_counts["Pioneer"]
-# early_seral_n <- species_counts["Early seral"]
-# late_seral_n  <- species_counts["Late seral"]
-# 
-# 
-# # Define color palettes for each seral type
-# pioneer_colors       <- brewer.pal(pioneer_n, "Blues")    # Red shades for pioneer species
-# early_seral_colors   <- brewer.pal(early_seral_n, "Oranges")  # Orange shades for early seral species
-# late_seral_colors    <- brewer.pal(late_seral_n, "Greens")  # Green shades for late seral species
-# 
-# # Create a color mapping for Species based on the seral_type
-# top_species_per_clim_class$color <- NA
-# top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Pioneer"]     <- pioneer_colors
-# top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Early seral"] <- early_seral_colors
-# top_species_per_clim_class$color[top_species_per_clim_class$seral_type == "Late seral"]  <- late_seral_colors
-# 
-# # Create a named vector for the colors, so each Species has a color
-# species_colors <- setNames(top_species_per_clim_class$color, top_species_per_clim_class$Species)
-
-n_colors <- length(unique(top_species_per_clim_class$Species))
-my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Extend to 12 colors 
-
-
-# Create the stacked bar plot
-p_species_distribution <- ggplot(top_species_per_clim_class, 
-                                 aes(x = clim_class, 
-                                     y = share, fill = Species)) +
-  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
-  geom_text(aes(label = ifelse(share >= 2, paste0(round(share, 1), "%"), "")),
-            position = position_stack(vjust = 0.5),  # Labels inside the bars
-            size = 3, color = "black") +  # Adjust text size and color
-  labs(x = "", y = "Percentage", 
-       fill = "Species",
-       title = "") +
-  scale_fill_manual(values = my_colors) +  # Apply the color palette based on seral type
-  theme_classic() +  # Use a clean theme
-  theme(
-    # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
-    plot.title = element_text(hjust = 0.5)  # Center the title
-  )
-
-p_species_distribution
-
-
-ggsave(filename = 'outFigs/fig_p_species_distribution_global.png', 
-       plot = p_species_distribution, 
-       width = 7, height = 5.5, dpi = 300, bg = 'white')
 
 
 #### Species compositiosn: country -----------------------------------
@@ -722,41 +550,32 @@ species_composition <- species_composition %>%
   group_by(country) %>%
   mutate(total_stems_clim_class = sum(sum_stems),  # Total stem density in each climate class
          share = (sum_stems / total_stems_clim_class) * 100) %>%  # Calculate percentage share
-  ungroup()
+  ungroup() %>% 
+  dplyr::filter(share >5)
 
 
-# Find the top 5 species per climate class based on share
-top_species_global <- species_composition %>%
- # group_by( country) %>%
-  arrange(desc(share)) %>%  # Sort species by their share within each climate class
-  slice_head(n = 7) #%>%  # Select the top X species per country
-  #dplyr::filter(share > 5)# %>%  # select species with share > 5%
-
-top_species_global_vect <- top_species_global$Species
-
-# Ensure species are arranged by seral type and within each climate class
-#top_species_per_clim_class <- top_species_per_clim_class %>%
-#  arrange(country, Species)  # First arrange by seral type and then by Species alphabetically
-
-n_colors <- length(unique(top_species_per_clim_class$Species))
-
-my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Extend to 12 colors 
+# Create a color palette with 12 colors based on RdYlGn
+my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(length(unique(species_composition$Species)))
 
 # Create the stacked bar plot
-p_species_distribution_country <- ggplot(top_species_per_clim_class, 
+p_species_distribution_country <- species_composition %>% 
+  dplyr::filter(share >5) %>% 
+  ggplot(
                                  aes(x = country, 
                                      y = share, 
                                      fill = Species)) +
   geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
-  geom_text(aes(label = ifelse(share >= 2, paste0(round(share, 1), "%"), "")),
+  geom_text(aes(label = ifelse(share >= 5, paste0(round(share, 1), "%"), "")),
             position = position_stack(vjust = 0.5),  # Labels inside the bars
             size = 3, color = "black") +  # Adjust text size and color
   labs(x = "", y = "Percentage", 
        fill = "Species",
        title = "") +
-  scale_fill_manual(values = my_colors) +  # Apply the color palette based on seral type
+  scale_fill_manual(values = my_colors) +
+  #scale_fill_manual(values = species_colors) +  # Apply the color palette based on seral type
   theme_classic() +  # Use a clean theme
   theme(
+    legend.position = 'none',
     # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
     plot.title = element_text(hjust = 0.5)  # Center the title
   ) 
@@ -770,28 +589,6 @@ ggsave(filename = 'outFigs/fig_p_species_distribution_global_country.png',
 
 
 
-
-library(treemapify)
-
-stem_dens_species_long_cluster %>% 
-  group_by(Species, VegType) %>% 
-  mutate(VegType = factor(VegType, levels = c('Saplings', "Juveniles", "Mature"))) %>% 
-  summarize(sum_stems = sum(stem_density, na.rm = T)) %>% 
-  ungroup() %>% 
-  group_by(VegType) %>% 
-  mutate(sum_vegType = sum(sum_stems),
-         share       = sum_stems/sum_vegType*100) %>%
-  dplyr::filter(share>5) %>% 
-  #slice_max(order_by = share, n = 10) %>% 
-  ggplot(aes(fill = Species, 
-             area = sum_stems ,
-             label = paste(Species, "\n", round(share,0)))) +
-  geom_treemap() +
-  geom_treemap_text(colour ="white", place = "centre") +
-  facet_grid(~VegType)
-# geom_mosaic()
-#geom_mosaic(aes(x = product(VegType), 
-#                fill = do_you_recline))
 
 ## Structure ---------------------------------------------------------
 
