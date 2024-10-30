@@ -1793,60 +1793,6 @@ ggsave("outFigs/p_boxplot_wilcox_delayed_50.png", plot = p_boxplot_wilcox_narrow
        bg = 'white', scale = 1)
 
 
-# Step 1: Reshape the data to long format
-df_long_wider <- df_fin %>%
-  dplyr::select(tmp, 
-                prcp, 
-                spei12,
-                disturbance_severity, 
-                distance_edge, 
-                adv_delayed_wider) %>% 
-  na.omit() %>% 
- # dplyr::select(all_of(variables_to_plot), adv_delayed_wider) %>% 
-  gather(key = "Variable", value = "Value", -adv_delayed_wider)
-
-
-
-# get pairwised comparison:
-
-
-p_boxplot_wilcox_wider <- ggboxplot(df_long_wider, x = "adv_delayed_wider", y = "Value", 
-                              #color = "adv_delayed_wider",
-                              fill = "adv_delayed_wider",
-                              palette = c("blue", "red", "green"),
-                              facet.by = "Variable", scales = "free_y", 
-                              outlier.size = .2,
-                              size = 0.2,
-                              ylab = "Values", xlab = "Regeneration Status") +
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.signif", 
-                     #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
-                     size = 2,
-                     label.x = 1.5) +  # Position labels between the groups
-  #geom_boxplot(lwd = 0.3) +      
-  labs(title = "Delayed <=500, advanced >= 1000 juv",
-       x = "Reg. Status", y = "Vals") +
-  theme(
-    legend.position = 'none',
-    text = element_text(size = 3),         # Set all text to size 3
-    axis.text = element_text(size = 3),    # Axis tick labels
-    axis.title = element_text(size = 3),   # Axis titles
-    strip.text = element_text(size = 3),   # Facet labels
-    legend.text = element_text(size = 3),  # Legend text
-    plot.title = element_text(size = 5),   # Plot title
-    strip.background = element_blank(),    # Remove the box around facet names
-    strip.placement = "outside",           # Optional: Move facet label outside the plot area
-    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
-  ) 
-
-
-p_boxplot_wilcox_wider
-
-# Save the combined plot (optional)
-ggsave("outFigs/p_boxplot_wilcox_delayed_500.png", p_boxplot_wilcox_wider, width = 3, height = 3.2, 
-       dpi = 300,  bg = 'white')
-
-
 #### Wilcox tablle -----------------------------------------------
 library(tidyr)
 
@@ -1914,65 +1860,12 @@ library(MuMIn)
 
 # optimize tweedie values -------------------------------------------
 
-# Define a grid of p values that are more appropriate for data with zeros
-p_values <- seq(1.4, 1.6, by = 0.01)  # Focus on p-values between 1 and 2 to account for presence to 0
-# in general p = 1 - closer to poisson (can be zero inflated) 
-#            p = 2 closer to gamma (can only have positive values)
-
-# Initialize a placeholder to store results
-results <- list()
-
-# Loop over different p values
-for (p_val in p_values) {
-  model <- gam(sum_stems_juvenile ~ s(tmp_z, k = 7) + s(prcp_z, k = 7) + 
-                 #s(drought_spei12, k = 10) +
-                 s(distance_edge, k = 10) +
-                 disturbance_severity + clay_extract + s(clay_extract, k = 10) +
-                 s(depth_extract, k = 10) + s(av.nitro, k = 15) +
-                 s(country_abbr, bs = "re") + 
-                 ti(x,y), 
-               family = Tweedie(p = p_val),  # Use p between 1 and 2
-               data = df_fin)
-  
-  # Store model AIC and the value of p
-  results[[as.character(p_val)]] <- AIC(model)
-}
-
-# Find the best p value (lowest AIC)
-best_p <- as.numeric(names(which.min(unlist(results))))
-print(paste("Optimal p value:", best_p))
-
-# best is p = 1.5 orp =  1.46
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# vertical structure vs disturbance patch size? ---------------------------
-
-df_fin %>% 
-  ggplot(aes(x = distance_edge,
-             y  = n_vertical)) +
-  geom_jitter() +
-  geom_smooth() +
-  theme_classic()
-
 
 
 # Country effect ----------------------------------------------------------
-
-
 df_richness <- df_richness %>% 
   dplyr::filter(cluster %in% cluster_id_keep) 
+
 
 
 p.country.richness <- ggplot(data = df_richness,
