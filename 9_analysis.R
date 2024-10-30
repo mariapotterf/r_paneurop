@@ -1626,21 +1626,8 @@ table(df_fin$adv_delayed)
 variables_to_plot <- c(
   "tmp",
   "prcp",     
-  #"spei12", 
-  #"stem_regeneration",
-  #"sum_stems_juvenile"  ,
-  #"sum_stems_sapling", 
-  #"sum_stems_mature",
-  #"av.nitro", 
-  #"depth_extract", 
- # "management_intensity", 
-  #"salvage_intensity", 
-  #"protection_intensity", 
   "distance_edge" , 
-  "disturbance_severity" #,
-  #"salvage_intensity",
-  #"clay_extract"#,
- # "adv_delayed"
+  "disturbance_severity" 
                        )
 
 # differentiate classes:
@@ -1680,11 +1667,27 @@ ggplot(summary_stats_narrow, aes(x = Variable, y = Median, color = adv_delayed))
   #scale_color_manual(values = c("blue", "red")) +  # Set colors for delayed vs advanced
   theme(legend.title = element_blank())            # Remove legend title
 
-# for wider interavls:
+# get indicators for delayed/advanced: ------------------------------------------
+df_delayed_advanced <- df_fin %>% 
+  dplyr::select(site, country, adv_delayed)
+
+fwrite(df_delayed_advanced, 'outTable/df_delayed_advanced.csv')
+
+# summarize stem deregeneration, rIVI, richness, n_vert
+df_fin %>% 
+  group_by(adv_delayed) %>% 
+  summarise(med_stem_density = median(stem_density),
+            iqr_stem_density = IQR(stem_density),
+            med_rIVI = median(rIVI),
+            iqr_rIVI = IQR(rIVI),
+            med_richness = median(richness),
+            iqr_richness = IQR(richness),
+            med_n_vertical = median(n_vertical),
+            iqr_n_vertical = IQR(n_vertical)
+            )
 
 
-
-### test differences between groups: Narrow --------------------------------------
+### test differences between sites: --------------------------------------
 # Step 1: Reshape the data to long format
 df_long_narrow <- df_fin %>%
   na.omit() %>% 
@@ -1796,69 +1799,9 @@ ggsave("outFigs/p_boxplot_wilcox_delayed_50.png", plot = p_boxplot_wilcox_narrow
 #### Wilcox tablle -----------------------------------------------
 library(tidyr)
 
-# Perform pairwise Wilcoxon test
-pairwise_results <- df_long_wider %>%
-  group_by(Variable) %>%
-  summarise(pairwise_p = list(pairwise.wilcox.test(Value, adv_delayed_wider, p.adjust.method = "BH")$p.value))
-
-# Expand pairwise Wilcoxon p-value matrix into a long format
-pairwise_table <- pairwise_results %>%
-  mutate(pairwise_p = map(pairwise_p, ~as.data.frame(as.table(.)))) %>% # Convert matrix to data frame
-  unnest(pairwise_p) %>%
-  rename(Comparison1 = Var1, Comparison2 = Var2, p_value = Freq) %>%
-  mutate(Comparison = paste(Comparison1, "vs", Comparison2)) %>%
-  dplyr::select(Variable, Comparison, p_value)
-
-# Show the pairwise Wilcoxon p-values as a table
-pairwise_table
-
-
-# Assuming `df_delayed_filtered` is your data frame
-# Splitting data into delayed and advanced groups based on stem_regeneration
-df_delayed <- df_fin[df_fin$adv_delayed == "Delayed", ]
-df_advanced <- df_fin[df_fin$adv_delayed == "Advanced", ]
-
-# List of continuous variables to test
-variables <- c("rIVI", "sum_stems_mature", "prcp", "spei12", "drought_spei12", "spei3", "drought_spei3", 
-               "tmp", "av.nitro", "depth_extract", "management_intensity")
-
-# Apply t-test or Mann-Whitney U test
-test_results <- lapply(variables, function(var) {
-  delayed_values <- df_delayed[[var]]
-  advanced_values <- df_advanced[[var]]
-  
-  # Check if data is normally distributed
-  normality_delayed <- shapiro.test(delayed_values)$p.value
-  normality_advanced <- shapiro.test(advanced_values)$p.value
-  
-  if (normality_delayed > 0.05 & normality_advanced > 0.05) {
-    test <- t.test(delayed_values, advanced_values)  # Use t-test if data is normal
-  } else {
-    test <- wilcox.test(delayed_values, advanced_values)  # Use Mann-Whitney U test if not normal
-  }
-  
-  return(data.frame(
-    Variable = var,
-    Test = ifelse(normality_delayed > 0.05 & normality_advanced > 0.05, "T-test", "Mann-Whitney"),
-    p_value = test$p.value
-  ))
-})
-
-# Combine results into a single data frame
-test_results_df <- do.call(rbind, test_results)
-test_results_df$p_value <- round(test_results_df$p_value,2 )
-print(test_results_df)
-
-
 # Removing rows with missing data (if any) -------------------------------------
 df_stem_regeneration <- na.omit(df_stem_regeneration)
 
-
-
-# Model selection ---------------------------------------------------------------
-library(MuMIn)
-
-# optimize tweedie values -------------------------------------------
 
 
 
