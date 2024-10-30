@@ -938,14 +938,10 @@ df_fin %>%
 
 library(car)
 selected_data <- df_fin %>%
-  dplyr::select(stem_density, # spei1, spei3, spei6, spei12, spei24,
-                #drought_spei1, drought_spei3, 
-                #                drought_spei6, 
-                #drought_spei12, drought_spei24,
-                tmp, #tmp_z, 
-                prcp #, #prcp_z,
-                # drought_tmp, 
-                # drought_prcp
+  dplyr::select(stem_density, 
+                spei12,
+                tmp,  
+                prcp 
   )
 
 # Step 2: Fit a linear model predicting stem_density
@@ -994,119 +990,6 @@ gam.check(m.tw1)
 k.check(m.tw1)
 
 # TW has a better fit, also can handle zero!
-
-##### Run univariate models for set of dependent variables (stem density) ------------------
-
-# List of dependent variables
-dependent_vars <- c("sum_stems_juvenile", 
-                    "sum_stems_sapling", 
-                    "stem_regeneration", # sum of juveniles and saplings
-                    #"sum_stems_mature",
-                    "advanced",
-                    "delayed"
-                    #"stem_density"
-)
-
-# List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
-predictor_vars <- c("spei1", "spei3", "spei6", 
-  "spei12", 
-  #"spei24",
-                    "tmp", 
-                    #"tmp_z", 
-                    "prcp", 
-                    #"prcp_z", 
-                   # "drought_spei1", "drought_spei3", "drought_spei6", 
-  #                  "drought_spei12", 
-  "drought_spei24",
-   #                 "drought_tmp", "drought_prcp",
-                    "management_intensity",
-                    "distance_edge", 
-                    "disturbance_severity", 
-                    "clay_extract", 
-                    "clay_extract", 
-                    "depth_extract", 
-                    "av.nitro")
-
-
-# Initialize a data frame to store AIC values and deviance explained
-model_metrics <- data.frame(Predictor = character(), 
-                            Dependent = character(), 
-                            AIC = numeric(), DevianceExplained = numeric())
-
-
-
-# Loop over each dependent variable
-for (dep in dependent_vars) {
-  #print(dep)
-  # Loop over each predictor
-  for (pred in predictor_vars) {
-    #print(pred)
-    # Fit the model
-    formula <- as.formula(paste(dep, "~ s(", pred, ", k = 10)"))
-    #print(formula)
-    model <- gam(formula, family = tw(), method = 'REML', data = df_fin)
-    
-    # Extract model summary
-    model_summary <- summary(model)
-    
-    # Store the AIC value and deviance explained
-    model_metrics <- rbind(model_metrics, 
-                           data.frame(Predictor = pred, 
-                                      Dependent = dep, 
-                                      AIC = AIC(model), 
-                                      DevianceExplained = round(model_summary$dev.expl*100,1)))
-  }
-}
-
-# View the AIC values and deviance explained
-View(model_metrics)
-
-# # Select the best predictor for each dependent variable based on the lowest AIC
-best_predictors <- 
-  model_metrics %>%
-  mutate(dependent_category = case_when(
-    grepl("sapl", Dependent  ) ~ "sapling",
-    grepl("juven", Dependent  ) ~ "juvenile",
-    grepl("mature", Dependent  ) ~ "mature",
-    grepl("regen", Dependent  ) ~ "regeneration_pool",
-    TRUE ~ "other"
-  )) %>%
-  mutate(predictor_category = case_when(
-    grepl("^manag", Predictor) ~ "Management",  # General SPEI variables
-    grepl("^spei", Predictor) ~ "Clim",  # General SPEI variables
-    grepl("^drought_spei", Predictor) ~ "Clim",  # Drought-related SPEI
-    grepl("^tmp", Predictor) & !grepl("drought", Predictor) ~ "Clim",  # Temperature variables
-    grepl("^prcp", Predictor) & !grepl("drought", Predictor) ~ "Clim",  # Precipitation variables
-    grepl("^drought_tmp", Predictor) ~ "Clim",  # Drought temperature
-    grepl("^drought_prcp", Predictor) ~ "Clim",  # Drought precipitation
-    grepl("extract|av\\.nitro", Predictor) ~ "Soil",  # Soil properties like sand, clay, depth, nitrogen
-    grepl("distance_edge|disturbance_severity", Predictor) ~ "Disturbance",  # Disturbance variables
-    TRUE ~ "Other"  # Catch-all for any other predictor
-  )) %>% 
-  group_by(Dependent, dependent_category, predictor_category) %>%
-  slice_min(AIC, n = 3)   # Select the best 3 based on AIC
-# slice(which.max(DevianceExplained))
-
-print(best_predictors)
-
-View(best_predictors)
-
-best_predictors %>% 
-  dplyr::filter(dependent_category == 'regeneration_pool')
-
-sjPlot::tab_df(model_metrics,
-               #col.header = c(as.character(qntils), 'mean'),
-               show.rownames = FALSE,
-               file="outTable/find_best_predictors.doc",
-               digits = 1) 
-
-
-sjPlot::tab_df(best_predictors,
-               #col.header = c(as.character(qntils), 'mean'),
-               show.rownames = FALSE,
-               file="outTable/best_predictors.doc",
-               digits = 1) 
-
 
 
 
