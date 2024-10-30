@@ -878,63 +878,8 @@ df_fin %>%
 
 
 
-# 4. stems vs weather - mean 2018-2023 ---------------------------------
 
-df_fin
-windows()
-pairs(stem_density    ~ tmp + tmp_z + prec + prcp_z + management_intensity+ salvage_intensity + protection_intensity + distance_edge, df_fin)
-
-pairs(stem_density    ~  management_intensity+ salvage_intensity + protection_intensity, df_fin)
-
-
-# test corelations 
-
-plot(df_fin$tmp, df_fin$spei)
-plot(df_fin$prec, df_fin$spei)
-plot(df_fin$tmp, df_fin$prec)
-
-plot( df_fin$management_intensity, df_fin$stem_density)
-plot( df_fin$salvage_intensity, df_fin$stem_density)
-plot( df_fin$protection_intensity, df_fin$stem_density)
-
-
-# keep only spei instead of the tmp and prec
-
-# keep also annomalies?
-plot(df_fin$tmp_z, df_fin$spei)
-
-# test, which one of teh variables exaplin teh stem density better?
-
-
-
-
-cor(df_fin$tmp_z, df_fin$spei, method = 'spearman')
-cor(df_fin$tmp, df_fin$spei, method = 'spearman')
-#[1] -0.7187752
-cor(df_fin$prec, df_fin$spei, method = 'spearman')
-# [1] 0.2349638
-
-# check how management is correlated?
-cor(df_fin$management_intensity, df_fin$salvage_intensity, method = 'spearman')
-cor(df_fin$protection_intensity, df_fin$salvage_intensity, method = 'spearman')
-
-
-
-# decide: which parameters are better: temp_z, temp, prcp, prcp_z or spei?? or their interation?
-
-# Calculate correlation matrix for predictors
-correlation_matrix <- cor(df_fin[, c('tmp_z', 'tmp', 'prec', 'prcp_z', 'spei')])
-
-
-# remove spei
-correlation_matrix <- cor(df_fin[, c('tmp_z', 'tmp', 'prec', 'prcp_z')], method = 'spearman')
-
-correlation_matrix
-
-
-
-
-#5. Drivers ---------------------------------
+# 5. Drivers ---------------------------------
 # for all regeneration (juveniles and saplings)
 # split table in two: drivers for advanced (> 1000 stems of juveniles/ha)
 #                     drivers for delayed regeneration (<50 stems/ha: saplings  + juveniles)  
@@ -969,12 +914,6 @@ df_fin <- df_fin %>%
   mutate(adv_delayed = factor(ifelse(stem_regeneration <= 50, "Delayed", 
                                      ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
                               levels = c("Delayed", "Other", "Advanced"))) %>%  
-  # make larger categories to differentiate between groups
-  mutate(adv_delayed_wider = factor(ifelse(stem_regeneration <= 500, "Delayed", 
-                                     ifelse(sum_stems_juvenile >= 1000 , "Advanced", #| stem_regeneration >= 2000
-                                            "Other")),
-                              levels = c("Delayed", "Other", "Advanced"))) %>%  
-  
   # create binary classes for advanced vs delayed
   mutate(delayed = ifelse(stem_regeneration <= 50, 1, 0),
          advanced = ifelse(sum_stems_juvenile >=  1000, 1, 0))
@@ -993,84 +932,6 @@ df_fin %>%
   View()
 
 
-
-
-## Variables selection: Correlations  ------------------------------------------------------
-
-# Select relevant columns for the plot
-df_pairs <- df_fin %>%
-  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24,
-                drought_spei1, drought_spei3, drought_spei6, drought_spei12, drought_spei24)
-
-# Create a pairs plot with correlations, distributions, and scatter plots
-ggpairs(df_pairs,
-        lower = list(continuous = "smooth"),  # Scatter plots with smoothing lines
-        diag = list(continuous = "barDiag"),  # Histograms on the diagonal
-        upper = list(continuous = "cor"),     # Correlation coefficients in the upper triangle
-        title = "Pairs Plot: Stem Density and SPEI Scales"
-)
-
-
-# very little correlations: try spearman
-
-# Calculate Spearman correlations between stem_density and each SPEI scale
-spearman_correlations <- df_fin %>%
-  dplyr::select(stem_density, spei1, spei3, spei6, spei12, spei24,
-                drought_spei1, drought_spei3, drought_spei6, drought_spei12, drought_spei24,
-                tmp, tmp_z, prcp, prcp_z,
-                drought_tmp, drought_prcp) %>%
-  summarise(
-    sp_spei1 = cor(stem_density, spei1, method = "spearman", use = "complete.obs"),
-    sp_spei3 = cor(stem_density, spei3, method = "spearman", use = "complete.obs"),
-    sp_spei6 = cor(stem_density, spei6, method = "spearman", use = "complete.obs"),
-    sp_spei12 = cor(stem_density, spei12, method = "spearman", use = "complete.obs"),
-    sp_spei24 = cor(stem_density, spei24, method = "spearman", use = "complete.obs"),
-    sp_drought_spei1 = cor(stem_density, drought_spei1, method = "spearman", use = "complete.obs"),
-    sp_drought_spei3 = cor(stem_density, drought_spei3, method = "spearman", use = "complete.obs"),
-    sp_drought_spei6 = cor(stem_density, drought_spei6, method = "spearman", use = "complete.obs"),
-    sp_drought_spei12 = cor(stem_density, drought_spei12, method = "spearman", use = "complete.obs"),
-    sp_drought_spei24 = cor(stem_density, drought_spei24, method = "spearman", use = "complete.obs"),
-    sp_tmp = cor(stem_density, tmp, method = "spearman", use = "complete.obs"),
-    sp_tmp_z = cor(stem_density, tmp_z, method = "spearman", use = "complete.obs"),
-    sp_prcp = cor(stem_density, prcp, method = "spearman", use = "complete.obs"),
-    sp_prcp_z = cor(stem_density, prcp_z, method = "spearman", use = "complete.obs"),
-    sp_drought_tmp = cor(stem_density, drought_tmp, method = "spearman", use = "complete.obs"),
-    sp_drought_prcp = cor(stem_density, drought_prcp, method = "spearman", use = "complete.obs"),
-  )
-
-# Print the Spearman correlations
-# Transpose the data frame so that each variable becomes a row
-spearman_transposed <- t(spearman_correlations)
-
-# Convert to a data frame and add column names
-spearman_transposed <- data.frame(value = spearman_transposed[, 1], row.names = rownames(spearman_transposed))
-
-# Order the transposed values
-ordered_spearman <- spearman_transposed[order(spearman_transposed$value), , drop = FALSE]
-
-# Print the ordered values and their corresponding variables
-print(ordered_spearman)
-
-# precipitation is the most correlated to stem_density
-
-# > print(ordered_spearman)
-# value
-# sp_drought_tmp    -0.035620505
-# sp_tmp            -0.021468492
-# sp_drought_spei24 -0.016574555
-# sp_tmp_z           0.002567999
-# sp_drought_spei12  0.049451497
-# sp_spei1           0.083722968
-# sp_spei24          0.092396768
-# sp_spei12          0.096146369
-# sp_prcp_z          0.096295058
-# sp_spei3           0.105548424
-# sp_spei6           0.111553402
-# sp_drought_spei1   0.118807397
-# sp_drought_spei3   0.124401148
-# sp_drought_spei6   0.162161276
-# sp_drought_prcp    0.203395486
-# sp_prcp            0.210360501
 
 
 #### check for multicollinearity -----------------------------------------------------
