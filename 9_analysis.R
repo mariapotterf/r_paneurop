@@ -993,52 +993,6 @@ k.check(m.tw1)
 
 
 
-###  variable selection: BORUTA ---------------------------------------------
-# List of dependent variables
-dependent_vars <- c(#"sum_stems_juvenile", 
-                    #"sum_stems_sapling", 
-                    "stem_regeneration", # sum of juveniles and saplings
-                   # "sum_stems_mature",
-                   # "stem_density",      # sum across all classes
-                   "advanced",
-                   "delayed"
-)
-
-# List of predictor variables (spei1 to spei24, drought_spei1 to drought_spei24)
-predictor_vars_sub <- c(#"spei1", "spei3", 
-                    #"spei6", 
-                   # "spei12", 
-                    #"spei24",
-                    "spei12",
-                    "tmp", 
-                    #"tmp_z", 
-                    "prcp", 
-                    #"prcp_z", 
-                    #"drought_spei1", "drought_spei3", "drought_spei6", 
-                   # "drought_spei12", 
-                    #"drought_spei24",
-                    #"drought_tmp", 
-                    #"drought_prcp",
-                    #"salvage_intensity",
-                    "management_intensity",
-                    # disturbance chars
-                    "distance_edge", 
-                    "disturbance_severity",
-                    
-                    # soil
-                    #"sand_extract", 
-                    "clay_extract", 
-                    "depth_extract", 
-                    
-                    # site info
-                    "av.nitro",
-                    "richness",
-                    'rIVI',
-                    "sum_stems_mature",
-                    "n_vertical")
-
-
-
 ## Models: prepare fin tables for individual models  ---------------------------------------------------------------------------------
 # test drivers: simplify the analysis:
 # Subset the data
