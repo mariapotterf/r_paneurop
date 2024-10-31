@@ -386,6 +386,7 @@ df_sim_indicators %>%
 
 # Calculate IQR for each year and adv_delayed group
 df_summary <- df_sim_indicators %>%
+  dplyr::filter(ext_seed == 'seed') %>% 
   group_by(year, adv_delayed) %>%
   summarize(
     median_density = median(stem_density, na.rm = TRUE),
@@ -399,10 +400,12 @@ df_summary <- df_summary %>%
   
 # Ensure the levels of adv_delayed are in the desired order
 df_sim_indicators <- df_sim_indicators %>%
+  
   mutate(adv_delayed = factor(adv_delayed, levels = c("Delayed",  "Other","Advanced" )))
 
 # Plot with median line and IQR ribbon
 p_simulated_stem_dens <- df_sim_indicators %>% 
+  dplyr::filter(ext_seed == 'seed') %>%  # seelct only seeds scenario - more realistic than no seed
    ggplot(aes(x = year, y = stem_density, group = unique_sim_run, color = adv_delayed)) + 
    # Add IQR ribbon
   geom_ribbon(data = df_summary, aes(x = year, ymin = Q1, ymax = Q3, fill = adv_delayed), 
@@ -419,6 +422,7 @@ p_simulated_stem_dens <- df_sim_indicators %>%
   scale_fill_manual(values = c("#A50026", 
                                 "#FDAE61",
                                 "#006837")) +
+  facet_grid(.~adv_delayed) +
   labs(title = "",
        x = "Year",
        y = "Stem Density",
@@ -426,8 +430,8 @@ p_simulated_stem_dens <- df_sim_indicators %>%
        linetype = "",#Reg. status
        fill = "") +#Reg. status
   theme_classic2() +
-  theme(legend.position = 'right',
-        panel.border = element_rect(color = "black", size = 0.7, fill = NA),
+  theme(legend.position = 'none',
+        panel.border = element_rect(color = "black", linewidth = 0.7, fill = NA),
         text = element_text(size = 8),             # Set base text size
         axis.text = element_text(size = 8),        # Axis tick labels
         axis.title = element_text(size = 8),       # Axis titles
@@ -440,7 +444,7 @@ p_simulated_stem_dens <- df_sim_indicators %>%
 
 p_simulated_stem_dens
 ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png', 
-       plot = p_simulated_stem_dens, width = 4, height = 3, dpi = 300, bg = 'white')
+       plot = p_simulated_stem_dens, width = 6.5, height = 3, dpi = 300, bg = 'white')
 
 ##### evaluate initial state with my sites (only 12 sites! )   -------------------------
 # filterr initial state: year == 0
