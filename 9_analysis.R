@@ -1272,8 +1272,33 @@ int_re_dist_prcp_simpl <- gam(stem_regeneration ~
                         ,
                         family = tw(), method = "REML", data = df_stem_regeneration2)
 
+int_re_dist_prcp_simpl1 <- gam(stem_regeneration ~
+                                s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
+                                s(spei12_c, k = 5) + 
+                                s(distance_edge_c, k = 5) +
+                                s(depth_extract_c, k = 5) +
+                                s(disturbance_severity_c, k = 5) +
+                                s(clay_extract_c, k = 5) +
+                                s(av.nitro_c, k =5) +
+                                ti(tmp_c, prcp_c, k = 10) +
+                                # ti(disturbance_severity_c, distance_edge_c, k = 5) +
+                                #ti(disturbance_severity_c, prcp_c, k = 10) +
+                                s(management_intensity_c,by = country_pooled, k = 10) + 
+                                s(country_pooled, bs = "re") + 
+                                s(x,y) +
+                                s(clim_grid, bs = "re") 
+                              ,
+                              family = tw(), method = "REML", data = df_stem_regeneration2)
 
 
+dat_predict <- ggpredict(int_re_dist_prcp_simpl3, terms = c('prcp_c', 'tmp_c'))
+plot(dat_predict)
+dat_predict <- ggpredict(int_re_dist_prcp_simpl3, terms = c('disturbance_severity_c', 'prcp_c'))
+plot(dat_predict)
+dat_predict <- ggpredict(int_re_dist_prcp_simpl3, terms = c('disturbance_severity_c', 'distance_edge_c'))
+plot(dat_predict)
+
+AIC(int_re_dist_prcp_simpl1,int_re_dist_prcp_simpl2,int_re_dist_prcp_simpl3,int_re_dist_prcp_simpl4)
 int_re_dist_prcp_simpl2 <- gam(stem_regeneration ~
                                 s(prcp_c, k = 5) + s(tmp_c, k = 5) + 
                                 s(spei12_c, k = 5) + 
@@ -1310,6 +1335,25 @@ int_re_dist_prcp_simpl3 <- gam(stem_regeneration ~
                                  s(clim_grid, bs = "re") 
                                ,
                                family = tw(), method = "REML", data = df_stem_regeneration2)
+
+int_re_dist_prcp_simpl3_2 <- gam(stem_regeneration ~
+                                 s(prcp_c, k = 4) + s(tmp_c, k = 4) + 
+                                 #s(spei12_c, k = 4) + 
+                                 s(distance_edge_c, k = 7) +
+                                 s(depth_extract_c, k = 4) +
+                                 s(disturbance_severity_c, k = 4) +
+                                 s(clay_extract_c, k = 5) +
+                                 s(av.nitro_c, k =5) +
+                                 ti(tmp_c, prcp_c, k = 7) +
+                                 #ti(disturbance_severity_c, distance_edge_c, k = 10) +
+                                 ti(disturbance_severity_c, prcp_c, k = 4) +
+                                 s(management_intensity_c,by = country_pooled, k = 4) + 
+                                 s(country_pooled, bs = "re") + 
+                                 s(x,y) +
+                                 s(clim_grid, bs = "re") 
+                               ,
+                               family = tw(), method = "REML", data = df_stem_regeneration2)
+
 
 
 int_re_dist_prcp_simpl4 <- gam(stem_regeneration ~
