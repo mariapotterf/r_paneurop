@@ -185,6 +185,33 @@ clim_cluster_indicator <- df_fin %>%
 #  soil: 
 #    - more stem density at better soil conditions (higher depth, nutrient content)
 
+# Get summary tables ---------------------------------------------------------
+
+# how many sites do not have any stem density present? not evemn mature treees?
+# Count rows and calculate proportions
+total_sites <- length(unique(df_fin$site))
+
+df_fin %>%
+  dplyr::filter(sum_stems_mature > 0) %>%
+  dplyr::count(adv_delayed) %>%
+  mutate(
+    proportion = n / total_sites,
+    proportion_percent = (n / total_sites) * 100
+  )
+
+
+# what are dominant species : from rIVI?
+# Create a table of dominant_species with counts and proportions
+species_dominance_rIVI <- df_fin %>%
+  count(dominant_species) %>% # from rIVI
+  mutate(
+    #proportion = n / sum(n),
+    proportion_percent = (n / sum(n)) * 100
+  ) %>%
+  arrange(desc(n))
+
+# Display the result
+species_dominance_rIVI
 
 
 ## help tables: seral species: --------------
@@ -517,7 +544,6 @@ sjPlot::tab_df(summary_stem_dens_spec_formated,
        file = "outTable/summary_stem_dens_spec.doc", 
        title = "Summary of Stem Density per Species",
        show.rownames = FALSE)
-
 
 
 
@@ -1620,10 +1646,6 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
 
 p_boxplot_wilcox_narrow
 
-# get summary table for variables:
-df_long_narrow %>% 
-  group_by(adv_delayed) %>% 
-  summarize(med_prcp = )
 
 # filter out outliers
 df_long_narrow_filtered <- df_long_narrow %>%
@@ -1634,16 +1656,25 @@ df_long_narrow_filtered <- df_long_narrow %>%
   ) %>%
   ungroup()
 
-p_boxplot_wilcox_narrow <- 
-  df_long_narrow_filtered %>% 
+
+df_fin %>% 
+  dplyr::select(site, sum_stems_juvenile, sum_stems_sapling, 
+                sum_stems_mature, stem_regeneration, adv_delayed) %>% 
+  dplyr::filter(adv_delayed == "Delayed") %>% 
+  View()
+  #count(adv_delayed)
+
+p_boxplot_wilcox_outliers <- 
+ # df_long_narrow_filtered %>% 
+  df_long_narrow %>% 
   mutate(Variable = factor(Variable, 
                            levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity"))) %>% 
   ggboxplot(
           x = "adv_delayed", y = "Value", 
           fill = "adv_delayed", 
-         # palette = c("#A50026", 
-        #              "#FDAE61",
-        #              "#006837"),
+          palette = c("#A50026", 
+                      "#FDAE61",
+                      "#006837"),
           alpha = 0.5,
           facet.by = "Variable", 
           scales = "free_y", 
@@ -1676,18 +1707,99 @@ p_boxplot_wilcox_narrow <-
   )
  #"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
 # Save the combined plot (optional)
+
+
+
+# filtered outliers
+p_boxplot_wilcox_rm_outliers <- 
+   df_long_narrow_filtered %>% 
+  #df_long_narrow %>% 
+  mutate(Variable = factor(Variable, 
+                           levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity"))) %>% 
+  ggboxplot(
+    x = "adv_delayed", y = "Value", 
+    fill = "adv_delayed", 
+    palette = c("#A50026", 
+                "#FDAE61",
+                "#006837"),
+    alpha = 0.5,
+    facet.by = "Variable", 
+    scales = "free_y", 
+    ylab = "Values", xlab = "Regeneration Status",
+    outlier.shape = NA,  # Hide outliers
+    size = 0.2) +
+  geom_jitter(size = 0.1, alpha = 0.5, aes(color = adv_delayed)) +
+  scale_color_manual(values = c("#A50026", 
+                                "#FDAE61",
+                                "#006837")) +
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+                     label = "p.signif", 
+                     size = 2,
+                     label.x = 1.5) +  # Position labels between the groups
+  labs(title = "",
+       x = "", y = "Vals") +
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 5),         # Set all text to size 3
+    axis.text = element_text(size = 5),    # Axis tick labels
+    axis.title = element_text(size = 5),   # Axis titles
+    strip.text = element_text(size = 5),   # Facet labels
+    legend.text = element_text(size = 5),  # Legend text
+    plot.title = element_text(size = 5),   # Plot title
+    strip.background = element_blank(),    # Remove the box around facet names
+    strip.placement = "outside",           # Optional: Move facet label outside the plot area
+    #panel.border = element_blank(),        # Remove top and right border
+    panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
+    axis.line = element_line(color = "black", linewidth = 0.5)  # Add bottom and left axis lines
+  )
+#"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
+# Save the combined plot (optional)
 # Save the plot ensuring text sizes are preserved
-ggsave("outFigs/p_boxplot_wilcox_delayed_50.png", plot = p_boxplot_wilcox_narrow, 
+
+
+# Save the plot ensuring text sizes are preserved
+ggsave("outFigs/p_boxplot_wilcox_with_outliers.png", plot = p_boxplot_wilcox_outliers , 
+       width = 3, height = 3.2, units = "in", dpi = 300, 
+       bg = 'white', scale = 1)
+
+
+
+# Save the plot ensuring text sizes are preserved
+ggsave("outFigs/p_boxplot_wilcox_no_outliers.png", plot = p_boxplot_wilcox_rm_outliers, 
        width = 3, height = 3.2, units = "in", dpi = 300, 
        bg = 'white', scale = 1)
 
 
 #### Wilcox tablle -----------------------------------------------
-library(tidyr)
 
-df_stem_regeneration <- na.omit(df_stem_regeneration)
+# Perform Wilcoxon pairwise comparisons and extract p-values
+wilcox_results <- df_long_narrow %>%
+  #df_long_narrow_filtered %>% 
+  group_by(Variable) %>%
+  summarise(
+    p_values = list(pairwise.wilcox.test(Value, adv_delayed, p.adjust.method = "bonferroni")$p.value)
+  )
+
+# Convert the Wilcoxon results into a tidy format
+tidy_wilcox_results <- wilcox_results %>%
+  rowwise() %>%
+  mutate(
+    tidy_p_values = list(as.data.frame(as.table(p_values)))
+  ) %>%
+  unnest(tidy_p_values) %>%
+  dplyr::rename(Group1 = Var1, Group2 = Var2, p_value = Freq) %>%
+  arrange(Variable, Group1, Group2)
+
+# Display the tidy results
+tidy_wilcox_results
 
 
+df_fin %>% 
+  group_by(adv_delayed) %>% 
+  summarize(mean = mean(stem_density),
+            sd = sd(stem_density),
+            median = median(stem_density),
+            IQR = IQR(stem_density))
 
 
 # Country effect ----------------------------------------------------------
