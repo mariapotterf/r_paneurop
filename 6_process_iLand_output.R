@@ -359,6 +359,18 @@ df_sim_indicators <- df_sim_indicators %>%
 df_sim_indicators <- df_sim_indicators %>% 
   left_join(df_delayed_advanced_sub, by = join_by(landscape))
 
+# get stem density stats in year 30
+df_sim_indicators %>% 
+  dplyr::filter(ext_seed == 'seed') %>% 
+  dplyr::filter(year == 30) %>% 
+  group_by(adv_delayed) %>% 
+  summarise(median = median(stem_density),
+            iqr = IQR(stem_density),
+            mean = mean(stem_density),
+            sd = sd(stem_density),
+            max = max(stem_density))
+  
+
 
 # Plot: differentiate only by the advanced vs delayed ---------------------------
 # only stem density
