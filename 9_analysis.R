@@ -608,9 +608,10 @@ ggsave(filename = 'outFigs/p_stem_density_error.png',
 stem_dens_species_long_cluster %>%  
   dplyr::filter(Species %in% top_species_overall_vect[1:7]  ) %>% 
   dplyr::filter(stem_density > 0) %>% 
+  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%  # Set order
   ggplot(aes(x = log_stem_density , y = VegType_acc, 
              fill = VegType_acc,
-             color = VegType_acc,
+             #color = VegType_acc,
              group = species_VegType )) +
   geom_density_ridges(aes(fill = Species), alpha = 0.5, color = 'NA') +
   #scale_fill_manual(values = species_colors) +
@@ -625,7 +626,9 @@ stem_dens_species_long_cluster %>%
   ) +
   #scale_color_manual(values = colorRampPalette(brewer.pal(11, "RdYlGn"))(3)) +  # Apply the color palette based on seral type
   facet_grid(Species ~ ., switch = "y") +
-  
+  scale_x_continuous(
+    labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
+  ) +
   # Adjust theme
   theme_classic() +
   theme(
