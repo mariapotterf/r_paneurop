@@ -394,6 +394,17 @@ df_summary <- df_sim_indicators %>%
     Q3 = quantile(stem_density, 0.75, na.rm = TRUE)
   )
 
+df_summary_simpl <- df_sim_indicators %>%
+  dplyr::filter(ext_seed == 'seed') %>% 
+  group_by(year, adv_delayed) %>%
+  summarize(
+    median_density = median(stem_density, na.rm = TRUE),
+    Q1 = quantile(stem_density, 0.25, na.rm = TRUE),
+    Q3 = quantile(stem_density, 0.75, na.rm = TRUE)
+  )
+
+
+
 df_summary <- df_summary %>% 
   mutate(adv_delayed = factor(adv_delayed,
                               levels = c("Delayed",  "Other","Advanced" )))  #%>% 
@@ -438,17 +449,17 @@ ggplot(df_summary, aes(x = year, y = median_density, color = ext_seed, fill = ex
 )
 
   
-  #p_simulated_stem_dens <- 
+  p_simulated_stem_dens <- 
    df_sim_indicators %>% 
     dplyr::filter(ext_seed == 'seed') %>%  # seelct only seeds scenario - more realistic than no seed
     ggplot(aes(x = year, y = stem_density, 
                group = adv_delayed , 
                color = adv_delayed)) + 
     # Add IQR ribbon
-    geom_ribbon(data = df_summary, aes(x = year, ymin = Q1, ymax = Q3, fill = adv_delayed), 
-                alpha = 0.2, inherit.aes = FALSE) #+  # Adjust transparency for the ribbon
+    geom_ribbon(data = df_summary_simpl, aes(x = year, ymin = Q1, ymax = Q3, fill = adv_delayed), 
+                alpha = 0.2, inherit.aes = FALSE) +  # Adjust transparency for the ribbon
     # Add median line
-    geom_line(data = df_summary, aes(x = year, y = median_density, 
+    geom_line(data = df_summary_simpl, aes(x = year, y = median_density, 
                                      group = adv_delayed,
                                      color = adv_delayed,
                                      linetype = adv_delayed), 
