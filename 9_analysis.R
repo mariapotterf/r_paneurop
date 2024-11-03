@@ -245,8 +245,8 @@ species_composition_overall <- species_composition_overall %>%
 # Find the top 5 species per climate class based on share
 top_species_overall <- species_composition_overall %>%
   arrange(desc(share)) %>%  
-  slice_head(n = 7) #%>%  # Select the top X species
-#dplyr::filter(share > 5)# %>%  # select species with share > 5%
+#  slice_head(n = 7) #%>%  # Select the top X species
+  dplyr::filter(share > 5)# %>%  # select species with share > 5%
 
 top_species_overall_vect <- top_species_overall$Species
 
@@ -457,6 +457,70 @@ stem_dens_species_long_cluster <- stem_dens_species_long_cluster %>%
                               levels = c('mat', 'juv', 'sap'))) 
 
 
+# Get a summary table:
+summary_stem_dens_VegType <- stem_dens_species_long_cluster %>%
+  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>%
+  dplyr::filter(stem_density > 0) %>%
+  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%
+  group_by(Species, VegType_acc) %>%
+  summarise(min = min(stem_density, na.rm =T),
+            max = max(stem_density, na.rm =T),
+            mean     = mean(stem_density, na.rm =T),
+            sd = sd(stem_density, na.rm =T),
+            Median = median(stem_density, na.rm =T),
+            IQR = IQR(stem_density)#,
+            #Q1 = quantile(stem_density, 0.25, na.rm =T),  # 25th percentile
+   # Q3 = quantile(stem_density, 0.75, na.rm =T)   # 75th percentile
+  ) %>%
+  arrange(Species, VegType_acc)
+
+summary_stem_dens_VegType
+# # Get a summary table:
+summary_stem_dens_spec <- stem_dens_species_long_cluster %>%
+  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>%
+  dplyr::filter(stem_density > 0) %>%
+  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%
+  group_by(Species) %>%
+  summarise(
+    min = min(stem_density, na.rm =T),
+    max = max(stem_density, na.rm =T),
+    mean     = mean(stem_density, na.rm =T),
+    sd = sd(stem_density, na.rm =T),
+    Median = median(stem_density, na.rm =T),
+    IQR = IQR(stem_density)#,
+    
+  ) %>%
+  arrange(Species)
+
+summary_stem_dens_spec
+
+
+# Display the summary table
+summary_stem_dens_spec
+
+# print ourt
+
+# Reorder and concatenate columns in the desired format
+summary_stem_dens_spec_formated <- summary_stem_dens_spec %>%
+  mutate(
+    #min_max = paste(min, max, sep = " - "),
+    mean_sd = paste0(round(mean, 0), " ± ", round(sd, 0)),
+    median_iqr = paste0(Median, " (", IQR, ")")
+  ) %>%
+  dplyr::select(Species, min, max, mean_sd, median_iqr)
+
+# Display the updated table
+summary_stem_dens_spec_formated
+
+# Export the table using sjPlot
+sjPlot::tab_df(summary_stem_dens_spec_formated, 
+       file = "outTable/summary_stem_dens_spec.doc", 
+       title = "Summary of Stem Density per Species",
+       show.rownames = FALSE)
+
+
+
+
 
 p_stem_density_error <- stem_dens_species_long_cluster %>%  
   dplyr::filter(Species %in% top_species_overall_vect[1:7]  ) %>% 
@@ -507,6 +571,52 @@ p_stem_density_error
 ggsave(filename = 'outFigs/p_stem_density_error.png', 
        plot = p_stem_density_error, 
        width = 3, height = 3.5, dpi = 300, bg = 'white')
+
+
+
+
+# sp-stem_density mean 
+
+p_stem_density_error_mean <- stem_dens_species_long_cluster %>%  
+  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%
+  
+  ggplot(aes(x = stem_density, 
+             y = VegType_acc, 
+             fill = VegType_acc,
+             color = VegType_acc,
+             group = species_VegType)) +
+  stat_summary(
+    aes(x = stem_density), 
+    fun = mean, 
+    fun.min = function(x) mean(x) - sd(x) / sqrt(length(x)),  # Mean - SE
+    fun.max = function(x) mean(x) + sd(x) / sqrt(length(x)),  # Mean + SE
+    geom = "pointrange", 
+    size = 0.3
+  ) +
+  facet_grid(Species ~ ., switch = "y") +
+  
+  # Adjust theme
+  theme_classic() +
+  theme(
+    legend.position = 'none',
+    strip.background = element_blank(),  # Remove background from facet labels
+    strip.text.y.left = element_text(face = "bold", angle = 0, vjust = 1),  # Make facet labels bold and horizontal
+    strip.placement = "outside",  # Place facet labels further outside
+    
+    # Expand plot margins to allow space for labels on the left
+    plot.margin = margin(t = 5, r = 5, b = 5, l = 7),  # Increase left margin
+    
+    # Ensure xy lines appear only on axes
+    panel.border = element_blank(),
+    panel.grid = element_blank(),
+    axis.line.x = element_line(color = "black"),
+    axis.line.y = element_line(color = "black")
+  ) +
+  labs(x = "", y = "")
+
+p_stem_density_error_mean
 
 
 ## Density plot per vertical class: -----------------------------------------------
@@ -1251,7 +1361,7 @@ predictors <- df_stem_regeneration2[, c("prcp", "tmp",# "spei12_c",
 
 # Calculate correlation matrix
 correlation_matrix <- cor(predictors,  method = "spearman", use = "complete.obs")
-
+windows()
 # Plot the correlation matrix
 corrplot(correlation_matrix, method = "color", type = "upper",
          tl.col = "black", tl.srt = 45, 
@@ -1266,7 +1376,6 @@ corrplot(correlation_matrix, method = "color", type = "upper",
          title = "Correlation Matrix of Predictors",
          addCoef.col = "black", number.cex = 0.7)
 dev.off()#summary(interaction_model_4)
-appraise(fin.m.reg.density)
 
 
 # test for spatial autocorrelation
