@@ -1876,10 +1876,7 @@ ggarrange(p.country.density, p.country.richness)
 # Save models --------------------------------------------------
 
 # Save the model object and input data
-save(#fin.m.delayed, df_delayed2, 
-     fin.m.advanced, df_advanced2, 
-     
-     #fin.m.reg.density, df_stem_regeneration2,
+save(fin.m.reg.density, df_stem_regeneration2,
      file = "outData/stem_density_models.RData")
 
 # 4. future developmenet -------------------------------------------
@@ -1896,7 +1893,7 @@ species_look_up_simple<- read.csv("rawData/tree_sp_simple.csv", sep = ';')
 species_look_up_full<- read.csv("rawData/tree_sp_field_wessely_merged.csv", sep = ';')
 
 
-# identify what species are present per cluster
+# identify what species are present per plot
 present_species <- 
   stem_dens_species_long_cluster %>% 
   ungroup() %>% 
@@ -1964,7 +1961,60 @@ df_compare_future_species <- df_compare_future_species %>%
   # ungroup() 
 
 
+# get me an overview: what are the species that are mostly lost?
+# Find species not suitable under any RCP but present currently
+# Count how often each species is out of climatic suitability
+species_out_of_suitability_count <- df_compare_future_species %>%
+  ungroup() %>%
+  dplyr::filter(current == 1 & rcp26 == 0 & rcp45 == 0 & rcp85 == 0) %>%
+  dplyr::count(acc, name = "count") %>%
+  mutate(proportion = count / total_sites*100) %>%
+  arrange(desc(count))
 
+# Display the results
+species_out_of_suitability_count
+
+
+# which species will remain?
+# Calculate the presence proportion for each scenario
+species_presence_proportion <- df_compare_future_species %>%
+  ungroup() %>%
+  dplyr::filter(current == 1) %>%
+  dplyr::group_by(acc) %>%
+  dplyr::summarise(
+    current_count = sum(current == 1, na.rm = T),
+    rcp26_count = sum(rcp26 == 1, na.rm = T),
+    rcp45_count = sum(rcp45 == 1, na.rm = T),
+    rcp85_count = sum(rcp85 == 1, na.rm = T),
+    current_proportion = (current_count / total_sites) * 100,
+    rcp26_proportion = (rcp26_count / total_sites) * 100,
+    rcp45_proportion = (rcp45_count / total_sites) * 100,
+    rcp85_proportion = (rcp85_count / total_sites) * 100
+  ) %>%
+  arrange(desc(current_count))
+
+# Display the results
+View(species_presence_proportion)
+
+
+# Identify plots with no species presence under each RCP scenario
+#plots_no_species <- 
+  df_compare_future_species %>%
+  group_by(site) %>%
+  summarise(
+    current_species_present = sum(current == 1, na.rm = TRUE),
+    rcp26_species_present = sum(rcp26 == 1, na.rm = TRUE),
+    rcp45_species_present = sum(rcp45 == 1, na.rm = TRUE),
+    rcp85_species_present = sum(rcp85 == 1, na.rm = TRUE)
+  ) %>%
+  summarise(
+    no_species_rcp26 = sum(rcp26_species_present == 0),
+    no_species_rcp45 = sum(rcp45_species_present == 0),
+    no_species_rcp85 = sum(rcp85_species_present == 0)
+  )
+
+# Display the number of plots with no species under each scenario
+plots_no_species
 
 
 
