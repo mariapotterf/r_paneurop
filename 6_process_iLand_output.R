@@ -386,8 +386,8 @@ df_sim_indicators %>%
 
 # Calculate IQR for each year and adv_delayed group
 df_summary <- df_sim_indicators %>%
-  dplyr::filter(ext_seed == 'seed') %>% 
-  group_by(year, adv_delayed) %>%
+  #dplyr::filter(ext_seed == 'seed') %>% 
+  group_by(year, adv_delayed,ext_seed) %>%
   summarize(
     median_density = median(stem_density, na.rm = TRUE),
     Q1 = quantile(stem_density, 0.25, na.rm = TRUE),
@@ -404,25 +404,21 @@ df_sim_indicators <- df_sim_indicators %>%
   mutate(adv_delayed = factor(adv_delayed, levels = c("Delayed",  "Other","Advanced" )))
 
 # Plot with median line and IQR ribbon
-p_simulated_stem_dens <- df_sim_indicators %>% 
-  dplyr::filter(ext_seed == 'seed') %>%  # seelct only seeds scenario - more realistic than no seed
-   ggplot(aes(x = year, y = stem_density, group = unique_sim_run, color = adv_delayed)) + 
-   # Add IQR ribbon
-  geom_ribbon(data = df_summary, aes(x = year, ymin = Q1, ymax = Q3, fill = adv_delayed), 
-              alpha = 0.2, inherit.aes = FALSE) +  # Adjust transparency for the ribbon
-  # Add median line
-  geom_line(data = df_summary, aes(x = year, y = median_density, 
-                                   group = adv_delayed,
-                                   color = adv_delayed,
-                                   linetype = adv_delayed), 
-            linewidth = 1, inherit.aes = FALSE) +
-  scale_color_manual(values = c("#A50026", 
-                                "#FDAE61",
-                                "#006837")) +
-  scale_fill_manual(values = c("#A50026", 
-                                "#FDAE61",
-                                "#006837")) +
-  facet_grid(.~adv_delayed) +
+#p_simulated_stem_dens <- 
+ # df_sim_indicators %>% 
+
+# Create the plot
+ggplot(df_summary, aes(x = year, y = median_density, color = ext_seed, fill = ext_seed)) +
+  geom_line(size = 1) +  # Line for the median
+  geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.2) +  # Ribbon for Q1-Q3
+  facet_wrap(~ adv_delayed) +  # Facet by adv_delayed 
+ # scale_color_manual(values = c("#A50026", 
+ #                               "#FDAE61",
+ #                               "#006837")) +
+ # scale_fill_manual(values = c("#A50026", 
+ #                               "#FDAE61",
+ #                               "#006837")) +
+ 
   labs(title = "",
        x = "Year",
        y = "Stem Density",
@@ -430,7 +426,7 @@ p_simulated_stem_dens <- df_sim_indicators %>%
        linetype = "",#Reg. status
        fill = "") +#Reg. status
   theme_classic2() +
-  theme(legend.position = 'none',
+  theme(legend.position = 'bottom',
         panel.border = element_rect(color = "black", linewidth = 0.7, fill = NA),
         text = element_text(size = 8),             # Set base text size
         axis.text = element_text(size = 8),        # Axis tick labels
@@ -441,6 +437,51 @@ p_simulated_stem_dens <- df_sim_indicators %>%
         plot.title = element_text(size = 8)        # Plot title)
 )
 
+  
+  #p_simulated_stem_dens <- 
+   df_sim_indicators %>% 
+    dplyr::filter(ext_seed == 'seed') %>%  # seelct only seeds scenario - more realistic than no seed
+    ggplot(aes(x = year, y = stem_density, 
+               group = adv_delayed , 
+               color = adv_delayed)) + 
+    # Add IQR ribbon
+    geom_ribbon(data = df_summary, aes(x = year, ymin = Q1, ymax = Q3, fill = adv_delayed), 
+                alpha = 0.2, inherit.aes = FALSE) #+  # Adjust transparency for the ribbon
+    # Add median line
+    geom_line(data = df_summary, aes(x = year, y = median_density, 
+                                     group = adv_delayed,
+                                     color = adv_delayed,
+                                     linetype = adv_delayed), 
+              linewidth = 1, inherit.aes = FALSE) + 
+    facet_grid(.~adv_delayed) +
+  scale_color_manual(values = c("#A50026", 
+                                "#FDAE61",
+                                "#006837")) +
+    scale_fill_manual(values = c("#A50026", 
+                                 "#FDAE61",
+                                 "#006837")) +
+    
+    labs(title = "",
+         x = "Year",
+         y = "Stem Density",
+         color = "",
+         linetype = "",#Reg. status
+         fill = "") +#Reg. status
+    theme_classic2() +
+    theme(legend.position = 'none',
+          panel.border = element_rect(color = "black", linewidth = 0.7, fill = NA),
+          text = element_text(size = 8),             # Set base text size
+          axis.text = element_text(size = 8),        # Axis tick labels
+          axis.title = element_text(size = 8),       # Axis titles
+          strip.text = element_text(size = 8),       # Facet labels
+          legend.text = element_text(size = 8),      # Legend text
+          legend.title = element_text(size = 8),     # Legend title
+          plot.title = element_text(size = 8)        # Plot title)
+    )
+  
+  
+  
+  
 
 p_simulated_stem_dens
 ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png', 
