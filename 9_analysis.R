@@ -601,48 +601,6 @@ ggsave(filename = 'outFigs/p_stem_density_error.png',
 
 
 
-# sp-stem_density mean 
-
-p_stem_density_error_mean <- stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>% 
-  dplyr::filter(stem_density > 0) %>% 
-  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%
-  
-  ggplot(aes(x = stem_density, 
-             y = VegType_acc, 
-             fill = VegType_acc,
-             color = VegType_acc,
-             group = species_VegType)) +
-  stat_summary(
-    aes(x = stem_density), 
-    fun = mean, 
-    fun.min = function(x) mean(x) - sd(x) / sqrt(length(x)),  # Mean - SE
-    fun.max = function(x) mean(x) + sd(x) / sqrt(length(x)),  # Mean + SE
-    geom = "pointrange", 
-    size = 0.3
-  ) +
-  facet_grid(Species ~ ., switch = "y") +
-  
-  # Adjust theme
-  theme_classic() +
-  theme(
-    legend.position = 'none',
-    strip.background = element_blank(),  # Remove background from facet labels
-    strip.text.y.left = element_text(face = "bold", angle = 0, vjust = 1),  # Make facet labels bold and horizontal
-    strip.placement = "outside",  # Place facet labels further outside
-    
-    # Expand plot margins to allow space for labels on the left
-    plot.margin = margin(t = 5, r = 5, b = 5, l = 7),  # Increase left margin
-    
-    # Ensure xy lines appear only on axes
-    panel.border = element_blank(),
-    panel.grid = element_blank(),
-    axis.line.x = element_line(color = "black"),
-    axis.line.y = element_line(color = "black")
-  ) +
-  labs(x = "", y = "")
-
-p_stem_density_error_mean
 
 
 ## Density plot per vertical class: -----------------------------------------------
