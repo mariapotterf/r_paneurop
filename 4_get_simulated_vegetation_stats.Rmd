@@ -32,11 +32,11 @@ With the necessary libraries loaded, the data can be assessed. First a connectio
 #getwd()
 # Define the path to your data using the here() function
 data_path <- here("rawData/iLand/iLand_output")
-
+print(data_path)
 
 # Get output dirs and run through them
 lDirs <- list.dirs(path = data_path, recursive = FALSE)
-lDirs <- grep("_new", lDirs, value = TRUE)
+#lDirs <- grep("_new", lDirs, value = TRUE)
 DBTables <- list()
 DBT_sap <- list()
 DBT_sapd <- list()
@@ -245,9 +245,9 @@ big_data_sub <- big_data %>%
   dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & run_nr == 1 ) # & ext_seed == 'noseeed'
 
 View(big_data_sub)
-big_sapl_sub <- big_sapl %>% 
-  dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & ext_seed == 'noseed' & run_nr == 1 )
-View(big_sapl_sub)
+# big_sapl_sub <- big_sapl %>% 
+#   dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & ext_seed == 'noseed' & run_nr == 1 )
+# View(big_sapl_sub)
 
 big_sapD_sub <- 
   big_sapD %>% 
@@ -270,8 +270,8 @@ Prepare new vertical classification and merge the data:
 
 ```{r final_tab_vert_cat}
 
-# Start with the cohorts: spllit into vertical classes (seedlings (<0.2m), saplings (0.2-2m), juveniles 2m-4m)
-# sum up by vertical classes, get counst_ha and dbh for basal area
+# Start with the cohorts: split into vertical classes (seedlings (<0.2m), saplings (0.2-2m), juveniles 2m-4m)
+# sum up by vertical classes, get count_ha and dbh for basal area
 # no need to do this with the saplings table, as i have the counts and BA from teh saplings details
 
 # Trees < 4m of height
