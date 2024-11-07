@@ -1,7 +1,7 @@
 
 # Process: 
 # Get indicators from simulated data
-# - read iLand simulated data - simulated by Kilian on 29/06/2024
+# - read iLand simulated data - simulated by Kilian on 06/11/2024
 
 # Calculate indicators from simulated data
 # temporal develpment
@@ -10,6 +10,8 @@
 
 # pre-analysis
 # - inspect the development of 12 iLand landscapes
+
+# compare stem density bbetween intial condistion and between clusters
 
 
 # Process all sites:
@@ -166,11 +168,15 @@ mutate(
   mutate(composite_class = factor(composite_score)) %>% 
   left_join(df_str_compos_clusters_full, by = c('site' = 'plot'))
 
-# select only 12 landscapes form field data
+
+
+
+# select only 12 landscapes form field data --------------------------------------
 df_field_ind_sub <- df_indicators %>% 
   dplyr::select(site,  rIVI, richness, stem_density, 
                 n_vertical, tmp, prcp, spei3, clay_extract, sand_extract,
-                clim_cluster_spei3, clim_class, env_stnd_clust, env_cluster, stnd_cluster) %>% 
+                #clim_cluster_spei3, clim_class,
+                env_stnd_clust, env_cluster, stnd_cluster) %>% 
 #  rename(site = cluster) %>% 
   right_join(df_sites_clusters) %>% 
   mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) #%>%  # add indication of the strutural cluster (1,2,3,4,5)
@@ -394,7 +400,7 @@ df_sim_indicators %>%
 
 
 
-# with shaded zones
+##  with shaded zones ------------------
 
 # Calculate IQR for each year and adv_delayed group
 df_summary <- df_sim_indicators %>%
@@ -510,8 +516,8 @@ p_simulated_stem_dens
 ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png', 
        plot = p_simulated_stem_dens, width = 6.5, height = 3, dpi = 300, bg = 'white')
 
-##### evaluate initial state with my sites (only 12 sites! )   -------------------------
-# filterr initial state: year == 0
+## Evaluate initial state : for all clusters   -------------------------
+# filter initial state: year == 0
 df_sim_indicators0 <- df_sim_indicators %>% 
   ungroup() %>% 
   dplyr::filter(year == 0 ) %>% #& clim_scenario == "HISTO" %>% 
@@ -524,11 +530,62 @@ df_sim_indicators_end <- df_sim_indicators %>%
   dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
 
 
+# Calculate median and IQR to merge simulated and field data -------------------
+
+# show stem density per str and clim clusters 
+# Calculate median and IQR for stem_density grouped by env_stnd_clust
+field_stem_density_summary <- df_indicators %>%
+  group_by(env_stnd_clust) %>%
+  summarise(
+    median_stem_density = median(stem_density, na.rm = TRUE),
+    iqr_lower = quantile(stem_density, 0.25, na.rm = TRUE),
+    iqr_upper = quantile(stem_density, 0.75, na.rm = TRUE)
+  )
+
+# Create the bar plot with error bars
+ggplot(field_stem_density_summary, aes(x = env_stnd_clust, y = median_stem_density)) +
+  geom_bar(stat = "identity", fill = "grey", color = "grey") +
+  geom_errorbar(aes(ymin = iqr_lower, ymax = iqr_upper), width = 0.2) +
+  labs(
+    x = "Environmental Cluster",
+    y = "Stem Density (median ± IQR)",
+    title = "Median Stem Density by Environmental Cluster"
+  ) +
+  theme_minimal()
+
+
+# observed: ---------------------------------------------------------------
+simulated_stem_density_summary <- df_sim_indicators %>%
+  dplyr::filter(ext_seed  == 'noseed') %>% 
+  dplyr::filter(year %in% c(1)) %>% 
+  rename( env_stnd_clust = landscape ) %>% 
+  group_by(env_stnd_clust) %>%
+  summarise(
+    median_stem_density = median(stem_density, na.rm = TRUE),
+    iqr_lower = quantile(stem_density, 0.25, na.rm = TRUE),
+    iqr_upper = quantile(stem_density, 0.75, na.rm = TRUE)
+  )
+
+# Create the bar plot with error bars
+ggplot(simulated_stem_density_summary, aes(x = env_stnd_clust, y = median_stem_density)) +
+  geom_bar(stat = "identity", fill = "grey", color = "grey") +
+  geom_errorbar(aes(ymin = iqr_lower, ymax = iqr_upper), width = 0.2) +
+  labs(
+    x = "Environmental Cluster",
+    y = "Stem Density (median ± IQR)",
+    title = "Median Stem Density by Environmental Cluster"
+  ) +
+  theme_minimal()
+
+
+
+
 
 ###### merge field data with simulated data in year 0 
-df_compare0 <- 
-  df_field_ind_sub %>% 
-  left_join(df_sim_indicators0, by = c("landscape"), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
+df_compare0 <-  # env_stnd_clust 
+  df_indicators %>% 
+  #df_field_ind_sub %>% 
+  left_join(df_sim_indicators0, by = c("env_stnd_clust" = "landscape" ), suffix = c("_field", "_simul")) %>%  #by = c( "cluster" = "landscape"), 
   dplyr::select(landscape, site, ext_seed, ends_with("_field"), ends_with("_simul")) %>% 
  na.omit() #%>% # remove empty one
 
