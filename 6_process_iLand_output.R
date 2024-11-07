@@ -55,18 +55,21 @@ head(df_sim)
 df_field     <- fread('outData/veg_density_DBH.csv')
 df_indicators <- fread('outData/indicators_for_cluster_analysis.csv') # summarized on plot level
 
-# structural clusters numbers ---------------------------------------------------
+# structural clusters numbers 
 df_str_compos_clusters_full <- fread('rawData/iLand/Cluster_Plots.csv')  # structural and clusters indications for analysis from Kilian
 
-# vegetation data -----------
+# Plot level vegetation data -----------
 # get stem density for juveniles and saplings: to check advanced vs delayed regeneration
 # eg is advanced regeneration more stable then delayed ones?
 
-# final tables on site level
+# final tables on site level --------------
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
 df_delayed_advanced <- fread('outTable/df_delayed_advanced.csv') # indication of the delayed, advanced vs other -
 # compare the stem desity development across this
 
+# rename clusters from Kilian: env_stnd_clust 
+df_sim <- df_sim %>% 
+  dplyr::rename(env_stnd_clust  = cluster)
 
 
 # create table to subset the  field data into landscapes
@@ -75,7 +78,7 @@ df_sites_clusters <- data.frame(
   site = c("23_132", 
            "26_134", "15_133", "17_104", "22_101", "12_151",
            "24_146", "20_116", "12_117", "11_145", "19_160", "25_150"),
-  landscape = c("1_1", "1_2", "1_3", "1_4", "2_1", "2_2",
+  env_stnd_clust  = c("1_1", "1_2", "1_3", "1_4", "2_1", "2_2",
               "2_3", "2_4", "2_5", "3_1", "3_2", "3_3")
 )
 
@@ -96,6 +99,7 @@ df_vegetation_sub <- df_fin %>%
                               ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other"))) %>% # Add the 3rd category
   right_join(df_sites_clusters)
 
+length(unique(df_vegetation_sub$site))
 
 # List average field data as input for the landscape level simulation
 # "23_132" - "1_1"
@@ -111,37 +115,47 @@ df_vegetation_sub <- df_fin %>%
 # "19_160" - "3_2"
 # "25_150" - "3_3"
 
-
+table(df_vegetation_sub$adv_delayed)
 
 
 # name the clusters from Kilian: if cluster analysis is run separately, the numbers do not fit! therefore,
 # check the naming from plots (boxplot) an rename them to fit
 df_sim_class <- df_sim %>%
-  rename(landscape = cluster) %>% 
   # mutate(clim_class = case_when(
   #   clim_cluster == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
   #   clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
   #   clim_cluster == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
   # ))  %>% 
-  mutate(landscape_run = paste(landscape, run_nr))  # yunique run per lanscape scenario
+  #mutate(landscape_run = paste(env_stnd_clust, run_nr))  # yunique run per lanscape scenario
 
 str(df_sim_class)
 head(df_sim_class)
 
 
-# get delayed vs adanced regeeneration indication ------------------------------
+# get delayed vs advanced regeneration indication ------------------------------
+# simulated 
 df_sim_class <- df_sim_class %>% 
-  mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, landscape_run, sep = "_")) %>%  # yunique run per lanscape scenario
-  right_join(df_delayed_advanced_sub)
+  mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, env_stnd_clust, run_nr, sep = "_")) %>%  # yunique run per lanscape scenario
+  right_join(df_delayed_advanced_sub, by = join_by(env_stnd_clust))
 
 
 ## filter field data for selected clusters (simulated landscapes) --------------
 df_field_sub <- df_field %>%
-  rename(landscape = cluster) %>%
-  right_join(df_sites_clusters) #%>%
+  rename(site = cluster) %>%
+  right_join(df_sites_clusters, by = join_by(site)) #%>%
   #mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
       #   str_cluster = str_sub(landscape, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
+my_cluster_test = '1_2'
+# check per one clutsre! 1_2
+simulated_test <- df_sim_class %>% 
+  dplyr::filter(env_stnd_clust == my_cluster_test)
+
+df_field_test <- df_field_sub %>% 
+  dplyr::filter(env_stnd_clust == my_cluster_test)
+
+View(simulated_test)
+View(df_field_test)
 
 # get Landsscape indicators for all of locations:
 df_indicators <- df_indicators %>% 
@@ -170,8 +184,8 @@ mutate(
 
 
 
-
-# select only 12 landscapes form field data --------------------------------------
+# data check in: check initial values with simulated  ---------------------------------------------------------------------
+### select only 12 landscapes form field data --------------------------------------
 df_field_ind_sub <- df_indicators %>% 
   dplyr::select(site,  rIVI, richness, stem_density, 
                 n_vertical, tmp, prcp, spei3, clay_extract, sand_extract,
