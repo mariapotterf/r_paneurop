@@ -250,6 +250,28 @@ Prepare new vertical classification and merge the data:
 # sum up by vertical classes, get count_ha and dbh for basal area
 # no need to do this with the saplings table, as i have the counts and BA from teh saplings details
 
+
+# Trees  taller > 4 m
+out_big <- 
+  big_data %>% 
+  # get vert_classes
+   mutate(category = case_when(
+    dbh_avg_cm >= 10 ~ "mature",
+   # dbh_avg_cm < 10 ~ "juveniles",
+    height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
+    TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
+  )) %>% 
+  #  rename(ext_seed = external_seed) %>% 
+  #  head()
+ # dplyr::filter(category != 'seedlings') %>% 
+ # mutate(r=dbh/100/2, # convert cm to m
+#         BA = pi*r^2,
+#         basal_area_m2 = BA*n_represented) %>% # how to calculate cohort basal area???
+  group_by(year, species, clim_model, clim_scenario,ext_seed, run_nr, cluster, category) %>% 
+  summarise(count_ha = sum(count_ha ),  # summarize by run, and by species and vertical class
+            basal_area_m2 = sum(basal_area_m2)) %>%
+  ungroup()
+
 # Trees < 4m of height
 out_sapD <- big_sapD %>% 
   # get vert_classes
@@ -269,26 +291,7 @@ out_sapD <- big_sapD %>%
             basal_area_m2 = sum(basal_area_m2)) %>%
   ungroup()
   
-# Trees  taller > 4 m
-#out_big <- 
-  big_data %>% 
-  # get vert_classes
-   mutate(category = case_when(
-    dbh_avg_cm >= 10 ~ "mature",
-   # dbh_avg_cm < 10 ~ "juveniles",
-    height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
-    TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
-  )) #%>% 
-  #  rename(ext_seed = external_seed) %>% 
-  #  head()
- # dplyr::filter(category != 'seedlings') %>% 
- # mutate(r=dbh/100/2, # convert cm to m
-#         BA = pi*r^2,
-#         basal_area_m2 = BA*n_represented) %>% # how to calculate cohort basal area???
-  group_by(year, species, clim_model, clim_scenario,ext_seed, run_nr, cluster, category) %>% 
-  summarise(count_ha = sum(count_ha ),  # summarize by run, and by species and vertical class
-            basal_area_m2 = sum(basal_area_m2)) %>%
-  ungroup()
+
 
 head(out_sapD)
 head(out_big)
