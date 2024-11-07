@@ -73,6 +73,7 @@ for (l_dir in lDirs) {
                     species,
                     volume_m3,
                     dbh_avg_cm,
+                    height_avg_m,
                     basal_area_m2,
                     count_ha,
                     cohort_count_ha,
@@ -107,7 +108,7 @@ rm(DBTables, l_db, l_dfStnd, iDirs, iFiles, l_dir, lDirs, lFile, lFiles,
 
 # 2. Data handling
 
-For further processing it might be usefull to split the filename into a few pieces:
+For further processing it might be useful to split the filename into a few pieces:
 
 -   Climate model
 -   Cluster
@@ -122,9 +123,9 @@ Organization of the iLand outputs:
 -- 1.3, - 4 m - has dbh
 -- <1.3m - does not have dph, organized as 'cohorts' - from output 'saplings details'
 
-in Sapling table: counts_ha and count_small_ha are calculated from teh n_represented from teh  
+in Sapling table: counts_ha and count_small_ha are calculated from the n_represented   
 
-# Example: connect tables between ILand output formats, to get the all 3 vertiocal classes.
+# Example: connect tables between iLand output formats, to get the all 3 vertical classes.
 # the regeneration 
 
 
@@ -133,6 +134,7 @@ in Sapling table: counts_ha and count_small_ha are calculated from teh n_represe
 |-----------------|-----------------|-----------------------------------------------------------------------|
 | count_ha        | stand           | number of trees > 4 per ha                                            |
 | basal_area_m2   | stand           | total basal area at breast height (m2)                                |
+| height_avg_m   | stand           | average tree height (m)                                |
 | cohort_count_ha | stand           | number of cohorts in the regeneration layer (<4m) /ha                 |
 | cohort_basal_area| stand           | basal area (m2) of saplings (>1.3m and <4m)                           |
 | count_ha*       | sapling         | number of represented individuals per ha (tree height >1.3m)          |
@@ -147,7 +149,7 @@ in Sapling table: counts_ha and count_small_ha are calculated from teh n_represe
 
 
 ```{r data_handling}
-# correct, there is 5 structural clusters in climate cluster 2, and 2 clusters in clkimate cluster 3
+# correct, there is 5 structural clusters in climate cluster 2, and 2 clusters in climate cluster 3
 
 
 
@@ -209,12 +211,12 @@ big_sapD <- OG_sapd |>
                                                       "env_clst",
                                                       "stnd_clst",
                                                       "ext_seed"))
-big_sapD$cluster <- paste(big_sapD$env_clst, big_sapD$stnd_clst, sep = "_")
-big_sapD$clim_model <- as.factor(big_sapD$clim_model)
-big_sapD$clim_scenario <- as.factor(big_sapD$clim_scenario)
-big_sapD$cluster <- as.factor(big_sapD$cluster)
-big_sapD$species <- as.factor(big_sapD$species)
-big_sapD$ext_seed <- as.factor(big_sapD$ext_seed)
+big_sapD$cluster        <- paste(big_sapD$env_clst, big_sapD$stnd_clst, sep = "_")
+big_sapD$clim_model     <- as.factor(big_sapD$clim_model)
+big_sapD$clim_scenario  <- as.factor(big_sapD$clim_scenario)
+big_sapD$cluster        <- as.factor(big_sapD$cluster)
+big_sapD$species        <- as.factor(big_sapD$species)
+big_sapD$ext_seed       <- as.factor(big_sapD$ext_seed)
 big_sapD <- big_sapD %>% dplyr::select(!c(env_clst, stnd_clst, ru, rid))
 
 # strCols <- c("age", "height", "dbh", "n_represented")
@@ -236,32 +238,6 @@ big_sapD <- big_sapD %>% dplyr::select(!c(env_clst, stnd_clst, ru, rid))
 ```
 
 
-Test subsets: do I get the data right??? 
-
-```{r, test-subsets}
-
-# subset on one landscape, to make sure I got the cohorts right!
-big_data_sub <- big_data %>%
-  dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & run_nr == 1 ) # & ext_seed == 'noseeed'
-
-View(big_data_sub)
-# big_sapl_sub <- big_sapl %>% 
-#   dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & ext_seed == 'noseed' & run_nr == 1 )
-# View(big_sapl_sub)
-
-big_sapD_sub <- 
-  big_sapD %>% 
-  dplyr::filter(year == 0 & cluster == "1_1"& clim_model == "NCC"  & clim_scenario == "HISTO"& ext_seed == 'noseed' & run_nr == 1 ) #   & clim_scenario == "HIST0"
-View(big_sapD_sub)
-#big_data_sub <- 
-
-
-
-
-
-# clean environment
-#rm(strCols)
-```
 
 Prepare new vertical classification and merge the data:
 
@@ -282,7 +258,7 @@ out_sapD <- big_sapD %>%
     height >= 0.2 & height <= 2 ~ "saplings",
      height < 0.2 ~ "seedlings",
    # height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
-    TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
+    TRUE ~ "unclassified"  # those are teh very young regeneration, that is less then 20 cm tall, so I can remove
   )) %>% 
   dplyr::filter(category != 'seedlings') %>% 
   mutate(r=dbh/100/2, # convert cm to m
@@ -294,15 +270,15 @@ out_sapD <- big_sapD %>%
   ungroup()
   
 # Trees  taller > 4 m
-out_big <- 
+#out_big <- 
   big_data %>% 
   # get vert_classes
    mutate(category = case_when(
     dbh_avg_cm >= 10 ~ "mature",
-    dbh_avg_cm < 10 ~ "saplings",
-   # height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
+   # dbh_avg_cm < 10 ~ "juveniles",
+    height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
     TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
-  )) %>% 
+  )) #%>% 
   #  rename(ext_seed = external_seed) %>% 
   #  head()
  # dplyr::filter(category != 'seedlings') %>% 
@@ -318,9 +294,42 @@ head(out_sapD)
 head(out_big)
 
 
-df_simulated <- rbind(out_sapD, out_big)
-getwd()
+```
 
+
+Test subsets: do I get the data right??? 
+
+```{r, test-subsets}
+
+cluster_name = '1_2'
+
+# subset on one landscape, to make sure I got the cohorts right!
+big_data_sub <- big_data %>%
+  dplyr::filter(year == 0 & cluster == cluster_name & clim_model == "NCC" & clim_scenario == "HISTO" & run_nr == 1 ) # & ext_seed == 'noseeed'
+
+# thesea are mature trees
+View(big_data_sub)
+# big_sapl_sub <- big_sapl %>% 
+#   dplyr::filter(year == 0 & cluster == "1_1" & clim_model == "NCC" & clim_scenario == "HISTO" & ext_seed == 'noseed' & run_nr == 1 )
+# View(big_sapl_sub)
+
+big_sapD_sub <- 
+  big_sapD %>% 
+  dplyr::filter(year == 0 & cluster == cluster_name & clim_model == "NCC"  & clim_scenario == "HISTO"& ext_seed == 'noseed' & run_nr == 1 ) #   & clim_scenario == "HIST0"
+View(big_sapD_sub)
+#big_data_sub <- 
+# clean environment
+#rm(strCols)
+```
+
+
+
+
+
+```{r export-table}
+df_simulated <- rbind(out_sapD, out_big)
+
+getwd()
 
 fwrite(df_simulated, 'C:/Users/ge45lep/Documents/2023_PanEuropean/r_paneurop/outTable/df_simulated.csv')
 
