@@ -114,39 +114,33 @@ For further processing it might be useful to split the filename into a few piece
 -   Cluster
 -   With or without external seed
 
-
 Organization of the iLand outputs:
 
-- stand by species:
-- trees > 4 m - from output 'stand'
-- sapling: <4 m - from output 'saplings'
--- 1.3, - 4 m - has dbh
--- <1.3m - does not have dph, organized as 'cohorts' - from output 'saplings details'
+-   stand by species:
+-   trees \> 4 m - from output 'stand'
+-   sapling: \<4 m - from output 'saplings' -- 1.3, - 4 m - has dbh -- \<1.3m - does not have dph, organized as 'cohorts' - from output 'saplings details'
 
-in Sapling table: counts_ha and count_small_ha are calculated from the n_represented   
+in Sapling table: counts_ha and count_small_ha are calculated from the n_represented
 
 # Example: connect tables between iLand output formats, to get the all 3 vertical classes.
-# the regeneration 
 
+# the regeneration
 
+| Column name       | Table          | Description                                                               |
+|--------------|--------------|-------------------------------------------|
+| count_ha          | stand          | number of trees \> 4 per ha                                               |
+| basal_area_m2     | stand          | total basal area at breast height (m2)                                    |
+| height_avg_m      | stand          | average tree height (m)                                                   |
+| cohort_count_ha   | stand          | number of cohorts in the regeneration layer (\<4m) /ha                    |
+| cohort_basal_area | stand          | basal area (m2) of saplings (\>1.3m and \<4m)                             |
+| count_ha\*        | sapling        | number of represented individuals per ha (tree height \>1.3m)             |
+| count_small_ha\*  | sapling        | number of represented individuals per ha (with height \<=1.3m)            |
+| cohort_count_ha   | sapling        | number of cohorts in the regeneration layer (\<4m) /ha (same as in stand) |
+| n_represented     | saplingDetails | number of trees that are represented by the cohort (Reineke function)     |
+| dbh               | saplingDetails | diameter of the cohort (cm)                                               |
+| height            | saplingDetails | height of the cohort (m)                                                  |
 
-| Column name     | Table           | Description                                                           |
-|-----------------|-----------------|-----------------------------------------------------------------------|
-| count_ha        | stand           | number of trees > 4 per ha                                            |
-| basal_area_m2   | stand           | total basal area at breast height (m2)                                |
-| height_avg_m   | stand           | average tree height (m)                                |
-| cohort_count_ha | stand           | number of cohorts in the regeneration layer (<4m) /ha                 |
-| cohort_basal_area| stand           | basal area (m2) of saplings (>1.3m and <4m)                           |
-| count_ha*       | sapling         | number of represented individuals per ha (tree height >1.3m)          |
-| count_small_ha* | sapling         | number of represented individuals per ha (with height <=1.3m)         |
-| cohort_count_ha | sapling         | number of cohorts in the regeneration layer (<4m) /ha (same as in stand)|
-| n_represented   | saplingDetails  | number of trees that are represented by the cohort (Reineke function) |
-| dbh             | saplingDetails  | diameter of the cohort (cm)                                           |
-| height          | saplingDetails  | height of the cohort (m)                                              |
-
-*both counts of saplings can be derived from n_represented from the sapling details
-
-
+\*both counts of saplings can be derived from n_represented from the sapling details
 
 ```{r data_handling}
 # correct, there is 5 structural clusters in climate cluster 2, and 2 clusters in climate cluster 3
@@ -237,18 +231,36 @@ big_sapD <- big_sapD %>% dplyr::select(!c(env_clst, stnd_clst, ru, rid))
 
 ```
 
-
-
 Prepare new vertical classification and merge the data:
 
-- for trees > 4 m tall
-- for trees < 4 m tall
+-   for trees \> 4 m tall
+-   for trees \< 4 m tall
 
 ```{r final_tab_vert_cat}
 
-# Start with the cohorts: split into vertical classes (seedlings (<0.2m), saplings (0.2-2m), juveniles 2m-4m)
+# split in vertical classes: 
+#  - big data: 
+#    - mature
+#    - juveniles
+#  - saplD:
+#    - juveniles
+#    - saplings
+#    - seedlings (< 20 cm, remove)
+
+
+# Start with the stand data: 
+# - ignore cohors (those are small regeneration)
+# - split into mature and juveniles, sums up by species
+
+# From sapl Details: 
+# - split the cohorts: split into vertical classes (seedlings (<0.2m), saplings (0.2-2m), juveniles 2m-4m)
 # sum up by vertical classes, get count_ha and dbh for basal area
-# no need to do this with the saplings table, as i have the counts and BA from teh saplings details
+# no need to do this with the saplings table, as i have the counts and BA from teh saplings details (saplD)
+
+# classification seems correct
+# out_big_test_juv %>% 
+#   dplyr::filter(category == 'mature') %>% 
+#   summary()
 
 
 # Trees  taller > 4 m
@@ -256,10 +268,12 @@ out_big <-
   big_data %>% 
   # get vert_classes
    mutate(category = case_when(
-    dbh_avg_cm >= 10 ~ "mature",
+     height_avg_m > 2 & dbh_avg_cm < 10 ~ "juveniles",
+     dbh_avg_cm >= 10 ~ "mature",
+    
    # dbh_avg_cm < 10 ~ "juveniles",
-    height_avg_m > 2 & dbh_avg_cm <= 10 ~ "juveniles",
-    TRUE ~ "unclassified"  # tose are teh very young regeneration, that is less then 20 cm tall, so I can remove
+   
+    TRUE ~ "unclassified"  # thse are very young regeneration, that is less then 20 cm tall, so I can remove
   )) %>% 
   #  rename(ext_seed = external_seed) %>% 
   #  head()
@@ -270,7 +284,8 @@ out_big <-
   group_by(year, species, clim_model, clim_scenario,ext_seed, run_nr, cluster, category) %>% 
   summarise(count_ha = sum(count_ha ),  # summarize by run, and by species and vertical class
             basal_area_m2 = sum(basal_area_m2)) %>%
-  ungroup()
+  ungroup() %>% 
+  dplyr::filter(category %in% c('mature', 'juveniles'))
 
 # Trees < 4m of height
 out_sapD <- big_sapD %>% 
@@ -293,21 +308,23 @@ out_sapD <- big_sapD %>%
   
 
 
+
+out_sapD %>% 
+  dplyr::filter(cluster == '1_1')
 head(out_sapD)
 head(out_big)
 
 
 ```
 
-
-Test subsets: do I get the data right??? 
+Test subsets: do I get the data right???
 
 ```{r, test-subsets}
 
-cluster_name = '1_2'
+cluster_name = '1_1'
 
 # subset on one landscape, to make sure I got the cohorts right!
-big_data_sub <- big_data %>%
+big_data_sub <- out_big %>%
   dplyr::filter(year == 0 & cluster == cluster_name & clim_model == "NCC" & clim_scenario == "HISTO" & run_nr == 1 ) # & ext_seed == 'noseeed'
 
 # thesea are mature trees
@@ -317,7 +334,7 @@ View(big_data_sub)
 # View(big_sapl_sub)
 
 big_sapD_sub <- 
-  big_sapD %>% 
+  out_sapD %>% 
   dplyr::filter(year == 0 & cluster == cluster_name & clim_model == "NCC"  & clim_scenario == "HISTO"& ext_seed == 'noseed' & run_nr == 1 ) #   & clim_scenario == "HIST0"
 View(big_sapD_sub)
 #big_data_sub <- 
@@ -325,20 +342,31 @@ View(big_sapD_sub)
 #rm(strCols)
 ```
 
-
-
-
-
 ```{r export-table}
-df_simulated <- rbind(out_sapD, out_big)
+df_simulated_merge <- rbind(out_sapD, out_big)
+
+# aggregate values based on vert category
+df_simulated <- df_simulated_merge %>% 
+  group_by(year, species, clim_model, clim_scenario, ext_seed, run_nr, cluster, category) %>% 
+  summarise(count_ha = sum(count_ha),
+            basal_area_m2 = sum(basal_area_m2))
+
+
+# juveniles can be from saplings and stand level class: merge them together
+head(df_simulated)
+
+df_simulated %>% 
+  dplyr::filter(cluster == "3_2" & year == 1) %>% 
+  summary()
+
+
+
 
 getwd()
 
 fwrite(df_simulated, 'C:/Users/ge45lep/Documents/2023_PanEuropean/r_paneurop/outTable/df_simulated.csv')
 
 ```
-
-
 
 ## 2.1 Effect strength
 
