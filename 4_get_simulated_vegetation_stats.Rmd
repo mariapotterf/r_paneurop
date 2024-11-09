@@ -118,16 +118,21 @@ Organization of the iLand outputs:
 
 -   stand by species:
 -   trees \> 4 m - from output 'stand'
--   sapling: \<4 m - from output 'saplings' -- 1.3, - 4 m - has dbh -- \<1.3m - does not have dph, organized as 'cohorts' - from output 'saplings details'
+    -   mature trees \> 10 cm dbh
+    -   juveniles \> 2m and \< 10 cm dbh
+-   sapling details:
+    -   \<4 m - from output 'saplings'
+    -   -- 1.3, - 4 m
+    -   \- has dbh -- \<1.3m - does not have dph, organized as 'cohorts' - from output 'saplings details'
 
-in Sapling table: counts_ha and count_small_ha are calculated from the n_represented
+in Sapling table: counts_ha and count_small_ha are calculated from the n_represented (Saplings details): n_represented = counts_ha + counts_small_ha
 
 # Example: connect tables between iLand output formats, to get the all 3 vertical classes.
 
 # the regeneration
 
 | Column name       | Table          | Description                                                               |
-|--------------|--------------|-------------------------------------------|
+|----------------|----------------|----------------------------------------|
 | count_ha          | stand          | number of trees \> 4 per ha                                               |
 | basal_area_m2     | stand          | total basal area at breast height (m2)                                    |
 | height_avg_m      | stand          | average tree height (m)                                                   |
@@ -140,7 +145,7 @@ in Sapling table: counts_ha and count_small_ha are calculated from the n_represe
 | dbh               | saplingDetails | diameter of the cohort (cm)                                               |
 | height            | saplingDetails | height of the cohort (m)                                                  |
 
-\*both counts of saplings can be derived from n_represented from the sapling details
+\*both count_ha and count_small_ha of saplings can be derived from n_represented from the sapling details
 
 ```{r data_handling}
 # correct, there is 5 structural clusters in climate cluster 2, and 2 clusters in climate cluster 3
@@ -156,8 +161,6 @@ big_data <- OG_big_data |>
                                                       "ext_seed"))
 big_data <- big_data %>% dplyr::select(!ext_seed)
 big_data$cluster <- paste(big_data$env_clst, big_data$stnd_clst, sep = "_")
-#big_data <- big_data %>%
-#  dplyr::select(!c(env_clst, stnd_clst))
 big_data$clim_scenario <- as.factor(big_data$clim_scenario)
 big_data$clim_model <- as.factor(big_data$clim_model)
 big_data$cluster    <- as.factor(big_data$cluster)
@@ -198,7 +201,7 @@ big_data <- big_data %>%
 #   dplyr::group_by(clim_scenario, ext_seed, cluster, year, species) %>%
 #   dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),.groups = "drop")
 
-# 3. saplingdetails table
+# 3. sapling details table
 big_sapD <- OG_sapd |>
   separate_wider_delim(filenm, delim = "_", names = c("clim_model",
                                                       "clim_scenario",
@@ -233,8 +236,8 @@ big_sapD <- big_sapD %>% dplyr::select(!c(env_clst, stnd_clst, ru, rid))
 
 Prepare new vertical classification and merge the data:
 
--   for trees \> 4 m tall
--   for trees \< 4 m tall
+-   stand: for trees \> 4 m tall
+-   sapling: for trees \< 4 m tall
 
 ```{r final_tab_vert_cat}
 
@@ -343,10 +346,10 @@ View(big_sapD_sub)
 ```
 
 ```{r export-table}
-df_simulated_merge <- rbind(out_sapD, out_big)
+df_simulated_merged <- rbind(out_sapD, out_big)
 
-# aggregate values based on vert category
-df_simulated <- df_simulated_merge %>% 
+# aggregate values based on vert category: as I have juveniles from stand and saplings iland tables
+df_simulated <- df_simulated_merged %>% 
   group_by(year, species, clim_model, clim_scenario, ext_seed, run_nr, cluster, category) %>% 
   summarise(count_ha = sum(count_ha),
             basal_area_m2 = sum(basal_area_m2))
@@ -356,8 +359,10 @@ df_simulated <- df_simulated_merge %>%
 head(df_simulated)
 
 df_simulated %>% 
-  dplyr::filter(cluster == "3_2" & year == 1) %>% 
-  summary()
+  dplyr::filter(cluster == cluster_name & year == 1) %>% 
+  View()
+  #summary() %>% 
+  
 
 
 
