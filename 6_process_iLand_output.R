@@ -52,11 +52,11 @@ df_sim <- fread('outTable/df_simulated.csv')
 head(df_sim)
 
 # get field data to compare with simulated ones - stem density
-df_field     <- fread('outData/veg_density_DBH.csv')
+df_field      <- fread('outData/veg_density_DBH.csv')
 df_indicators <- fread('outData/indicators_for_cluster_analysis.csv') # summarized on plot level
 
 # structural clusters numbers 
-df_str_compos_clusters_full <- fread('rawData/iLand/Cluster_Plots.csv')  # structural and clusters indications for analysis from Kilian
+df_env_stnd_clust <- fread('rawData/iLand/Cluster_Plots.csv')  # structural and clusters indications for analysis from Kilian
 
 # Plot level vegetation data -----------
 # get stem density for juveniles and saplings: to check advanced vs delayed regeneration
@@ -102,8 +102,8 @@ df_vegetation_sub <- df_fin %>%
 length(unique(df_vegetation_sub$site))
 
 # List average field data as input for the landscape level simulation
-# "23_132" - "1_1"
-# "26_134" - "1_2"
+# "23_132" - "1_1" # 3 vertical classes
+# "26_134" - "1_2" # 3 vertical classes
 # "15_133" - "1_3"
 # "17_104" - "1_4"
 # "22_101" - "2_1"
@@ -126,13 +126,13 @@ df_sim_class <- df_sim %>%
   #   clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
   #   clim_cluster == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
   # ))  %>% 
-  #mutate(landscape_run = paste(env_stnd_clust, run_nr))  # yunique run per lanscape scenario
+  mutate(landscape_run = paste(env_stnd_clust, run_nr))  # yunique run per lanscape scenario
 
 str(df_sim_class)
 head(df_sim_class)
 
 
-# get delayed vs advanced regeneration indication ------------------------------
+# add delayed vs advanced regeneration indication ------------------------------
 # simulated 
 df_sim_class <- df_sim_class %>% 
   mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, env_stnd_clust, run_nr, sep = "_")) %>%  # yunique run per lanscape scenario
@@ -146,10 +146,14 @@ df_field_sub <- df_field %>%
   #mutate(clim_cluster = str_sub(landscape, 1, 1),  # add indication of the climatic cluster (1,2,3)
       #   str_cluster = str_sub(landscape, -1, -1))  # add indication of the strutural cluster (1,2,3,4,5)
 
-my_cluster_test = '1_2'
+# test stem density: difference between mature and saplings density! 
+# 
+my_cluster_test = '3_1'
 # check per one clutsre! 1_2
 simulated_test <- df_sim_class %>% 
-  dplyr::filter(env_stnd_clust == my_cluster_test)
+  dplyr::filter(env_stnd_clust == my_cluster_test) %>% 
+  dplyr::filter(clim_model == "ICHEC", clim_scenario == "HISTO", ext_seed == "noseed" &
+                  year == 1)
 
 df_field_test <- df_field_sub %>% 
   dplyr::filter(env_stnd_clust == my_cluster_test)
@@ -157,30 +161,30 @@ df_field_test <- df_field_sub %>%
 View(simulated_test)
 View(df_field_test)
 
-# get Landsscape indicators for all of locations:
+# get structural and climate clusters for all locations:
 df_indicators <- df_indicators %>% 
- # rename(site = cluster) %>% 
-  left_join(df_sites_clusters) %>%
- # mutate()
-  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%   # add indication of the strutural cluster (1,2,3,4,5)
-  mutate(clim_class = case_when(
-    clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
-    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-  ))  %>%
-mutate(
-  scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
-  scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
-  scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
-  scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
-) %>%
-  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
-  mutate(
-    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)#,
-    # cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
-  ) %>% 
-  mutate(composite_class = factor(composite_score)) %>% 
-  left_join(df_str_compos_clusters_full, by = c('site' = 'plot'))
+#  # rename(site = cluster) %>% 
+#   left_join(df_sites_clusters) %>%
+#  # mutate()
+#   mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) %>%   # add indication of the strutural cluster (1,2,3,4,5)
+#   mutate(clim_class = case_when(
+#     clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+#     clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+#     clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+#   ))  %>%
+# mutate(
+#   scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
+#   scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
+#   scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
+#   scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
+# ) %>%
+#   # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
+#   mutate(
+#     composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)#,
+#     # cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
+#   ) %>% 
+#   mutate(composite_class = factor(composite_score)) %>% 
+  left_join(df_env_stnd_clust, by = c('site' = 'plot'))
 
 
 
@@ -192,31 +196,31 @@ df_field_ind_sub <- df_indicators %>%
                 #clim_cluster_spei3, clim_class,
                 env_stnd_clust, env_cluster, stnd_cluster) %>% 
 #  rename(site = cluster) %>% 
-  right_join(df_sites_clusters) %>% 
-  mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) #%>%  # add indication of the strutural cluster (1,2,3,4,5)
+  right_join(df_sites_clusters) #%>% 
+  #mutate(clim_cluster_spei3 = factor(clim_cluster_spei3)) #%>%  # add indication of the strutural cluster (1,2,3,4,5)
  # rename(landscape = cluster)
 
 # chcek composite score: try to order variables ----
 
 # Standardize the variables
-df_field_ind_sub <- df_field_ind_sub %>%
-  mutate(
-    scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
-    scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
-    scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
-    scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
-  ) %>%
-  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
-  mutate(
-    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)#,
-   # cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
-  ) %>% 
-  mutate(composite_class = factor(composite_score)) %>% 
-  mutate(clim_class = case_when(
-    clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-    clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
-    clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-  ))  #%>% 
+# df_field_ind_sub <- df_field_ind_sub %>%
+#   mutate(
+#     scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
+#     scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
+#     scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
+#     scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
+#   ) %>%
+#   # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
+#   mutate(
+#     composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)#,
+#    # cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
+#   ) %>% 
+#   mutate(composite_class = factor(composite_score)) %>% 
+#   mutate(clim_class = case_when(
+#     clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
+#     clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
+#     clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
+#   ))  #%>% 
 
 
 
@@ -349,7 +353,7 @@ df_sim_indicators <-
   left_join(df_richness) %>% 
   left_join(df_IVI) %>%
   left_join(df_structure) %>%
-  mutate(landscape = substr(landscape_run, 1, 3))
+  mutate(env_stnd_clust = substr(landscape_run, 1, 3))
   
 # landscaepe 3_2 has only 'seed' scenario: no seed would lead to no tree regeneration
 # replace NA values by 0 
@@ -363,23 +367,23 @@ df_sim_indicators <- df_sim_indicators %>%
 
 # 
 # get a composite index to order the landscapes
-df_sim_indicators <- df_sim_indicators %>% 
-  mutate(
-    scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
-    scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
-    scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
-    scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
-  ) %>%
-  # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
-  mutate(
-    composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)) 
+# df_sim_indicators <- df_sim_indicators %>% 
+#   mutate(
+#     scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
+#     scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
+#     scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
+#     scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
+#   ) %>%
+#   # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
+#   mutate(
+#     composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)) 
 
 
 # add indication of advanced vs delayed vegetation: advanced >1000 juveniles, delayed < 50 stems/ha
 df_sim_indicators <- df_sim_indicators %>% 
-  left_join(df_delayed_advanced_sub, by = join_by(landscape))
+  left_join(df_delayed_advanced_sub, by = join_by(env_stnd_clust))
 
-# get stem density stats in year 30
+# get stem density stats in year 30: keeps seeds in, as it is more realistic scenario that no seeds at all
 df_sim_indicators %>% 
   dplyr::filter(ext_seed == 'seed') %>% 
   dplyr::filter(year == 30) %>% 
@@ -481,7 +485,7 @@ ggplot(df_summary, aes(x = year, y = median_density, color = ext_seed, fill = ex
 )
 
   
-  p_simulated_stem_dens <- 
+p_simulated_stem_dens <- 
    df_sim_indicators %>% 
     dplyr::filter(ext_seed == 'seed') %>%  # seelct only seeds scenario - more realistic than no seed
     ggplot(aes(x = year, y = stem_density, 
@@ -531,17 +535,17 @@ ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png',
        plot = p_simulated_stem_dens, width = 6.5, height = 3, dpi = 300, bg = 'white')
 
 ## Evaluate initial state : for all clusters   -------------------------
-# filter initial state: year == 0
+# filter initial state: year == 1
 df_sim_indicators0 <- df_sim_indicators %>% 
   ungroup() %>% 
-  dplyr::filter(year == 0 ) %>% #& clim_scenario == "HISTO" %>% 
-  dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
+  dplyr::filter(year == 1 ) %>% #& clim_scenario == "HISTO" %>% 
+  dplyr::select(env_stnd_clust ,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
   
 # variation at the end of simulation run
 df_sim_indicators_end <- df_sim_indicators %>% 
   ungroup() %>% 
   dplyr::filter(year %in% 25:30 ) %>% #& clim_scenario == "HISTO" %>% 
-  dplyr::select(landscape,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
+  dplyr::select(env_stnd_clust ,  rIVI, richness, stem_density, n_vertical, unique_sim_run, ext_seed ) #%>% 
 
 
 # Calculate median and IQR to merge simulated and field data -------------------
@@ -549,31 +553,44 @@ df_sim_indicators_end <- df_sim_indicators %>%
 # show stem density per str and clim clusters 
 # Calculate median and IQR for stem_density grouped by env_stnd_clust
 field_stem_density_summary <- df_indicators %>%
-  group_by(env_stnd_clust) %>%
+  left_join(df_delayed_advanced) %>% 
+  group_by(env_stnd_clust, env_cluster  ) %>%
   summarise(
     median_stem_density = median(stem_density, na.rm = TRUE),
     iqr_lower = quantile(stem_density, 0.25, na.rm = TRUE),
     iqr_upper = quantile(stem_density, 0.75, na.rm = TRUE)
   )
 
-# Create the bar plot with error bars
-ggplot(field_stem_density_summary, aes(x = env_stnd_clust, y = median_stem_density)) +
-  geom_bar(stat = "identity", fill = "grey", color = "grey") +
-  geom_errorbar(aes(ymin = iqr_lower, ymax = iqr_upper), width = 0.2) +
+# Fill in missing combinations of env_stnd_clust and adv_delayed
+#field_stem_density_summary <- field_stem_density_summary %>%
+ # complete(env_stnd_clust, env_cluster , fill = list(median_stem_density = 0, iqr_lower = 0, iqr_upper = 0))
+
+# Plot with fixed bar width and position dodge for equal spacing
+p_field <- ggplot(field_stem_density_summary, aes(x = env_stnd_clust, 
+                                       y = median_stem_density,
+                                       fill = factor(env_cluster))) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.6, color = "grey") +
+  geom_errorbar(aes(ymin = iqr_lower, ymax = iqr_upper), 
+                width = 0.2, 
+                position = position_dodge(width = 0.8)) +
   labs(
-    x = "Environmental Cluster",
-    y = "Stem Density (median ± IQR)",
-    title = "Median Stem Density by Environmental Cluster"
+    x = "Env Cluster",
+    y = "Stem Density",
+    title = "Field data"
   ) +
-  theme_minimal()
+  theme_classic2()
 
 
-# observed: ---------------------------------------------------------------
-simulated_stem_density_summary <- df_sim_indicators %>%
-  dplyr::filter(ext_seed  == 'noseed') %>% 
+# simulated: ---------------------------------------------------------------
+ simulated_stem_density_summary1 <- 
+  df_sim_indicators %>%
+  #right_join(df_env_stnd_clust) %>% 
+  group_by(env_stnd_clust) %>%
+  dplyr::filter(ext_seed  == 'seed') %>% 
   dplyr::filter(year %in% c(1)) %>% 
-  rename( env_stnd_clust = landscape ) %>% 
-  group_by(env_stnd_clust) %>%
+  mutate(env_cluster = substr(env_stnd_clust, 1, 1)) %>% 
+ # rename( env_stnd_clust = landscape ) %>% 
+  group_by(env_stnd_clust,env_cluster) %>%
   summarise(
     median_stem_density = median(stem_density, na.rm = TRUE),
     iqr_lower = quantile(stem_density, 0.25, na.rm = TRUE),
@@ -581,15 +598,50 @@ simulated_stem_density_summary <- df_sim_indicators %>%
   )
 
 # Create the bar plot with error bars
-ggplot(simulated_stem_density_summary, aes(x = env_stnd_clust, y = median_stem_density)) +
-  geom_bar(stat = "identity", fill = "grey", color = "grey") +
+p_simulated1 <- ggplot(simulated_stem_density_summary1, aes(x = env_stnd_clust, 
+                                           y = median_stem_density,
+                                           fill =factor(env_cluster))) +
+  geom_bar(stat = "identity", color = "grey") +
   geom_errorbar(aes(ymin = iqr_lower, ymax = iqr_upper), width = 0.2) +
   labs(
-    x = "Environmental Cluster",
-    y = "Stem Density (median ± IQR)",
-    title = "Median Stem Density by Environmental Cluster"
+    x = "Env Cluster",
+    y = "Stem Density",
+    title = "Simulated (year 1)"
   ) +
-  theme_minimal()
+  theme_classic2()
+
+
+simulated_stem_density_summary25_30 <- 
+  df_sim_indicators %>%
+  #right_join(df_env_stnd_clust) %>% 
+  group_by(env_stnd_clust) %>%
+  dplyr::filter(ext_seed  == 'seed') %>% 
+  dplyr::filter(year %in% c(25:30)) %>% 
+  mutate(env_cluster = substr(env_stnd_clust, 1, 1)) %>% 
+  # rename( env_stnd_clust = landscape ) %>% 
+  group_by(env_stnd_clust,env_cluster) %>%
+  summarise(
+    median_stem_density = median(stem_density, na.rm = TRUE),
+    iqr_lower = quantile(stem_density, 0.25, na.rm = TRUE),
+    iqr_upper = quantile(stem_density, 0.75, na.rm = TRUE)
+  )
+
+# Create the bar plot with error bars
+p_simulated25_30 <- ggplot(simulated_stem_density_summary25_30, aes(x = env_stnd_clust, 
+                                                           y = median_stem_density,
+                                                           fill =factor(env_cluster))) +
+  geom_bar(stat = "identity", color = "grey") +
+  geom_errorbar(aes(ymin = iqr_lower, ymax = iqr_upper), width = 0.2) +
+  labs(
+    x = "Env Cluster",
+    y = "Stem Density",
+    title = "Simulated (year 25-30)"
+  ) +
+  theme_classic2()
+
+ggarrange(p_field,p_simulated1, p_simulated25_30, ncol = 1, common.legend = T)
+
+
 
 
 
