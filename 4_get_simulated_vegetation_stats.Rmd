@@ -132,7 +132,7 @@ in Sapling table: counts_ha and count_small_ha are calculated from the n_represe
 # the regeneration
 
 | Column name       | Table          | Description                                                               |
-|----------------|----------------|----------------------------------------|
+|-------------------|----------------|---------------------------------------------------------------------------|
 | count_ha          | stand          | number of trees \> 4 per ha                                               |
 | basal_area_m2     | stand          | total basal area at breast height (m2)                                    |
 | height_avg_m      | stand          | average tree height (m)                                                   |
@@ -689,7 +689,7 @@ w_indic %>%
 Description of columns:
 
 | Column name            | Description                                                                    |
-|------------------------------------|------------------------------------|
+|------------------------|--------------------------------------------------------------------------------|
 | external_seed          | Wheather external seed was considered in the simulation                        |
 | cluster                | To which of the 12 clusters this line belongs                                  |
 | year                   | simulated year (0 is initial state, 30 final state)                            |
