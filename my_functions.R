@@ -17,28 +17,58 @@ my_theme_square <- function() {
 }
 
 # Create effect plot function with additional arguments to select columns from avg_data
-create_effect_plot <- function(data, 
-                               avg_data, 
-                               x_col = "tmp_z_lag1", 
-                               y_col = "sum_ips", 
-                               line_color = "blue", 
-                               x_title = "X-axis", 
-                               y_title = "Y-axis", my_title = '',
-                               x_annotate = 0, lab_annotate = "lab ann") {
+# SIMPLIFY PLOTTING TEST
+# Function to generate predictions and plots
+create_plot <- function(model, term, data, title, 
+                        x_label = term, y_label = y_lab, 
+                        line_color = "blue", fill_color = "blue", 
+                        scatter = TRUE, x_limit = NULL, scatter_y = "stem_regeneration") {
   
-  x_col <- ensym(x_col)
-  y_col <- ensym(y_col)
+  # Generate predictions
+  predicted <- ggpredict(model, terms = term)
   
-  p <- ggplot() +
-    geom_point(data = avg_data, aes(x = !!x_col, y = !!y_col), col = "gray60", alpha = 0.3) +
-    geom_line(data = data, aes(x = x, y = predicted), color = line_color) +
-    geom_ribbon(data = data, aes(x = x, ymin = conf.low, ymax = conf.high), alpha = 0.25, fill = line_color) +
-    labs(x = x_title,
-         title = my_title,
-         y = y_title) +
-    my_theme_square() + 
-    annotate("text", x = x_annotate, y = Inf, label = lab_annotate, hjust = 0.5, vjust = 1.5)
+  # Create the base plot with scatter points first if required
+  plot <- ggplot(predicted, aes(x = x, y = predicted)) +
+    # Add scatter points behind the line and ribbon
+    { if (scatter) geom_point(data = data, aes_string(x = term, y = scatter_y), 
+                              color = "grey80", alpha = 0.5, size = 0.5) } +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = fill_color) +
+    geom_line(color = line_color, size = 1) +
+    labs(title = title, x = x_label, y = y_label) +
+    theme_classic2() +
+    theme(text = element_text(size = 8),
+          panel.border = element_rect(color = "black", size = 0.7, fill = NA))
   
-  return(p)
+  # Set x-axis limits if provided
+  if (!is.null(x_limit)) {
+    plot <- plot + scale_x_continuous(limits = x_limit)
+  }
+  
+  return(plot)
 }
+# Function to create interaction plots with scatter points in the background
+create_interaction_plot <- function(model, terms, title, data, 
+                                    x_label = terms[1], y_label = y_lab) {
+  
+  # Generate predictions for the interaction
+  predicted_interaction <- ggpredict(model, terms = terms)
+  
+  # Create the plot with scatter points behind the line and ribbon
+  plot <- ggplot(predicted_interaction, aes(x = x, y = predicted)) +
+    # Scatter points in the background
+    geom_point(data = data, aes_string(x = terms[1], y = "stem_regeneration"), 
+               color = "grey80", alpha = 0.5, size = 0.5) +
+    # Line and ribbon in the foreground
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+    geom_line(aes(color = group), size = 1) +
+    # Labels and theme
+    labs(title = title, x = x_label, y = y_label, color = "Group", fill = "Group") +
+    theme_classic2() +
+    theme(text = element_text(size = 8),
+          legend.position = c(0, 1), legend.justification = c(0, 1),
+          panel.border = element_rect(color = "black", size = 0.7, fill = NA))
+  
+  return(plot)
+}
+
 
