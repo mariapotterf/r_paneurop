@@ -313,7 +313,7 @@ df_subplot_counts <- dat_counts %>%
   summarize(n_subplot = n_distinct(ID))
 
 # summarize the count of mature trees 
-df_counts_mature <- dat_counts %>%
+df_mature_dist_severity <- dat_counts %>%
    dplyr::select(-Species) %>%
   dplyr::filter(VegType == "Mature") %>% 
   distinct() %>% 
@@ -325,7 +325,11 @@ df_counts_mature <- dat_counts %>%
   right_join(df_subplot_counts, by = join_by(cluster)) %>% 
   mutate(mature_dist_severity = 1- mature_presence_nplots/n_subplot)
 
-hist(df_counts_mature$mature_dist_severity)
+hist(df_mature_dist_severity$mature_dist_severity)
+
+
+fwrite(df_mature_dist_severity, 'outData/disturb_severity_mature.csv')
+
 
 #calculate stem density - convert to stems/ha ----------------------------------
 
