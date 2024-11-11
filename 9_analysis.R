@@ -1148,7 +1148,7 @@ sum(is.na(df_stem_regeneration2))
 hist(df_stem_regeneration2$prcp, main="Histogram of Precipitation (prcp)", xlab="prcp")
 hist(df_stem_regeneration2$tmp, main="Histogram of Temperature (tmp)", xlab="tmp")
 
-# check corelation between predictors
+# check correlation between predictors
 library(corrplot)
 
 # Select the relevant predictors from your data frame
@@ -1161,6 +1161,16 @@ correlation_matrix <- cor(predictors, use = "complete.obs")
 
 # Display the correlation matrix
 print(correlation_matrix)
+
+# check correlations between disturbance severty from EU map and site-base (from presence/absence of mature trees)
+cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "spearman")
+cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "kendall") # better if many values lies in same tieghts
+
+
+ggplot(df_fin, aes(x = disturbance_severity, y = sum_stems_mature)) +
+  geom_point() +
+  geom_smooth(method = "loess", color = "blue") +
+  labs(x = "Disturbance Severity", y = "Sum of Mature Stems")
 
 # remove disturbence perc interaction, run with raw values, not a _c
 int_re_fin <- gam(stem_regeneration ~
@@ -1191,7 +1201,7 @@ int_re_fin_dist <- gam(stem_regeneration ~
                     s(clay_extract, k = 5) +
                     #s(av.nitro_c, k =5) +
                     ti(tmp, prcp, k = 5) +
-                    ti(disturbance_severity_c, distance_edge_c, k = 10) +
+                    ti(disturbance_severity, distance_edge, k = 10) +
                     #ti(disturbance_severity_c, prcp_c, k = 5) +
                     s(management_intensity,by = country_pooled, k = 4) + 
                     s(country_pooled, bs = "re") + 
@@ -1199,6 +1209,27 @@ int_re_fin_dist <- gam(stem_regeneration ~
                     s(clim_grid, bs = "re") 
                   ,
                   family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+# calculate severity from mature trees:
+int_re_fin_mature <- gam(stem_regeneration ~
+                         s(prcp, k = 15) + s(tmp, k = 15) + 
+                         # s(spei12_c, k = 4) + 
+                         s(distance_edge, k = 15) +
+                         #s(depth_extract_c, k = 4) +
+                         s(, k = 15) +
+                         s(clay_extract, k = 5) +
+                         #s(av.nitro_c, k =5) +
+                         ti(tmp, prcp, k = 5) +
+                         ti(disturbance_severity, distance_edge, k = 10) +
+                         #ti(disturbance_severity_c, prcp_c, k = 5) +
+                         s(management_intensity,by = country_pooled, k = 4) + 
+                         s(country_pooled, bs = "re") + 
+                         s(x,y) +
+                         s(clim_grid, bs = "re") 
+                       ,
+                       family = tw(), method = "REML", data = df_stem_regeneration2)
+
 
 
 int_re_fin_spei <- gam(stem_regeneration ~
