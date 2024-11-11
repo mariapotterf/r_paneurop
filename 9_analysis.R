@@ -80,6 +80,12 @@ load("outData/veg.Rdata")
 # final tables on site level
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
 
+# ad disturbance severity based on presence/absence of mature trees 
+df_mature_dist_severity <- fread('outData/disturb_severity_mature.csv')
+
+df_fin <- df_fin %>% 
+  left_join(df_mature_dist_severity, by = c('site' = 'cluster'))
+
 ### get coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
 xy <- st_read("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg")
@@ -837,7 +843,7 @@ vert_class_presence_absence_fin <- vert_class_presence_absence  %>%
 
 # visualize vertical classes by UpSEt plot
 
-# Upset plot -----------------------------------
+## Upset plot -----------------------------------
 
 library(UpSetR)
 library("ComplexUpset")
@@ -1021,8 +1027,8 @@ df_fin %>%
                 sum_stems_juvenile,
                 sum_stems_sapling, 
                 #sum_stems_mature,
-                adv_delayed,
-                adv_delayed_wider
+                adv_delayed
+               
   ) %>% 
   View()
 
@@ -1096,11 +1102,12 @@ predictor_vars_sub <- c(
    "clay_extract", 
   "depth_extract", 
     # site info
-  "av.nitro",
-  "richness",
-  'rIVI',
-  "sum_stems_mature",
-  "n_vertical")
+  #"av.nitro",
+  #"richness",
+  #'rIVI',
+  #"sum_stems_mature",
+  "mature_dist_severity",
+    "n_vertical")
 
 
 
@@ -1122,8 +1129,9 @@ df_stem_regeneration2 <- df_stem_regeneration2 %>%
     spei12_c = spei12 - mean(spei12, na.rm = TRUE),
     distance_edge_c = distance_edge - mean(distance_edge, na.rm = TRUE),
     disturbance_severity_c = disturbance_severity - mean(disturbance_severity, na.rm = TRUE),
+    mature_disturbance_severity_c = mature_dist_severity - mean(mature_dist_severity, na.rm = TRUE),
     clay_extract_c = clay_extract - mean(clay_extract, na.rm = TRUE),
-    av.nitro_c = av.nitro - mean(av.nitro, na.rm = TRUE),
+   # av.nitro_c = av.nitro - mean(av.nitro, na.rm = TRUE),
     depth_extract_c = depth_extract - mean(depth_extract, na.rm = TRUE),
     management_intensity_c = management_intensity - mean(management_intensity, na.rm = TRUE)
   )
@@ -1165,12 +1173,12 @@ print(correlation_matrix)
 # check correlations between disturbance severty from EU map and site-base (from presence/absence of mature trees)
 cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "spearman")
 cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "kendall") # better if many values lies in same tieghts
+cor(df_fin$disturbance_severity, df_fin$mature_dist_severity, method = "kendall") # better if many values lies in same tieghts
+plot(df_fin$disturbance_severity, df_fin$mature_dist_severity)
 
-
-ggplot(df_fin, aes(x = disturbance_severity, y = sum_stems_mature)) +
+ggplot(df_fin, aes(x = distance_edge, y = mature_dist_severity)) +
   geom_point() +
-  geom_smooth(method = "loess", color = "blue") +
-  labs(x = "Disturbance Severity", y = "Sum of Mature Stems")
+  geom_smooth(method = "loess", color = "blue")
 
 # remove disturbence perc interaction, run with raw values, not a _c
 int_re_fin <- gam(stem_regeneration ~
@@ -1194,7 +1202,7 @@ int_re_fin <- gam(stem_regeneration ~
 
 int_re_fin_dist <- gam(stem_regeneration ~
                     s(prcp, k = 15) + s(tmp, k = 15) + 
-                    # s(spei12_c, k = 4) + 
+                     s(spei12, k = 4) + 
                     s(distance_edge, k = 15) +
                     #s(depth_extract_c, k = 4) +
                     s(disturbance_severity, k = 15) +
@@ -1210,25 +1218,71 @@ int_re_fin_dist <- gam(stem_regeneration ~
                   ,
                   family = tw(), method = "REML", data = df_stem_regeneration2)
 
-
+AIC(int_re_fin_dist, int_re_fin_mature, int_re_fin_mature_c, int_re_fin_mature_low5)
 # calculate severity from mature trees:
 int_re_fin_mature <- gam(stem_regeneration ~
                          s(prcp, k = 15) + s(tmp, k = 15) + 
-                         # s(spei12_c, k = 4) + 
+                         s(spei12, k = 4) + 
                          s(distance_edge, k = 15) +
                          #s(depth_extract_c, k = 4) +
-                         s(, k = 15) +
-                         s(clay_extract, k = 5) +
+                         s(mature_dist_severity, k = 5) +
+                        s(clay_extract, k = 5) +
                          #s(av.nitro_c, k =5) +
                          ti(tmp, prcp, k = 5) +
-                         ti(disturbance_severity, distance_edge, k = 10) +
+                         ti(mature_dist_severity, distance_edge, k = 5) +
                          #ti(disturbance_severity_c, prcp_c, k = 5) +
-                         s(management_intensity,by = country_pooled, k = 4) + 
+                         s(management_intensity,by = country_pooled, k = 5) + 
                          s(country_pooled, bs = "re") + 
                          s(x,y) +
                          s(clim_grid, bs = "re") 
                        ,
                        family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+# calculate severity from mature trees: - low k
+int_re_fin_mature_low5 <- gam(stem_regeneration ~
+                           s(prcp, k = 5) + s(tmp, k = 5) + 
+                           s(spei12, k = 4) + 
+                           s(distance_edge, k = 5) +
+                           #s(depth_extract_c, k = 4) +
+                           s(mature_dist_severity, k = 5) +
+                           s(clay_extract, k = 5) +
+                           #s(av.nitro_c, k =5) +
+                           ti(tmp, prcp, k = 5) +
+                           ti(mature_dist_severity, distance_edge, k = 5) +
+                           #ti(disturbance_severity_c, prcp_c, k = 5) +
+                           s(management_intensity,by = country_pooled, k = 5) + 
+                           s(country_pooled, bs = "re") + 
+                           s(x,y) +
+                           s(clim_grid, bs = "re") 
+                         ,
+                         family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+summary(int_re_fin_mature_low5)
+# use centered values:
+# calculate severity from mature trees:
+int_re_fin_mature_c <- gam(stem_regeneration ~
+                           s(prcp_c, k = 15) + s(tmp_c, k = 15) + 
+                           # s(spei12_c, k = 4) + 
+                           s(distance_edge, k = 15) +
+                           #s(depth_extract_c, k = 4) +
+                           s(mature_disturbance_severity_c, k = 5) +
+                           # s(clay_extract, k = 5) +
+                           #s(av.nitro_c, k =5) +
+                           ti(tmp_c, prcp_c, k = 5) +
+                           ti(mature_disturbance_severity_c, distance_edge_c, k = 5) +
+                           #ti(disturbance_severity_c, prcp_c, k = 5) +
+                           s(management_intensity_c,by = country_pooled, k = 5) + 
+                           s(country_pooled, bs = "re") + 
+                           s(x,y) +
+                           s(clim_grid, bs = "re") 
+                         ,
+                         family = tw(), method = "REML", data = df_stem_regeneration2)
+
+AIC(int_re_fin_mature_c, int_re_fin_mature,int_re_fin_dist)
+
+# 
 
 
 
@@ -1262,34 +1316,34 @@ summary(int_re_dist_prcp_simpl4)
 
 table(df_fin$adv_delayed)
 
-df_pred_test <- ggpredict(int_re_fin_dist, 
-                          terms = c(#tmp,
-                            "distance_edge",
-                            "disturbance_severity[0.7,0.8,0.9]",
-                            #"disturbance_severity", 
-                            #        "prcp", 
+m <- int_re_fin_mature_low5
+vis.gam(m)
+plot(m, page = 1)
+
+df_pred_test <- ggpredict(m, #int_re_fin_dist, 
+                          terms = c(#"tmp_c", 'prcp_c' 
+                            'distance_edge',
+                            'mature_dist_severity[0.4,0.6]'#,
+                           
                                     
-                                    "country_pooled [AT]"),
-                          type = "fixed")
-
-df_pred_test <- ggpredict(int_re_fin_dist, 
-                          terms = c("management_intensity",
                             #tmp,
-                           # "distance_edge",
-                           # "disturbance_severity[0.7,0.8,0.9]",
+                            #"distance_edge",
+                            #"disturbance_severity[0.7,0.8,0.9]",
                             #"disturbance_severity", 
-                            #        "prcp", 
-                            
-                            "country_pooled [CH]"),
-                          type = "fixed")
-
-
+                            #        "prcp"
+                            ))
 
 ggplot(df_pred_test, aes(x = x, y = predicted )) +
-  geom_line(aes(color = group), size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) #+
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2)# +
+  facet_grid(.~group    )
 
-
+  ggplot(df_pred_test, aes(x = x, y = predicted )) +
+    geom_line(aes(color = group), linewidth = 1) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2)# +
+  facet_grid(.~group    )
+  
+  
 
 # store the best model for regeneration density
 fin.m.reg.density <- int_re_fin 
@@ -1360,7 +1414,7 @@ moran_test <- moran.test(model_residuals, listw)
 print(moran_test)
 
 
-# PLot  ---------------------------------------------------------------------------
+# Plot  ---------------------------------------------------------------------------
 y_lab = 'Stem density [#/ha]'
 
 summary(fin.m.reg.density)
