@@ -304,6 +304,28 @@ dat_iLand <- dat_counts %>%
 fwrite(dat_iLand, 'outData/sub_plots_counts_DBH.csv')
 
 
+# get disturbance severity from presence/absence of mature trees:
+# Remove 'Species' column and keep distinct rows
+
+# Count unique IDs per cluster
+df_subplot_counts <- dat_counts %>%
+  group_by(cluster) %>%
+  summarize(n_subplot = n_distinct(ID))
+
+# summarize the count of mature trees 
+df_counts_mature <- dat_counts %>%
+   dplyr::select(-Species) %>%
+  dplyr::filter(VegType == "Mature") %>% 
+  distinct() %>% 
+  group_by(ID, cluster) %>% 
+  summarize(count = sum(count),.groups = "drop") %>%  # Summarize count per group
+  mutate(mature_presence = if_else(count > 0, 1, 0)) %>% # Add column based on count
+  group_by(cluster) %>% 
+  summarize(mature_presence_nplots = sum(mature_presence), .groups = "drop") %>%  # Summarize count per group
+  right_join(df_subplot_counts, by = join_by(cluster)) %>% 
+  mutate(mature_dist_severity = 1- mature_presence_nplots/n_subplot)
+
+hist(df_counts_mature$mature_dist_severity)
 
 #calculate stem density - convert to stems/ha ----------------------------------
 
