@@ -44,6 +44,7 @@ dist_path          <- "rawData/disturb_data" # for year and severity
 country_names <- list( "austria","belgium", "czechia", "france", "germany", "italy", "luxembourg", "poland", 
                        "slovakia", "slovenia", "switzerland") #austria" 
 
+#country_names <- list("france") #austria" 
 
 
 
@@ -55,24 +56,34 @@ country_names <- list( "austria","belgium", "czechia", "france", "germany", "ita
 
 
 # Create a small example raster
-mat <- matrix(c(1, NA, 2, 2, 3,
-                NA, 2, 2, 2, 4,
-                2, 2, 2, 2, 2,
-                2, 2, 2, 1, 2,
-                2, 2, 2, 2, 2), byrow = T, nrow=5, ncol=5)
+mat <- matrix(c(3, NA, 2, NA, NA,
+                NA, NA, 1, NA, NA,
+                NA, NA, 1, 2, NA,
+                NA, NA, 2, 1, NA,
+                NA, NA, 2, 2, 2), byrow = T, nrow=5, ncol=5)
 example_raster <- rast(nrows=5, ncols=5, vals=mat, crs = 'EPSG:3035')
+plot(example_raster)
+
+# Step 2: Temporarily replace all NA values with 0 (or another placeholder)
+example_raster[is.na(example_raster)] <- 0
+
+plot(example_raster, main = "Raster with NA as 0")
 
 # Reclassify the raster - change values '2' to NA
-reclass_matrix <- matrix(c(1,2, NA), ncol=3, byrow=TRUE)  #matrix(c(1, NA), ncol=2, byrow=TRUE)
+#reclass_matrix <- matrix(c(0.8,2, NA), ncol=3, byrow=TRUE)  #matrix(c(1, NA), ncol=2, byrow=TRUE)
+reclass_matrix <- matrix(c(0.8, 2, NA, 
+                           3, 3, 3,     # Keep value 3 as-is
+                           0, 0, 0),    # Keep placeholder 0 as-is
+                         ncol = 3, byrow = TRUE)
 reclassified_raster <- classify(example_raster, reclass_matrix)
-
+plot(reclassified_raster)
 # Assuming reclassified_raster is your raster
 # Create a data frame with the coordinates of the point
-point_df <- data.frame(x = 150, y =-80)
+point_df <- data.frame(x = 75, y =0)
 
 # Create a SpatVector from the data frame
 point_vector <- vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
-
+plot(point_vector, add = T)
 
 # Calculate the distance to the nearest NA
 distance_to_edge <- distance(reclassified_raster) # , point_vector
@@ -80,7 +91,9 @@ distance_to_edge <- distance(reclassified_raster) # , point_vector
 
 # Plotting to visualize the results
 plot(example_raster, main="example_raster")
+plot(point_vector, main="", add = T)
 plot(reclassified_raster, main="Reclassified Raster")
+plot(point_vector, main="", add = T)
 plot(distance_to_edge, main="")
 plot(point_vector, main="", add = T)
 
@@ -96,7 +109,7 @@ plot(point_vector, main="", add = T)
 
 
 # distance to edge: test for single country -----------------------------------------------------------
-country_name = 'luxembourg'
+country_name = 'france'
 
 print(country_name)
 
@@ -104,32 +117,46 @@ print(country_name)
 country = vect(paste0('outData/dat_', country_name, '.gpkg'))
 country_proj <- project(country, "EPSG:3035")
 
+# select only one point per plot (as I am aggregation information afterwards anyway)
+country_plot <- terra::aggregate(country_proj, by = "cluster", fun = "first")
+
 # disturbance year
-disturb_name = paste0('disturbance_year_1986-2020', country_name, '.tif')
+disturb_name = paste0('disturbance_year_1986-2020_', country_name, '.tif')
 disturbance  = rast(paste(dist_path, country_name, disturb_name, sep = '/'))
 
 # read raster data
 desired_crs <- crs(disturbance)
 
 # Create a SpatVector from the data frame
-point_vector <- country_proj[1,]# vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
+#point_vector <- country_plot[15,]# vect(point_df, geom = c("x", "y"), crs = crs(reclassified_raster))
+point_vector <- country_plot[country_plot$cluster == "24_144", ]
+crs(point_vector) <- desired_crs
 
-
-# get buffer
+# get buffer: lower to 1 km diostance
 buff <- buffer(point_vector, 1500)
+crs(buff) <- desired_crs
 
 # crop data and then mask them to have a circle
 disturbance_crop <- crop(disturbance, buff)
 disturbance_mask <- mask(disturbance_crop, buff)
 
 plot(disturbance_mask)
+plot(point_vector, main="", add = T)
 
 # Reclassify the raster - change values '2' to NA
-reclass_matrix <- matrix(c(1985, 2017.1, 1,
-                           2017.5, 2021, NA), ncol=3, byrow=TRUE)
+
+# set NA to values (to handle the empty pixels)
+disturbance_mask[is.na(disturbance_mask)] <- 0
+
+reclass_matrix <- matrix(c(0,0,0,
+                           1985, 2017.1, 1,
+                           2017.5, 2021, NA), 
+                         ncol=3, 
+                         byrow=TRUE)
 reclassified_raster <- classify(disturbance_mask, reclass_matrix)
 
 plot(reclassified_raster)
+plot(point_vector, main="", add = T)
 
 # Calculate the distance to the nearest NA
 distance_to_na <- distance(reclassified_raster)
@@ -137,11 +164,13 @@ distance_to_na <- distance(reclassified_raster)
 # Plotting to visualize the results
 plot(reclassified_raster, main="Reclassified Raster")
 plot(distance_to_na, main="Distance to Nearest NA")
+plot(point_vector, main="", add = T)
 
 # Measure the distance from the point to the nearest NA
 point_distance <- terra::extract(distance_to_na, point_vector)
 (point_distance)
 plot(distance_to_na, main="Distance to Nearest NA")
+plot(disturbance_mask)
 plot(point_vector, main="", add = T)
 
 
@@ -150,23 +179,35 @@ plot(point_vector, main="", add = T)
 
 # Make a function distance ti edge -------------------------
 process_point <- function(point, disturbance, buffer_dist) {
+  # read raster data
+  desired_crs <- crs(disturbance)
+  crs(point) <- desired_crs
+  
   # Create buffer around the point
   buff <- buffer(point, buffer_dist)
+  crs(buff) <- desired_crs
   
-  # Crop and mask the disturbance raster
+    # Crop and mask the disturbance raster
   disturbance_crop <- crop(disturbance, buff)
   disturbance_mask <- mask(disturbance_crop, buff)
   
+  # set NA to values (to handle the empty pixels)
+  disturbance_mask[is.na(disturbance_mask)] <- 0
+  
+
   # Reclassify the raster
-  reclass_matrix <- matrix(c(1985, 2017.1, 1,
-                             2017.5, 2021, NA), ncol=3, byrow=TRUE)
+  reclass_matrix <- matrix(c(0,0,0,
+                             1985, 2017.1, 1,
+                             2017.5, 2021, NA), 
+                           ncol=3, 
+                           byrow=TRUE)
   reclassified_raster <- classify(disturbance_mask, reclass_matrix)
   
   # Calculate the distance to the nearest NA
-  distance_to_na <- distance(reclassified_raster)
+  distance_to_value <- distance(reclassified_raster)
   
   # Extract the distance for the point
-  point_distance <- terra::extract(distance_to_na, point)
+  point_distance <- terra::extract(distance_to_value, point)
   
   return(data.frame(ID = point$ID, distance = point_distance))
 }
@@ -180,6 +221,10 @@ extract_distance_to_edge <- function(country_name, buffer_dist=buffer_dist) {
   # Read field data
   country <- vect(paste0('outData/dat_', country_name, '.gpkg'))
   country_proj <- project(country, "EPSG:3035")
+  
+  # Aggregate points by cluster
+  #country_plot <- terra::aggregate(country_proj, by = "cluster", fun = "first")
+  
   
   # Read disturbance raster data
   disturb_name <- paste0('disturbance_year_1986-2020_', country_name, '.tif')
@@ -202,7 +247,7 @@ extract_distance_to_edge <- function(country_name, buffer_dist=buffer_dist) {
 }
 
 # run or all countries
-
+#country_names =
 all_results <- lapply(country_names, function(cn) {
   extract_distance_to_edge(cn, buffer_dist)
 })
@@ -360,10 +405,10 @@ load("outData/plots_env.Rdata")
 
   #11_11_101
 # export final table --------------------------------------------------------------------------
-save(#disturbance_ls,          # disturbance data, elevation 
-     disturbance_df,
-     final_results_distance,  # distance to edge
-     file="outData/plots_env.Rdata")
+#save(#disturbance_ls,          # disturbance data, elevation 
+#     disturbance_df,
+#     final_results_distance,  # distance to edge
+#     file="outData/plots_env.Rdata")
 
 
 
