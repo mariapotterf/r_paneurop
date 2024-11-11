@@ -366,6 +366,13 @@ ggsave(filename = 'outFigs/Fig1.png', plot = p.clim.map, width = 7,
 
 
 
+p.clim.map2 <- ggarrange(p.map.temp, p.map.prec, ncol = 2)
+p.clim.map2
+ggsave(filename = 'outFigs/Fig1_tmp_prcp.png', plot = p.clim.map2, width = 7, 
+       height = 2, dpi = 300, bg = 'white')
+
+
+
 
 # Merge predictors with vegetation data ---------------------------------------------------
 # select the dominant species per cluster
@@ -402,8 +409,8 @@ df_plot_full <- df_plot_veg %>%
   dplyr::rename(dominant_species = Species, 
                 stem_density     = sum_stems,
                 distance_edge    = distance,
-                n_vertical       = n_layers) %>% 
-  left_join(dat_manag_intensity_cl, by = join_by(cluster, management_intensity))# %>% 
+                n_vertical       = n_layers) #%>% 
+ # left_join(dat_manag_intensity_cl, by = join_by(cluster, management_intensity))# %>% 
   
 # set up proper structure (df) fr analysis  and claim characters as factors
 df_fin <- as.data.frame(df_plot_full) %>% 
@@ -545,87 +552,6 @@ ggplot(data = df_fin, aes(x = tmp,
 # correct!
 
 fwrite( df_fin, 'outData/indicators_for_cluster_analysis.csv')
-
-
-#### Structural cluster analysis - not needed now!--------------------------------------------------
-# Subset the data
-# "dominant_species", 
-data_subset_str  <- df_fin[, c("dominant_species", "rIVI", "richness", "management_intensity", 
-                               "stem_density", "n_vertical", "distance_edge", "disturbance_severity",
-                               "clim_cluster")]
-
-# Convert dominant_species to factor
-data_subset_str$dominant_species <- as.factor(data_subset_str$dominant_species)
-
-# Normalize the quantitative variables for clustering
-data_normalized <- data_subset_str %>%
-  mutate(across(c(rIVI, richness, management_intensity, stem_density, n_vertical, distance_edge, disturbance_severity), scale)) %>% 
-  as.data.frame()
-
-# Dummy code the categorical variable
-data_dummied <- model.matrix(~dominant_species - 1, data = data_normalized)
-data_dummied <- as.data.frame(data_dummied)
-# Combine the dummy coded categorical variable with the normalized quantitative variables
-data_for_clustering <- cbind(data_dummied, data_normalized[, -1])
-
-# avoid dummy variables, hard to read
-# split table in 3 clusters to run separately structurral cluster analysis:
-df1 <- data_normalized[, -1] %>%  dplyr::filter(clim_cluster == 1)
-df2 <- data_normalized[, -1] %>%  dplyr::filter(clim_cluster == 2)
-df3 <- data_normalized[, -1] %>%  dplyr::filter(clim_cluster == 3)
-
-# remove last columns so they are not part of teh PCA aalysis
-df1 <- df1 %>% dplyr::select(-clim_cluster)
-df2 <- df2 %>% dplyr::select(-clim_cluster)
-df3 <- df3 %>% dplyr::select(-clim_cluster)
-
-
-
-
-# Perform clustering using k-means (you can choose other methods like PAM if desired)
-set.seed(123) # Setting seed for reproducibility
-kmeans_result1 <- kmeans(df1, centers = 4, nstart = 25) # Adjust centers as needed
-kmeans_result2 <- kmeans(df2, centers = 5, nstart = 25) # Adjust centers as needed
-kmeans_result3 <- kmeans(df3, centers = 3, nstart = 25) # Adjust centers as needed
-
-# Add cluster assignments to the original data
-df_fin$clim_cluster <- kmeans_result$cluster
-
-
-# Perform PCA for visualization - use Pc1 and Pc1
-pca_result_str1 <- prcomp(df1)#prcomp(data_for_clustering)
-pca_result_str2 <- prcomp(df2)#prcomp(data_for_clustering)
-pca_result_str3 <- prcomp(df3)#prcomp(data_for_clustering)
-
-# plot PCA results with the most important variables: 
-#biplot(pca_result_str1, main = "PCA Biplot")
-
-
-
-p1 <- ggbiplot(pca_result_str1,varname.color = "red", circle = TRUE) + ggtitle('1 = cold')
-p2 <- ggbiplot(pca_result_str2,varname.color = "red", circle = TRUE) + ggtitle('2 = hot')
-p3 <- ggbiplot(pca_result_str3,varname.color = "red", circle = TRUE) + ggtitle('3 = med')
-#ggscreeplot(pca_result_str3)
-
-ggarrange(p1, p2, p3, nrow = 3, ncol = 1)
-p1
-p2
-p3
-
-
-
-# Add cluster assignments to the original data
-df1$str_cluster <- kmeans_result1$cluster
-df2$str_cluster <- kmeans_result2$cluster
-df3$str_cluster <- kmeans_result3$cluster
-
-#df <- rbind(df1, df2, df3)
-
-# add structural cluster indicators to df_fin
-#df_fin2 <- df_fin %>% 
-#  left_join(df, by = join_by(rIVI, richness, management_intensity, stem_density, n_vertical, distance_edge,
-#                             disturbance_severity))
-# structural cluster is not needed for now, potentially to update later
 
 
 
