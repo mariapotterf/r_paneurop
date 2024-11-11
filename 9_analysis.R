@@ -331,7 +331,9 @@ species_colors <- c(
   "potr" = "#1A9850",
   "abal" = "#006837"
 )
-
+# colors for map:
+#'#B0B0B0' # forest?
+#'#F7F7F7' # background?
 
 # Order the species based on their share
 top_species_layer$Species <- reorder(top_species_layer$Species, 
