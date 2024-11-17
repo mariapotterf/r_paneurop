@@ -55,7 +55,7 @@ library(RColorBrewer)
 
 source('my_functions.R')
 
-# Set a global theme -------------------------------------------------------------------
+## Set a global theme -------------------------------------------------------------------
 
 theme_set(
   theme_classic() + 
@@ -129,14 +129,7 @@ unique_regions_per_country <- df_fin %>%
 
 # categorize the clim clusters
 df_fin <- df_fin %>% 
-  mutate(clim_class = case_when(
-    clim_cluster_spei3 == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-    clim_cluster_spei3 == 2 ~ "hot-dry-sand",  # Cluster 2: hot, dry, sandy (more sand, less clay, more av.nitro than cluster 3)
-    clim_cluster_spei3 == 3 ~ "hot-dry-clay"    # Cluster 3: hot, dry, more clay
-  )) %>% 
-  mutate( clim_cluster_spei3 = as.factor(clim_cluster_spei3),
-          clim_class = as.factor(clim_class)) %>% 
-  mutate(stem_regeneration = sum_stems_juvenile + sum_stems_sapling)
+   mutate(stem_regeneration = sum_stems_juvenile + sum_stems_sapling)
 
 
 # export as xy coordinates climate cluster categorized 
@@ -149,8 +142,8 @@ print(df_fin_clim_clust_xy)
 #st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
 
 # get only a ataframe of teh climate clusters and sites for easy merging to detiailed veg data
-clim_cluster_indicator <- df_fin %>% 
-  dplyr::select(site, clim_class)
+#clim_cluster_indicator <- df_fin %>% 
+#  dplyr::select(site, clim_class)
 
 #fwrite(df_fin, 'outTable/df_fin.csv')
 
@@ -993,17 +986,9 @@ df_fin <- df_fin %>%
          country_pooled  = factor(country_pooled),
          region          = factor(region))
 
-
-
-df_fin <- df_fin %>% 
-  mutate(
-    tmp_c = tmp - mean(tmp, na.rm = TRUE),  # Centering temperature
-    prcp_c = prcp - mean(prcp, na.rm = TRUE) # Centering precipitation
-  )
-
 # account for climatic variables - aggregated on 9 km resolution:
 df_fin <- df_fin %>%
-  mutate(clim_grid = factor(paste(tmp, prcp, sep = "_")))  # Create a unique identifier for temp/precip combinations
+  mutate(clim_grid = factor(paste(round(tmp,3), round(prcp,3), sep = "_")))  # Create a unique identifier for temp/precip combinations
 
 
 
@@ -1014,10 +999,10 @@ df_fin <- na.omit(df_fin)
 df_fin <- df_fin %>% 
   mutate(adv_delayed = factor(ifelse(stem_regeneration <= 50, "Delayed", 
                                      ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
-                              levels = c("Delayed", "Other", "Advanced"))) %>%  
-  # create binary classes for advanced vs delayed
-  mutate(delayed = ifelse(stem_regeneration <= 50, 1, 0),
-         advanced = ifelse(sum_stems_juvenile >=  1000, 1, 0))
+                               levels = c("Delayed", "Other", "Advanced")))# %>%  
+  # # create binary classes for advanced vs delayed
+  # mutate(delayed = ifelse(stem_regeneration <= 50, 1, 0),
+  #        advanced = ifelse(sum_stems_juvenile >=  1000, 1, 0))
 
 # check my categories?
 df_fin %>% 
@@ -1096,28 +1081,29 @@ predictor_vars_sub <- c(
   "spei12",
   "tmp", 
   "prcp", 
-    "management_intensity",
+  #  "management_intensity",
    "distance_edge", 
-  "disturbance_severity",
+  "disturbance_severity", 
+  "mature_dist_severity",
    "clay_extract", 
   "depth_extract", 
     # site info
-  #"av.nitro",
+  "av.nitro",
   #"richness",
   #'rIVI',
   #"sum_stems_mature",
-  "mature_dist_severity",
+ 
     "n_vertical")
 
 
 
-## Models: prepare fin tables for individual models  ---------------------------------------------------------------------------------
+## Models: simplify table just for stem_regeneration  ---------------------------------------------------------------------------------
 # test drivers: simplify the analysis:
 # Subset the data
 
 df_stem_regeneration2 <- df_fin %>% 
   dplyr::select(all_of(c("stem_regeneration", predictor_vars_sub,
-                         "country_pooled", "clim_grid", "clim_class", "x", "y")))
+                         "country_pooled", "clim_grid",  "x", "y")))
 
 
 # Centering the variables in your data frame
@@ -1129,19 +1115,14 @@ df_stem_regeneration2 <- df_stem_regeneration2 %>%
     spei12_c = spei12 - mean(spei12, na.rm = TRUE),
     distance_edge_c = distance_edge - mean(distance_edge, na.rm = TRUE),
     disturbance_severity_c = disturbance_severity - mean(disturbance_severity, na.rm = TRUE),
-    mature_disturbance_severity_c = mature_dist_severity - mean(mature_dist_severity, na.rm = TRUE),
+    mature_dist_severity_c = mature_dist_severity - mean(mature_dist_severity, na.rm = TRUE),
     clay_extract_c = clay_extract - mean(clay_extract, na.rm = TRUE),
    # av.nitro_c = av.nitro - mean(av.nitro, na.rm = TRUE),
-    depth_extract_c = depth_extract - mean(depth_extract, na.rm = TRUE),
-    management_intensity_c = management_intensity - mean(management_intensity, na.rm = TRUE)
+    depth_extract_c = depth_extract - mean(depth_extract, na.rm = TRUE)#,
+    #management_intensity_c = management_intensity - mean(management_intensity, na.rm = TRUE)
   )
 
 summary(df_stem_regeneration2)
-
-## Drivers: ---------------------------------------------------------------------
-
-
-
 
 ## Drivers: regeneration density pooled ---------------------------------------------
 
@@ -1176,9 +1157,72 @@ cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "kendall") # 
 cor(df_fin$disturbance_severity, df_fin$mature_dist_severity, method = "kendall") # better if many values lies in same tieghts
 plot(df_fin$disturbance_severity, df_fin$mature_dist_severity)
 
-ggplot(df_fin, aes(x = distance_edge, y = mature_dist_severity)) +
+ggplot(df_stem_regeneration2, aes(x = mature_dist_severity, y = stem_regeneration     )) +
   geom_point() +
   geom_smooth(method = "loess", color = "blue")
+
+
+# get stats: distnace to edge and severity typesper country
+ggplot(df_stem_regeneration2, aes(x = country_pooled , y = distance_edge     )) +
+  geom_boxplot()
+  
+# get stats: distnace to edge and severity typesper country
+ggplot(df_stem_regeneration2, aes(x = country_pooled , y = disturbance_severity     )) +
+  geom_boxplot()
+
+# get stats: distnace to edge and severity typesper country
+ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity     )) +
+  geom_boxplot()
+
+
+# quick test 11/12/2024 -------------
+# remove disturbence perc interaction, run with raw values, not a _c
+m_simple <- gam(stem_regeneration ~
+                    s(prcp, k = 5) + s(tmp, k = 5) + 
+                     s(spei12, k = 5) + 
+                    s(distance_edge, k = 5) +
+                    s(depth_extract, k = 4) +
+                    s(disturbance_severity, k =5) +
+                  s(mature_dist_severity, k = 5) +
+                    s(clay_extract, k = 5) +
+                    #s(av.nitro, k =5) +
+                    #ti(tmp, prcp, k = 5) +
+                    #ti(disturbance_severity_c, distance_edge_c, k = 10) +
+                    #ti(disturbance_severity_c, prcp_c, k = 5) +
+                    #s(management_intensity,by = country_pooled, k = 4) + 
+                    s(country_pooled, bs = "re")# + 
+                    #s(x,y) +
+                    #s(clim_grid, bs = "re") 
+                  ,
+                  family = tw(), method = "REML", data = df_stem_regeneration2)
+
+m_int <- gam(stem_regeneration ~
+               s(prcp, k = 5) + s(tmp, k = 5) + 
+               s(spei12, k = 5) + 
+               s(distance_edge, k = 5) +
+               s(depth_extract, k = 4) +
+               s(disturbance_severity, k =5) +
+               s(mature_dist_severity, k = 5) +
+               s(clay_extract, k = 5) +
+               #s(av.nitro, k =5) +
+               ti(tmp, prcp, k = 5) +
+               ti(disturbance_severity, distance_edge, k = 10) +
+               #ti(disturbance_severity_c, prcp_c, k = 5) +
+               #s(management_intensity,by = country_pooled, k = 4) + 
+               s(country_pooled, bs = "re") + 
+             s(x,y) +
+             s(clim_grid, bs = "re") 
+             ,
+             family = tw(), method = "REML", data = df_stem_regeneration2)
+
+plot(m_int, page = 1)
+vis.gam(m_int)
+k.check(m_int)
+gam.check(m_int)
+
+
+# old ---------------
+
 
 # remove disturbence perc interaction, run with raw values, not a _c
 int_re_fin <- gam(stem_regeneration ~
