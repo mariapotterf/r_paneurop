@@ -53,23 +53,17 @@ df_stems_saplings <- stem_dens_ha_cluster_sum %>%
   group_by(cluster) %>% 
   summarise(sum_stems_sapling = sum(total_stems))# %>% 
 
-df_stems_mature <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType == 'Mature') %>% 
-  group_by(cluster) %>% 
-  summarise(sum_stems_mature = sum(total_stems))# %>% 
-
 df_stems_juveniles <- stem_dens_ha_cluster_sum %>% 
   filter(VegType == 'Juveniles') %>%  # > 2m heigh
   group_by(cluster) %>% 
   summarise(sum_stems_juvenile = sum(total_stems))# %>% 
 
 
+df_stems_mature <- stem_dens_ha_cluster_sum %>% 
+  filter(VegType == 'Mature') %>% 
+  group_by(cluster) %>% 
+  summarise(sum_stems_mature = sum(total_stems))# %>% 
 
-# get saplings and juveniles
-df_stems_sapl_juveniles <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType != 'Mature') %>% 
-  group_by(cluster, management_intensity) %>% 
-  summarise(sum_stem_sapl_juven = sum(total_stems))# %>% 
 
 
 # aggregate by cluster: sum up teh species, by height category
@@ -361,7 +355,7 @@ p.map.prec <- clim_overview %>%
 windows(7,2)
 p.clim.map <- ggarrange(p.map.temp, p.map.prec,p.map.spei, ncol = 3)
 p.clim.map
-ggsave(filename = 'outFigs/Fig1.png', plot = p.clim.map, width = 7, 
+ggsave(filename = 'outFigs/Fig1_all_clim.png', plot = p.clim.map, width = 7, 
        height = 2, dpi = 300, bg = 'white')
 
 
@@ -398,19 +392,21 @@ anyNA(df_plot_veg)
 
 # plot data share with predictors:
 # rename not necessary predictors for climate clustering, rename veg variables
-df_plot_full <- df_plot_veg %>% 
+df_plot_full <- 
+  df_plot_veg %>% 
   left_join(df_predictors_plot, by = join_by(cluster)) %>% 
   ungroup() %>% 
   dplyr::select(-c(disturbance_year, 
                    disturbance_agent,
-                   silt_extract, #country,
-                   elevation,
-                   slope, aspect)) %>% 
+                   silt_extract #, #country,
+                   #elevation,
+                  # slope, aspect
+                  )) %>% 
   dplyr::rename(dominant_species = Species, 
                 stem_density     = sum_stems,
                 distance_edge    = distance,
-                n_vertical       = n_layers) #%>% 
- # left_join(dat_manag_intensity_cl, by = join_by(cluster, management_intensity))# %>% 
+                n_vertical       = n_layers) %>% 
+  left_join(dat_manag_intensity_cl)# %>% , by = join_by(cluster, management_intensity
   
 # set up proper structure (df) fr analysis  and claim characters as factors
 df_fin <- as.data.frame(df_plot_full) %>% 
