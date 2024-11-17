@@ -211,34 +211,6 @@ species_dominance_rIVI
 
 ## help tables: seral species: --------------
 
-# identify seral stages and whether the species are coniferous or deciduous
-df_seral_species <- data.frame(
-  Species = c("abal", "lade", "piab", "pist", "pisy", "psme", "taba", "acca", "acpl", "acps", "aehi", "aial", "algl",
-              "alin", "alvi", "besp", "cabe", "casa", "fasy", "frex", "fror", "ilaq", "juni", "jure", "osca", "otsp",
-              "posp", "potr", "prav", "quro", "qusp", "rops", "saca", "sasp", "soar", "soau", "soto", "tisp", "ulsp"),
-  latinn = c("Abies alba", "Larix decidua", "Picea abies", "Pinus strobus", "Pinus sylvestris", "Pseudotsuga menziesii",
-             "Taxus baccata", "Acer campestre", "Acer platanoides", "Acer pseudoplatanus", "Aesculus hippocastanum",
-             "Ailanthus altissima", "Alnus glutinosa", "Alnus incarna", "Alnus viridis", "Betula spp.", "Carpinus betulus",
-             "Castanea sativa", "Fagus sylvatica", "Fraxinus excelsior", "Fraxinus ornus", "Ilex aquifolium", "Juglans nigra",
-             "Juglans regia", "Ostrya carpinifolia", "Other species", "Populus spp.", "Populus tremula", "Prunus avium",
-             "Quercus robur/petraea", "Quercus spp.", "Robinia pseudoacacia", "Salix caprea", "Salix spp.", "Sorbus aria",
-             "Sorbus aucuparia", "Sorbus torminalis", "Tilia spp.", "Ulmus spp."),
-  seral_type = c("Late seral", "Early seral", "Late seral", "Late seral", "Early seral", "Late seral", 
-                 "Late seral", "Late seral", "Late seral", "Late seral", "Late seral", "Pioneer", "Pioneer",
-                 "Pioneer", "Pioneer", "Pioneer", "Late seral", "Late seral", "Late seral", "Pioneer", "Early seral",
-                 "Late seral", "Early seral", "Early seral", "Late seral", "Other", "Pioneer", "Pioneer", 
-                 "Early seral", "Late seral", "Late seral", "Pioneer", "Pioneer", "Pioneer", "Early seral", 
-                 "Early seral", "Early seral", "Late seral", "Late seral"),
-  type = c("Coniferous", "Coniferous", "Coniferous", "Coniferous", "Coniferous", "Coniferous", "Coniferous", "Deciduous",
-           "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous",
-           "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous",
-           "Deciduous", "Other", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous",
-           "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous", "Deciduous")
-)
-
-# Display the dataframe
-df_seral_species
-
 df_stem_sp_sum <- stem_dens_species_long_cluster %>% 
   group_by(cluster, Species) %>% 
   summarise(sum_stem_density = sum(stem_density, na.rm = t)) %>% 
@@ -736,8 +708,8 @@ stem_dens_species_long_cluster %>%
 top_species_per_clim_class <- species_composition %>%
   #group_by(clim_class) %>%
   arrange(desc(share)) %>%  # Sort species by their share within each climate class
-  dplyr::filter(share > 2) %>%  # select species with share > 5%
-  left_join(df_seral_species, by = join_by(Species))  #%>% 
+  dplyr::filter(share > 2) #%>%  # select species with share > 5%
+  #left_join(df_seral_species, by = join_by(Species))  #%>% 
 
 # Ensure species are arranged by seral type and within each climate class
 top_species_per_clim_class <- top_species_per_clim_class %>%
