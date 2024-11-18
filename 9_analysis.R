@@ -62,11 +62,11 @@ theme_set(
     theme(
       legend.position = 'bottom',
       text = element_text(size = 4),         # Set all text to size 8
-      axis.text = element_text(size = 8),    # Axis tick labels
-      axis.title = element_text(size = 8),   # Axis titles
-      strip.text = element_text(size = 8),   # Facet labels
-      legend.text = element_text(size = 8),  # Legend text
-      plot.title = element_text(size = 8)    # Plot title
+      axis.text = element_text(size = 7),    # Axis tick labels
+      axis.title = element_text(size = 7),   # Axis titles
+      strip.text = element_text(size = 7),   # Facet labels
+      legend.text = element_text(size =7),  # Legend text
+      plot.title = element_text(size = 7)    # Plot title
     )
 )
 
@@ -278,12 +278,6 @@ setdiff(top_species_layer_vect, top_species_overall_vect )
 
 
 
-
-
-
-
-
-
 # Make a barplot - use previous colors and color schemes!!
 
 # Generate custom color palette based on the number of unique species
@@ -323,7 +317,7 @@ p_species_vert_layer <-
   theme_classic() +  # Use a minimal theme for a clean look
   #coord_flip() + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate the y-axis text (Species)
-        panel.border = element_rect(color = "black", fill = NA, size = 1),  # Black border around facets
+        panel.border = element_rect(color = "black", fill = NA, linewidth = 1),  # Black border around facets
         strip.background = element_rect(color = "black", linewidth = 1),  # Black border around facet labels
         panel.grid.major = element_line(color = "grey", linetype = "dotted"),  # Add grey dashed major grid lines
         panel.grid.minor = element_blank(),  # Remove minor grid lines
@@ -646,8 +640,8 @@ ggsave(filename = 'outFigs/p_stem_dens_composition_stem_dens_shaded.png',
 # export plot together with vertical layers
 p_stem_dens_composition_stem_dens_sp <- ggarrange(p_stem_density_species, 
                                                   p_bar_IRQ_color_sp ,
-                                                  align = 'hv', 
-                                                  axis = "tb",
+                                                  #align = 'hv', 
+                                                  #axis = "tb",
                                                   labels = c("[a]", "[b]"), font.label = list(size = 8, face = "plain") )
 
 p_stem_dens_composition_stem_dens_sp
@@ -916,26 +910,7 @@ stem_dens_species_long_cluster %>%
  
 
 
-# Use different gradient depepnding fof teh seral stage:  ---------------------------
-
-# Find the top 5 species per climate class based on share
-top_species_per_clim_class <- species_composition %>%
-  #group_by(clim_class) %>%
-  arrange(desc(share)) %>%  # Sort species by their share within each climate class
-  dplyr::filter(share > 2) #%>%  # select species with share > 5%
-  #left_join(df_seral_species, by = join_by(Species))  #%>% 
-
-# Ensure species are arranged by seral type and within each climate class
-top_species_per_clim_class <- top_species_per_clim_class %>%
-  arrange(seral_type, Species)  # First arrange by seral type and then by Species alphabetically
-
-# Reorder the Species factor based on the seral type
-top_species_per_clim_class$Species <- factor(top_species_per_clim_class$Species, 
-                                             levels = unique(top_species_per_clim_class$Species[order(top_species_per_clim_class$seral_type)]))
-
-
-
-#### Species compositiosn: country -----------------------------------
+#### Species composition: country -----------------------------------
 
 # Summarize the total stem density per species for each climate class
 species_composition <- stem_dens_species_long_cluster %>%
@@ -973,7 +948,7 @@ p_species_distribution_country <- species_composition %>%
   #scale_fill_manual(values = species_colors) +  # Apply the color palette based on seral type
   theme_classic() +  # Use a clean theme
   theme(
-    legend.position = 'none',
+    legend.position = 'right',
     # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
     plot.title = element_text(hjust = 0.5)  # Center the title
   ) 
@@ -1032,7 +1007,7 @@ library(ggupset)
 
 tidy_movies %>%
   distinct(title, year, length, .keep_all=TRUE) %>%
-  str()
+  #str()
   ggplot(aes(x=Genres)) +
   geom_bar() +
   scale_x_upset(n_intersections = 20)
@@ -1137,7 +1112,7 @@ df_fin %>%
   # nrow()
   group_by(dominant_species) %>% 
   dplyr::summarize(count = n(),
-                   prop = count/cluster_n*100) %>% 
+                   prop = count/n_subplot *100) %>% 
   arrange(desc(prop)) %>% 
   mutate(dominant_species = factor(dominant_species, 
                                    levels = unique(dominant_species[order(count, decreasing = TRUE)]))) %>%
@@ -1185,10 +1160,15 @@ df_fin <- na.omit(df_fin)
 df_fin <- df_fin %>% 
   mutate(adv_delayed = factor(ifelse(stem_regeneration <= 50, "Delayed", 
                                      ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
-                               levels = c("Delayed", "Other", "Advanced")))# %>%  
-  # # create binary classes for advanced vs delayed
-  # mutate(delayed = ifelse(stem_regeneration <= 50, 1, 0),
-  #        advanced = ifelse(sum_stems_juvenile >=  1000, 1, 0))
+                               levels = c("Delayed", "Other", "Advanced")))
+
+# include mature trees: present/absent
+df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
+
+# scaled mature trees 0-1
+df_fin$sum_stems_mature_scaled <- (df_fin$sum_stems_mature - min(df_fin$sum_stems_mature)) / 
+  (max(df_fin$sum_stems_mature) - min(df_fin$sum_stems_mature))
+
 
 # check my categories?
 df_fin %>% 
@@ -1235,31 +1215,8 @@ m1 <- gam(stem_density ~ s(spei6, k = 15),  # Factors included without s() for c
           family = nb,  # Negative Binomial to handle overdispersion
           data = df_fin)
 
+# tw distribution is the best
 
-
-# Fit a GAM with Tweedie distribution (useful for zero-inflation)
-m.tw.juv <- gam(sum_stems_juvenile ~ s(drought_spei6, k = 10), 
-                family = tw,  # Adjust var.power based on data
-                data = df_fin)
-
-m.tw.mature <- gam(sum_stems_mature ~ s(drought_spei12, k = 10), 
-                   family = tw,  # Adjust var.power based on data
-                   data = df_fin)
-
-m.tw.sapl <- gam(sum_stems_sapling ~ s(drought_spei3, k = 10), 
-                 family = tw,  # Adjust var.power based on data
-                 data = df_fin)
-
-
-hist(df_fin$sum_stems_mature)
-
-AIC(m1, m.tw1)
-
-appraise(m.tw.mature)
-summary(m.tw.mature)
-draw(m.tw.mature)
-gam.check(m.tw1)
-k.check(m.tw1)
 
 # TW has a better fit, also can handle zero!
 # select main variables as predictors 
@@ -1267,19 +1224,101 @@ predictor_vars_sub <- c(
   "spei12",
   "tmp", 
   "prcp", 
-  #  "management_intensity",
-   "distance_edge", 
-  "disturbance_severity", 
-  "mature_dist_severity",
-   "clay_extract", 
+  
+  # 
+  "salvage_intensity",
+  "protection_intensity",
+  "management_intensity",
+  "distance_edge", 
+  
+  # disturbance severity est
+  "disturbance_severity", # from RS 
+ 
+  # disturbance severity based on residual trees: 
+   "mature_dist_severity",  # cover of residual trees over subplots
+   "sum_stems_mature",       # stem density of mature trees
+   "sum_stems_mature_scaled" , # mature trees stems: scaled
+   #"sum_stems_mature_pres_abs",  # mature trees present/absent
+  
+  "clay_extract", 
   "depth_extract", 
-    # site info
+   
+   # site info
   "av.nitro",
   #"richness",
   #'rIVI',
-  #"sum_stems_mature",
- 
+  
     "n_vertical")
+
+
+
+# run univariate models to find teh best predictors :
+
+# Define response and predictor variables
+response_var <- "stem_regeneration" # Replace with your actual response variable name
+predictor_vars <- predictor_vars_sub
+
+# Create an empty data frame to store results
+results <- data.frame(
+  Predictor = character(),
+  AIC = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each predictor variable
+for (predictor in predictor_vars) {
+  # Create the formula
+  formula <- as.formula(paste(response_var, "~ s(", predictor, ", k = 3)"))
+  
+  # Fit the GAM model with Tweedie distribution
+  model <- gam(formula, family = tw(), data = df_fin)
+  
+  # Extract AIC
+  aic <- AIC(model)
+  
+  # Store the results
+  results <- rbind(results, data.frame(Predictor = predictor, AIC = aic))
+}
+
+# Sort results by AIC (lower is better)
+results <- results[order(results$AIC), ]
+
+# Display the results
+print(results)
+
+
+
+# correlation ;
+
+# Initialize a data frame to store results
+cor_results <- data.frame(
+  Predictor = character(),
+  Correlation = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each predictor variable
+for (predictor in predictor_vars) {
+  # Calculate correlation, handling NA values
+  cor_value <- cor(df_fin[[response_var]], df_fin[[predictor]], use = "complete.obs", method = "spearman")
+  
+  # Store the results
+  cor_results <- rbind(cor_results, data.frame(Predictor = predictor, Correlation = cor_value))
+}
+
+# Sort results by absolute correlation
+cor_results <- cor_results[order(-abs(cor_results$Correlation)), ]
+
+# Display the results
+print(cor_results)
+
+# check new predictors
+# Subset the data with the variables of interest
+eda_data <- df_fin[, c("stem_regeneration", "sum_stems_mature", "sum_stems_mature_scaled", "sum_stems_mature_pres_abs", "mature_dist_severity",
+                       "disturbance_severity", "distance_edge")]
+
+# Generate a scatterplot matrix
+pairs(eda_data, main = "")
 
 
 
@@ -1328,8 +1367,10 @@ library(corrplot)
 
 # Select the relevant predictors from your data frame
 predictors <- df_stem_regeneration2 %>%
-  dplyr::select(prcp_c, tmp_c, spei12_c, distance_edge_c, depth_extract_c, 
-                disturbance_severity_c, clay_extract_c, av.nitro_c, management_intensity_c)
+  dplyr::select(prcp, tmp, spei12, distance_edge, depth_extract, 
+                disturbance_severity, mature_dist_severity , 
+                sum_stems_mature ,
+                depth_extract , clay_extract, av.nitro, management_intensity)
 
 # Calculate the correlation matrix
 correlation_matrix <- cor(predictors, use = "complete.obs")
@@ -1343,7 +1384,12 @@ cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "kendall") # 
 cor(df_fin$disturbance_severity, df_fin$mature_dist_severity, method = "kendall") # better if many values lies in same tieghts
 plot(df_fin$disturbance_severity, df_fin$mature_dist_severity)
 
-ggplot(df_stem_regeneration2, aes(x = mature_dist_severity, y = stem_regeneration     )) +
+par(mfrow = c(1, 2))
+plot(df_fin$prcp, df_fin$clim_grid)
+plot(df_fin$tmp, df_fin$clim_grid )
+dev.off()
+
+ggplot(df_stem_regeneration2, aes(x = clay_extract, y = stem_regeneration     )) +
   geom_point() +
   geom_smooth(method = "loess", color = "blue")
 
@@ -1361,6 +1407,315 @@ ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity 
   geom_boxplot()
 
 
+
+# split analysis in two ??? ----------------------------------------------------------
+# one for climate: on grid 9x9, for disturbance severity vs distance_edge - on local basis
+
+df_median <- df_stem_regeneration2 %>%
+  group_by(clim_grid) %>%
+  summarise(
+    # Compute the median for numeric columns
+    across(where(is.numeric), \(x) median(x, na.rm = TRUE)),
+    # Retain the first value for factor columns
+    across(where(is.factor), ~ first(.)),
+    # Retain the first value for character columns
+    across(where(is.character), ~ first(.))
+  )
+
+# View the result
+head(df_median)
+
+# averaged values lead to completely different results! importance of tmp, not prec
+m_med_int <- gam(stem_regeneration ~
+               s(prcp, k = 5) + s(tmp, k = 5) + 
+               s(spei12, k = 5) + 
+               #s(distance_edge, k = 5) +
+               s(depth_extract, k = 4) +
+               #s(disturbance_severity, k =5) +
+               #s(mature_dist_severity, k = 5) +
+               s(clay_extract, k = 5) +
+               s(av.nitro, k =5) +
+               ti(tmp, prcp, k = 5) +
+               #ti(disturbance_severity, distance_edge, k = 10) +
+               #ti(disturbance_severity_c, prcp_c, k = 5) +
+               s(management_intensity,by = country_pooled, k = 4) + 
+               s(country_pooled, bs = "re") + 
+               s(x,y) #+
+               #s(clim_grid, bs = "re") 
+             ,
+             family = tw(), method = "REML", data = df_median)
+
+
+plot(m_med_int, page = 1)
+
+
+# test between large scale an local drivers:  keep them in separate model
+
+# averaged values lead to completely different results! importance of tmp, not prec
+m_macro_int <- gam(stem_regeneration ~
+                   s(prcp, k = 5) + s(tmp, k = 5) + 
+                   s(spei12, k = 5) + 
+                   #s(distance_edge, k = 5) +
+                   s(depth_extract, k = 4) +
+                   #s(disturbance_severity, k =5) +
+                   #s(mature_dist_severity, k = 5) +
+                   s(clay_extract, k = 5) +
+                   s(av.nitro, k =5) +
+                   ti(tmp, prcp, k = 5) +
+                   #ti(disturbance_severity, distance_edge, k = 10) +
+                   #ti(disturbance_severity_c, prcp_c, k = 5) +
+                   s(management_intensity,by = country_pooled, k = 4) + 
+                   s(country_pooled, bs = "re") + 
+                   s(x,y) #+
+                 #s(clim_grid, bs = "re") 
+                 ,
+                 family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+# # averaged values lead to completely different results! importance of tmp, not prec
+m_local_int <- gam(stem_regeneration ~
+                     #s(prcp, k = 5) + s(tmp, k = 5) + 
+                     #s(spei12, k = 5) + 
+                     s(distance_edge, k = 5) +
+                     #s(depth_extract, k = 4) +
+                     s(disturbance_severity, k =5) +
+                     s(mature_dist_severity, k = 5) +
+                     #s(clay_extract, k = 5) +
+                     #s(av.nitro, k =5) +
+                     #ti(tmp, prcp, k = 5) +
+                     ti(disturbance_severity, distance_edge, k = 10) +
+                     #ti(disturbance_severity_c, prcp_c, k = 5) +
+                     s(management_intensity,by = country_pooled, k = 4) + 
+                     s(country_pooled, bs = "re") + 
+                     s(x,y) #+
+                   #s(clim_grid, bs = "re") 
+                   ,
+                   family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+m_local_int2 <- gam(stem_regeneration ~
+                     #s(prcp, k = 5) + s(tmp, k = 5) + 
+                     #s(spei12, k = 5) + 
+                     s(distance_edge, k = 5) +
+                     #s(depth_extract, k = 4) +
+                     s(disturbance_severity, k =5) +
+                     s(mature_dist_severity, k = 5) +
+                     #s(clay_extract, k = 5) +
+                     #s(av.nitro, k =5) +
+                     #ti(tmp, prcp, k = 5) +
+                     ti(mature_dist_severity, distance_edge, k = 5) +
+                     #ti(disturbance_severity_c, prcp_c, k = 5) +
+                     s(management_intensity,by = country_pooled, k = 4) + 
+                     s(country_pooled, bs = "re") + 
+                     s(x,y) #+
+                   #s(clim_grid, bs = "re") 
+                   ,
+                   family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+
+# test across scales:
+
+macro_model <- gam(
+  stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) + s(clim_grid, bs = "re"),
+  family = tw(),
+  data = df_stem_regeneration2
+)
+
+micro_model <- gam(
+  stem_regeneration ~ s(disturbance_severity, k = 5) + s(distance_edge, k = 5),
+  family = tw(),
+  data = df_stem_regeneration2
+)
+
+AIC(macro_model, micro_model, m_combined)
+summary(macro_model)
+summary(micro_model)
+
+
+m_combined <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(disturbance_severity, k = 5) + s(distance_edge, k = 5) +
+    ti(prcp, disturbance_severity, k = 5) +  # Interaction term
+    ti(distance_edge, disturbance_severity, k = 5) +  # Interaction term
+    ti(prcp, tmp, k = 5) +  # Interaction term
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
+
+m_combined_mature <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(mature_dist_severity , k = 5) + s(distance_edge, k = 5) +
+    ti(prcp, mature_dist_severity , k = 5) +  # Interaction term across cales
+    ti(distance_edge, mature_dist_severity , k = 5) +  # Interaction term
+    ti(prcp, tmp, k = 5) +  # Interaction term
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
+m_combined_mature_basic <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(mature_dist_severity , k = 5) + s(distance_edge, k = 5) +
+   # ti(prcp, mature_dist_severity , k = 5) +  # Interaction term
+    ti(distance_edge, mature_dist_severity , k = 5) +  # Interaction term
+    ti(prcp, tmp, k = 5) +  # Interaction term
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
+# !!!
+m_combined_mature_manag <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(mature_dist_severity , k = 5) + s(distance_edge, k = 5) +
+    ti(prcp, mature_dist_severity , k = 5) +  # Interaction term across cales
+    ti(distance_edge, mature_dist_severity , k = 5) +  # Interaction term
+    ti(prcp, tmp, k = 5) +  # Interaction term
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
+
+m_combined_mature_dist <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(mature_dist_severity , k = 5) + s(distance_edge, k = 5) +
+    ti(prcp, mature_dist_severity , k = 5) +  # Interaction term across cales
+    ti(prcp, distance_edge , k = 5) +  # Interaction term across cales
+    ti(distance_edge, mature_dist_severity , k = 5) +  # Interaction term
+    ti(prcp, tmp, k = 5) +  # Interaction term
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
+m_combined_mature_stems <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(sum_stems_mature  , k = 5) + s(distance_edge, k = 5) +
+    ti(prcp, sum_stems_mature  , k = 5) +  # Interaction term
+    ti(distance_edge, sum_stems_mature  , k = 5) +  # Interaction term
+    ti(prcp, tmp, k = 5) +  # Interaction term
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
+m_combined_mature_stems_sc <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(sum_stems_mature_scaled  , k = 5) + s(distance_edge, k = 5) +
+    ti(prcp, sum_stems_mature_scaled  , k = 5) +  # Interaction term
+    ti(distance_edge, sum_stems_mature_scaled  , k = 5) +  # Interaction term
+    ti(prcp, tmp, k = 5) +  # Interaction term
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
+
+AIC(m_combined_mature_manag,
+    m_combined_mature_stems, m_combined_mature, m_combined,m_combined_mature_stems_sc ,m_combined_mature_basic, m_combined_mature_dist)
+
+
+
+
+table(df_fin$adv_delayed)
+
+m <- m_combined_mature
+summary(m)
+vis.gam(m, view = c("prcp", "tmp"))
+
+vis.gam(m, view = c("prcp", "mature_dist_severity"))
+
+vis.gam(m, view = c("distance_edge", "mature_dist_severity"))
+plot(m, page = 1)
+
+df_pred_test <- ggpredict(m, #int_re_fin_dist, 
+                          terms = c(#"tmp_c", 'prcp_c' 
+                            'prcp',
+                            'tmp[8,9,10]'
+                            #'distance_edge',
+                            #'disturbance_severity'
+                            #"mature_dist_severity[0.4,0.7,0.9]"
+                            #'mature_dist_severity[0.2,0.5,0.7]'#,
+                            
+                            
+                            #tmp,
+                            #"distance_edge",
+                            #"disturbance_severity[0.7,0.8,0.9]",
+                            #"disturbance_severity", 
+                            #        "prcp"
+                          ))
+
+ggplot(df_pred_test, aes(x = x, y = predicted )) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
+  facet_grid(.~group    )
+
+ggplot(df_pred_test, aes(x = x, y = predicted )) +
+  geom_line(aes(color = group), linewidth = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2)# +
+facet_grid(.~group    )
+
+
+
+# store the best model for regeneration density
+fin.m.reg.density <- int_re_fin 
+
+vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
+        main = "Interaction between Precipitation and Temperature",
+        zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
+
+
+# chack variability withing clim grid
+
+# Calculate standard deviation of stem_regeneration for each clim_grid
+stem_variability <- df_stem_regeneration2 %>%
+  group_by(clim_grid) %>%
+  summarise(
+    sd_stem_regeneration = sd(stem_regeneration, na.rm = TRUE)
+  )
+
+# View variability
+head(stem_variability)
+
+# Plot variability
+ggplot(stem_variability, aes(x = clim_grid, y = sd_stem_regeneration)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Variability in Stem Regeneration by Climate Grid",
+       x = "Climate Grid",
+       y = "SD of Stem Regeneration") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
 # quick test 11/12/2024 -------------
 # remove disturbence perc interaction, run with raw values, not a _c
 m_simple <- gam(stem_regeneration ~
@@ -1370,8 +1725,9 @@ m_simple <- gam(stem_regeneration ~
                     s(depth_extract, k = 4) +
                     s(disturbance_severity, k =5) +
                   s(mature_dist_severity, k = 5) +
+                  s(sum_stems_mature, k = 5) +
                     s(clay_extract, k = 5) +
-                    #s(av.nitro, k =5) +
+                    s(av.nitro, k =5) +
                     #ti(tmp, prcp, k = 5) +
                     #ti(disturbance_severity_c, distance_edge_c, k = 10) +
                     #ti(disturbance_severity_c, prcp_c, k = 5) +
@@ -1382,6 +1738,10 @@ m_simple <- gam(stem_regeneration ~
                   ,
                   family = tw(), method = "REML", data = df_stem_regeneration2)
 
+appraise(m_simple)
+summary(m_simple)
+k.check(m_simple)
+
 m_int <- gam(stem_regeneration ~
                s(prcp, k = 5) + s(tmp, k = 5) + 
                s(spei12, k = 5) + 
@@ -1390,21 +1750,70 @@ m_int <- gam(stem_regeneration ~
                s(disturbance_severity, k =5) +
                s(mature_dist_severity, k = 5) +
                s(clay_extract, k = 5) +
-               #s(av.nitro, k =5) +
+               s(av.nitro, k =5) +
                ti(tmp, prcp, k = 5) +
                ti(disturbance_severity, distance_edge, k = 10) +
                #ti(disturbance_severity_c, prcp_c, k = 5) +
-               #s(management_intensity,by = country_pooled, k = 4) + 
+               s(management_intensity,by = country_pooled, k = 4) + 
                s(country_pooled, bs = "re") + 
              s(x,y) +
              s(clim_grid, bs = "re") 
              ,
              family = tw(), method = "REML", data = df_stem_regeneration2)
 
-plot(m_int, page = 1)
-vis.gam(m_int)
-k.check(m_int)
-gam.check(m_int)
+
+m_int_mature <- gam(stem_regeneration ~
+               s(prcp, k = 5) + s(tmp, k = 5) + 
+               s(spei12, k = 5) + 
+               s(distance_edge, k = 5) +
+               s(depth_extract, k = 4) +
+               s(disturbance_severity, k =5) +
+               s(mature_dist_severity, k = 5) +
+               s(clay_extract, k = 5) +
+               s(av.nitro, k =5) +
+               ti(tmp, prcp, k = 5) +
+               ti(mature_dist_severity, distance_edge, k = 5) +
+               #ti(disturbance_severity_c, prcp_c, k = 5) +
+               s(management_intensity,by = country_pooled, k = 4) + 
+               s(country_pooled, bs = "re") + 
+               s(x,y) +
+               s(clim_grid, bs = "re") 
+             ,
+             family = tw(), method = "REML", data = df_stem_regeneration2)
+AIC(m_int_mature, m_int)
+
+summary(m_int)
+
+
+# check the role of clim_grid
+m_clim_grid <- gam(stem_regeneration ~
+                      # s(prcp, k = 5) + s(tmp, k = 5) + 
+                      # s(spei12, k = 5) + 
+                      # s(distance_edge, k = 5) +
+                      # s(depth_extract, k = 4) +
+                      # s(disturbance_severity, k =5) +
+                      # s(mature_dist_severity, k = 5) +
+                      # s(clay_extract, k = 5) +
+                      # s(av.nitro, k =5) +
+                      # ti(tmp, prcp, k = 5) +
+                      # ti(mature_dist_severity, distance_edge, k = 5) +
+                      # #ti(disturbance_severity_c, prcp_c, k = 5) +
+                      # s(management_intensity,by = country_pooled, k = 4) + 
+                      # s(country_pooled, bs = "re") + 
+                      # s(x,y) +
+                      s(clim_grid, bs = "re") 
+                    ,
+                    family = tw(), method = "REML", data = df_stem_regeneration2)
+
+
+
+
+m <- m_clim_grid
+plot(m, page = 1)
+vis.gam(m)
+k.check(m)
+gam.check(m)
+summary(m)
 
 
 # old ---------------
