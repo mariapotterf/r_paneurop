@@ -243,6 +243,17 @@ top_species_overall_vect <- top_species_overall$Species
 
 (top_species_overall_vect)
 
+# add to gpkg
+
+# Create a new column in the sf object
+df_fin_clim_clust_xy$dominant_species_grouped <- ifelse(
+  df_fin_clim_clust_xy$dominant_species %in% top_species_overall_vect,
+  df_fin_clim_clust_xy$dominant_species,  # Keep the species name if it's in the top species
+  "other"  # Otherwise, assign 'other'
+)
+#st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
+
+
 
 # Species composition by layer -----------------------------------------------------
 
@@ -967,7 +978,7 @@ ggsave(filename = 'outFigs/fig_p_species_distribution_global_country.png',
 
 ### Vertical structure  --------------------------------------
 
-#### Get presence absence data for indiviual layers --------------------------
+#### Get presence absence data for individual layers 
 
 # Group by cluster and VegType, check if stem_density > 0
 vert_class_presence_absence <- stem_dens_species_long_cluster %>%
@@ -997,7 +1008,7 @@ vert_class_presence_absence_fin <- vert_class_presence_absence  %>%
 
 # visualize vertical classes by UpSEt plot
 
-## Upset plot -----------------------------------
+### Upset plot -----------------------------------
 
 library(UpSetR)
 library("ComplexUpset")
@@ -1063,7 +1074,7 @@ p_upset_test <- ComplexUpset::upset(
 # Display the plot
 p_upset_test
 
-## upset data test ---------------------------------------------------------
+#### upset data test ---------------------------------------------------------
 
 dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
                  vert = c('m', 
@@ -1095,7 +1106,7 @@ upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
 
 
 
-## Descriptive plots  -----------------------------------------------------------
+### Descriptive plots  -----------------------------------------------------------
 
 # Richness desc 
 
@@ -1408,7 +1419,7 @@ ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity 
 
 
 
-# split analysis in two ??? ----------------------------------------------------------
+# split analysis in two ??? nope! keep random effects to have both scales in ----------------------------------------------------------
 # one for climate: on grid 9x9, for disturbance severity vs distance_edge - on local basis
 
 df_median <- df_stem_regeneration2 %>%
@@ -1547,7 +1558,7 @@ m_combined <- gam(
   data = df_stem_regeneration2
 )
 
-
+# test with diferent types of disturbance severity -------------------
 m_combined_mature <- gam(
   stem_regeneration ~ 
     s(prcp, k = 5) + s(tmp, k = 5) +
@@ -1594,6 +1605,22 @@ m_combined_mature_manag <- gam(
 )
 
 
+m_combined_mature_manag2 <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(mature_dist_severity , k = 5) + s(distance_edge, k = 5) +
+    ti(prcp, mature_dist_severity , k = 5) +  # Interaction term across cales
+    ti(distance_edge, mature_dist_severity , k = 3) +  # Interaction term
+    ti(prcp, tmp, k = 10) +  # Interaction term
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  data = df_stem_regeneration2
+)
+
 m_combined_mature_dist <- gam(
   stem_regeneration ~ 
     s(prcp, k = 5) + s(tmp, k = 5) +
@@ -1621,7 +1648,8 @@ m_combined_mature_stems <- gam(
   family = tw(),
   method = 'REML',
   data = df_stem_regeneration2
-)
+) 
+# !!!
 
 m_combined_mature_stems_sc <- gam(
   stem_regeneration ~ 
@@ -1646,7 +1674,7 @@ AIC(m_combined_mature_manag,
 
 table(df_fin$adv_delayed)
 
-m <- m_combined_mature
+m <- m_combined_mature_manag
 summary(m)
 vis.gam(m, view = c("prcp", "tmp"))
 
@@ -1657,11 +1685,13 @@ plot(m, page = 1)
 
 df_pred_test <- ggpredict(m, #int_re_fin_dist, 
                           terms = c(#"tmp_c", 'prcp_c' 
-                            'prcp',
-                            'tmp[8,9,10]'
-                            #'distance_edge',
+                            #'prcp',
+                            #'tmp[8,9,10]'
+                            #'mature_dist_severity',
+                            #'distance_edge[100,200,300]'#,
                             #'disturbance_severity'
-                            #"mature_dist_severity[0.4,0.7,0.9]"
+                            'distance_edge',
+                            "mature_dist_severity[0.4,0.7,0.9]"
                             #'mature_dist_severity[0.2,0.5,0.7]'#,
                             
                             
@@ -1674,8 +1704,8 @@ df_pred_test <- ggpredict(m, #int_re_fin_dist,
 
 ggplot(df_pred_test, aes(x = x, y = predicted )) +
   geom_line(aes(color = group), linewidth = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
-  facet_grid(.~group    )
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) #+
+  #facet_grid(.~group    )
 
 ggplot(df_pred_test, aes(x = x, y = predicted )) +
   geom_line(aes(color = group), linewidth = 1) +
