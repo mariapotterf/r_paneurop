@@ -1580,6 +1580,8 @@ m_combined_mature_basic <- gam(
    # ti(prcp, mature_dist_severity , k = 5) +  # Interaction term
     ti(distance_edge, mature_dist_severity , k = 5) +  # Interaction term
     ti(prcp, tmp, k = 5) +  # Interaction term
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
     s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
     s(x, y),                                 # Spatial autocorrelation
   family = tw(),
@@ -1620,6 +1622,8 @@ m_combined_mature_manag2 <- gam(
   method = 'REML',
   data = df_stem_regeneration2
 )
+
+AIC(m_combined_mature_manag2, m_combined_mature_manag)
 
 m_combined_mature_dist <- gam(
   stem_regeneration ~ 
@@ -1715,14 +1719,14 @@ facet_grid(.~group    )
 
 
 # store the best model for regeneration density
-fin.m.reg.density <- int_re_fin 
+fin.m.reg.density <- m_combined_mature_manag 
 
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
         zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
 
 
-# chack variability withing clim grid
+# chack variability withing clim grid --------------------------
 
 # Calculate standard deviation of stem_regeneration for each clim_grid
 stem_variability <- df_stem_regeneration2 %>%
@@ -1745,105 +1749,6 @@ ggplot(stem_variability, aes(x = clim_grid, y = sd_stem_regeneration)) +
 
 
 
-
-# quick test 11/12/2024 -------------
-# remove disturbence perc interaction, run with raw values, not a _c
-m_simple <- gam(stem_regeneration ~
-                    s(prcp, k = 5) + s(tmp, k = 5) + 
-                     s(spei12, k = 5) + 
-                    s(distance_edge, k = 5) +
-                    s(depth_extract, k = 4) +
-                    s(disturbance_severity, k =5) +
-                  s(mature_dist_severity, k = 5) +
-                  s(sum_stems_mature, k = 5) +
-                    s(clay_extract, k = 5) +
-                    s(av.nitro, k =5) +
-                    #ti(tmp, prcp, k = 5) +
-                    #ti(disturbance_severity_c, distance_edge_c, k = 10) +
-                    #ti(disturbance_severity_c, prcp_c, k = 5) +
-                    #s(management_intensity,by = country_pooled, k = 4) + 
-                    s(country_pooled, bs = "re")# + 
-                    #s(x,y) +
-                    #s(clim_grid, bs = "re") 
-                  ,
-                  family = tw(), method = "REML", data = df_stem_regeneration2)
-
-appraise(m_simple)
-summary(m_simple)
-k.check(m_simple)
-
-m_int <- gam(stem_regeneration ~
-               s(prcp, k = 5) + s(tmp, k = 5) + 
-               s(spei12, k = 5) + 
-               s(distance_edge, k = 5) +
-               s(depth_extract, k = 4) +
-               s(disturbance_severity, k =5) +
-               s(mature_dist_severity, k = 5) +
-               s(clay_extract, k = 5) +
-               s(av.nitro, k =5) +
-               ti(tmp, prcp, k = 5) +
-               ti(disturbance_severity, distance_edge, k = 10) +
-               #ti(disturbance_severity_c, prcp_c, k = 5) +
-               s(management_intensity,by = country_pooled, k = 4) + 
-               s(country_pooled, bs = "re") + 
-             s(x,y) +
-             s(clim_grid, bs = "re") 
-             ,
-             family = tw(), method = "REML", data = df_stem_regeneration2)
-
-
-m_int_mature <- gam(stem_regeneration ~
-               s(prcp, k = 5) + s(tmp, k = 5) + 
-               s(spei12, k = 5) + 
-               s(distance_edge, k = 5) +
-               s(depth_extract, k = 4) +
-               s(disturbance_severity, k =5) +
-               s(mature_dist_severity, k = 5) +
-               s(clay_extract, k = 5) +
-               s(av.nitro, k =5) +
-               ti(tmp, prcp, k = 5) +
-               ti(mature_dist_severity, distance_edge, k = 5) +
-               #ti(disturbance_severity_c, prcp_c, k = 5) +
-               s(management_intensity,by = country_pooled, k = 4) + 
-               s(country_pooled, bs = "re") + 
-               s(x,y) +
-               s(clim_grid, bs = "re") 
-             ,
-             family = tw(), method = "REML", data = df_stem_regeneration2)
-AIC(m_int_mature, m_int)
-
-summary(m_int)
-
-
-# check the role of clim_grid
-m_clim_grid <- gam(stem_regeneration ~
-                      # s(prcp, k = 5) + s(tmp, k = 5) + 
-                      # s(spei12, k = 5) + 
-                      # s(distance_edge, k = 5) +
-                      # s(depth_extract, k = 4) +
-                      # s(disturbance_severity, k =5) +
-                      # s(mature_dist_severity, k = 5) +
-                      # s(clay_extract, k = 5) +
-                      # s(av.nitro, k =5) +
-                      # ti(tmp, prcp, k = 5) +
-                      # ti(mature_dist_severity, distance_edge, k = 5) +
-                      # #ti(disturbance_severity_c, prcp_c, k = 5) +
-                      # s(management_intensity,by = country_pooled, k = 4) + 
-                      # s(country_pooled, bs = "re") + 
-                      # s(x,y) +
-                      s(clim_grid, bs = "re") 
-                    ,
-                    family = tw(), method = "REML", data = df_stem_regeneration2)
-
-
-
-
-m <- m_clim_grid
-plot(m, page = 1)
-vis.gam(m)
-k.check(m)
-gam.check(m)
-summary(m)
 
 
 # old ---------------
