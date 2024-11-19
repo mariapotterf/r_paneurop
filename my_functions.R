@@ -30,7 +30,7 @@ create_plot <- function(model, term, data, title,
   # Create the base plot with scatter points first if required
   plot <- ggplot(predicted, aes(x = x, y = predicted)) +
     # Add scatter points behind the line and ribbon
-    { if (scatter) geom_point(data = data, aes_string(x = term, y = scatter_y), 
+    { if (scatter) geom_jitter(data = data, aes_string(x = term, y = scatter_y), 
                               color = "grey80", alpha = 0.5, size = 0.5) } +
     geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = fill_color) +
     geom_line(color = line_color, size = 1) +
@@ -56,7 +56,7 @@ create_interaction_plot <- function(model, terms, title, data,
   # Create the plot with scatter points behind the line and ribbon
   plot <- ggplot(predicted_interaction, aes(x = x, y = predicted)) +
     # Scatter points in the background
-    geom_point(data = data, aes_string(x = terms[1], y = "stem_regeneration"), 
+    geom_jitter(data = data, aes_string(x = terms[1], y = "stem_regeneration"), 
                color = "grey80", alpha = 0.5, size = 0.5) +
     # Line and ribbon in the foreground
     geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) +
