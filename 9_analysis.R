@@ -1821,10 +1821,50 @@ m_int_sev_edge_full <- gam(
 )
 
 
+m_int_res_edge_full <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(residual_mature_trees, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
 
 
 
-##### test on ceneterd vars ---------------------------------------------------
+m_int_mat_edge_full <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    s(sum_stems_mature  , k = 5) + 
+    s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    ti(sum_stems_mature, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+AIC(m_int_res_edge_full,m_int_sev_edge_full)
+
+##### test on centered vars ---------------------------------------------------
 
 # Step 1: Center the variables
 df_stem_regeneration2 <- df_stem_regeneration2 %>%
@@ -1995,7 +2035,7 @@ facet_grid(.~group    )
 
 
 # store the best model for regeneration density
-fin.m.reg.density <- m_int_sev_edge_full      
+fin.m.reg.density <- m_int_res_edge_full      
 
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
