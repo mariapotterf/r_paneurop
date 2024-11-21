@@ -2209,40 +2209,76 @@ ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot,
 # try with te?
 #  m_int_sev_edge_full_te_comb 
 
-m <- m_int_res_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
+m <- m_int_sev_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
 k.check(m)
+summary(m)
 AIC(m, fin.m.reg.density)
 # test -----------
 # Generate predictions using ggpredict
 # Interaction 1: Precipitation and Temperature
-pred1 <- ggpredict(m, terms = c("prcp", "tmp [8.5,9,9.5]"))
+pred1 <- ggpredict(m, terms = c("prcp", "tmp [8,9,10]"))
 
 # Interaction 2: Distance to Edge and Disturbance Severity
-pred2 <- ggpredict(m, terms = c("distance_edge", "residual_mature_trees [0.1,0.2,0.5]"))
 pred2 <- ggpredict(m, terms = c("distance_edge", "disturbance_severity [0.3,0.6,0.9]"))
+# Example: Convert disturbance_severity to percent
+pred2_df <- as.data.frame(pred2)
+pred2_df$group <- as.numeric(as.character(pred2_df$group)) * 100
+pred2_df$group <- factor(pred2_df$group)
 
+my_colors_interaction <- c( "blue","gray", "red")
 # Plot the first interaction
-p1 <- ggplot(pred1, aes(x = x, y = predicted, color = group)) +
+p1 <- ggplot(pred1, aes(x = x, y = predicted/1000, color = group, linetype = group)) +
+ # geom_jitter(data = filtered_df_plot, 
+#              aes( x = disturbance_severity*100, y = stem_regeneration/1000), size = .5, alpha = 0.5, color = 'grey') +
   geom_line(size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2, color = NA) +
-  scale_color_manual(values = c("red", "green", "blue"), name = "Temperature [°C]") +
-  scale_fill_manual(values = c("red", "green", "blue"), name = "Temperature [°C]") +
-  theme_minimal() +
-  labs(x = "Precipitation [mm]", y = "Stem Density [#/ha]", title = "[a]") +
-  theme(plot.title = element_text(hjust = 0, size = 14))
-
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
+  scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
+  scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
+  theme_classic() +
+  labs(x = "Precipitation [mm]", y = "Stem density [#*1000/ha]", title = "***\np<0.0001", linetype =  "Temperature [°C]") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
+    axis.title = element_text(size = 8),                   # Axis title size
+    axis.text = element_text(size = 8),                    # Axis text size
+    legend.key.size = unit(0.5, "cm"),                     # Legend key size
+    legend.text = element_text(size = 8),                  # Legend text size
+    legend.title = element_text(size = 8),                 # Legend title size
+    legend.position = c(0.05, 0.9),
+    legend.justification = c(0.05, 0.9)
+  )
 # Plot the second interaction
-p2 <- ggplot(pred2, aes(x = x, y = predicted, color = group)) +
+p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group,linetype = group)) +
+  #geom_jitter(data = filtered_df_plot, 
+  #            aes( x = distance_edge, y = stem_regeneration/1000), size = .5, alpha = 0.5, color = 'grey') +
   geom_line(size = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2, color = NA) +
-  scale_color_manual(values = c("red", "green", "blue"), name = "Dist severity [%]") +
-  scale_fill_manual(values = c("red", "green", "blue"), name = "Dist severity [%]") +
-  theme_minimal() +
-  labs(x = "Distance to Edge [m]", y = "Stem Density [#/ha]", title = "[b]") +
-  theme(plot.title = element_text(hjust = 0, size = 14))
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
+  scale_color_manual(values = my_colors_interaction, name = "Disturbance\nseverity [%]") +
+  scale_fill_manual(values = my_colors_interaction, name = "Disturbance\nseverity [%]") +
+  theme_classic() +
+  #ylim(0,20) +
+  labs(x = "Distance to Edge [m]", y = "Stem density [#*1000/ha]", title = "**\np=0.0011",linetype = "Disturbance\nseverity [%]") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
+    axis.title = element_text(size = 8),                   # Axis title size
+    axis.text = element_text(size = 8),                    # Axis text size
+    legend.key.size = unit(0.5, "cm"),                     # Legend key size
+    legend.text = element_text(size = 8),                  # Legend text size
+    legend.title = element_text(size = 8),                 # Legend title size
+    legend.position = c(0.05, 0.9),
+    legend.justification = c(0.05, 0.9)
+  )
+p_combined_int <- ggarrange(p1, p2, 
+                            labels = c("[a]","[b]"),  
+                            font.label = list(size = 8, face = "plain")) # Specify plain font style)
 
-ggarrange(p1, p2)
-# END
+# Save the combined plot
+ggsave('outFigs/fig_regen_int_drivers.png', plot = p_combined_int, 
+       width = 6, height = 3.1, bg = 'white')
+
+
+          
+          
+          # END
 df_fin %>% 
 ggplot(aes(x = adv_delayed,
            y = residual_mature_trees)) +
@@ -2262,193 +2298,6 @@ colnames(table_data_combined)[2:5] <- c("Other", "Other", "Other", "Other")
 table_data_combined <- rowsum(table_data_combined, group = colnames(table_data_combined))
 fisher_test_combined <- fisher.test(table_data_combined)
 fisher_test_combined
-
-# Predict interaction: prcp and tmp
-pred_prcp_tmp <- ggpredict(
-  fin.m.reg.density, 
-  terms = c("prcp", "tmp[8.5,9,9.5]") #
-) %>% 
-  as.data.frame()
-
-pred_sev_edge <- ggpredict(
-  fin.m.reg.density, 
-  terms = c("disturbance_severity", "distance_edge[50,100,250]") # Adjust values as needed
-) %>% 
-  as.data.frame()
-
-pred_sev_edge_rev <- ggpredict(
-  fin.m.reg.density, 
-  terms = c("distance_edge", "disturbance_severity[0.3,0.6,0.9]" ) # Adjust values as needed
-) %>% 
-  as.data.frame()
-
-
-# Predict interaction: disturbance_severity and distance_edge
-pred_severity <- ggpredict(
-  fin.m.reg.density, 
-  terms = c("disturbance_severity") # Adjust values as needed
-) %>% 
-  as.data.frame()
-
-pred_edge <- ggpredict(
-  fin.m.reg.density, 
-  terms = c( "distance_edge") # Adjust values as needed
-) %>% 
-  as.data.frame()
-
-pred_residual_cover <- ggpredict(
-  fin.m.reg.density, 
-  terms = c( "residual_mature_trees") # Adjust values as needed
-) %>% 
-  as.data.frame()
-summary(fin.m.reg.density)
-
-# Create the base plot with scatter points first if required
-p_int1 <- ggplot(pred_prcp_tmp, aes(x = x, y = predicted/1000)) +
-  geom_jitter(data = filtered_df_plot, 
-             aes( x = prcp, y = stem_regeneration/1000), size = .5, alpha = 0.5, color = 'grey') +
-    geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2) +
-    geom_line(aes(color = group, linetype = group), size = 0.8) +
-    #labs(title = title, x = x_label, y = y_label) +
-  theme_classic() +
-  ylim(0,45)+
-  xlim(500,1500) +
-  labs(title =0.01, x = "Precipitation [mm]", y = y_lab, 
-       fill = 'tmp', color = 'tmp',
-       linetype = 'tmp') +
-  theme(
-    #text = element_text(size = 5),
-    legend.key.size = unit(0.3, "cm"),     # Smaller overall legend size
-    legend.position = c(0.05, 0.9),
-    legend.justification = c(0.05, 0.9),
-    legend.text = element_text(size = 4),  # Smaller legend text
-    legend.title = element_text(size = 5), # Smaller legend title
-    #panel.border = element_rect(color = "black", size = 0.7, fill = NA)
-  ) +
-  guides(
-    color = guide_legend(override.aes = list(size = 0.5)), # Smaller line sizes
-    fill = guide_legend(override.aes = list(alpha = 0.5)) # Adjust ribbon appearance
-  )
-
-
-# Create the base plot with scatter points first if required
-p_int2 <- ggplot(pred_sev_edge, aes(x = x*100, y = predicted/1000)) +
-  geom_jitter(data = filtered_df_plot, 
-              aes( x = disturbance_severity*100, y = stem_regeneration/1000), size = .5, alpha = 0.5, color = 'grey') +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2) +
-  geom_line(aes(color = group, linetype = group), size = 0.8) +
-  #labs(title = title, x = x_label, y = y_label) +
-  theme_classic() +
-  ylim(0,45)+
-  #xlim(0,300) +
-  labs(title =0.87, x = "Dist. severity [%]", y = y_lab, 
-       fill = 'tmp', color = 'tmp',
-       linetype = 'tmp') +
-  theme(
-    #text = element_text(size = 5),
-    legend.key.size = unit(0.3, "cm"),     # Smaller overall legend size
-    legend.position = c(0.05, 0.9),
-    legend.justification = c(0.05, 0.9),
-    legend.text = element_text(size = 4),  # Smaller legend text
-    legend.title = element_text(size = 5), # Smaller legend title
-    panel.border = element_rect(color = "black", size = 0.7, fill = NA)
-  ) +
-  guides(
-    color = guide_legend(override.aes = list(size = 0.5)), # Smaller line sizes
-    fill = guide_legend(override.aes = list(alpha = 0.5)) # Adjust ribbon appearance
-  )
-
-p_int2
-
-
-# Create the base plot with scatter points first if required
-p_int2_rev <- ggplot(pred_sev_edge_rev, aes(x = x, y = predicted/1000)) +
-  geom_jitter(data = filtered_df_plot, 
-              aes( x = distance_edge, y = stem_regeneration/1000), size = .5, alpha = 0.5, color = 'grey') +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2) +
-  geom_line(aes(color = group, linetype = group), size = 0.8) +
-  #labs(title = title, x = x_label, y = y_label) +
-  theme_classic() +
-  ylim(0,45)+
-  #xlim(0,300) +
-  labs(title =0.87, x = "Distance to edge [m]", y = y_lab, 
-       fill = 'Dist. sev [%]', 
-       color = 'Dist. sev [%]',
-       linetype = 'Dist. sev [%]') +
-  theme(
-    #text = element_text(size = 5),
-    legend.key.size = unit(0.3, "cm"),     # Smaller overall legend size
-    legend.position = c(0.05, 0.9),
-    legend.justification = c(0.05, 0.9),
-    legend.text = element_text(size = 4),  # Smaller legend text
-    legend.title = element_text(size = 5), # Smaller legend title
-    #panel.border = element_rect(color = "black", size = 0.7, fill = NA)
-  ) +
-  guides(
-    color = guide_legend(override.aes = list(size = 0.5)), # Smaller line sizes
-    fill = guide_legend(override.aes = list(alpha = 0.5)) # Adjust ribbon appearance
-  )
-
-p_int2_rev
-
-
-p_severity <- ggplot(pred_severity, aes(x = x*100, y = predicted/1000)) +
-  geom_jitter(data = filtered_df_plot, aes( x = disturbance_severity*100, 
-                                           y =  stem_regeneration/1000), size = .5, 
-             alpha = 0.5,
-             color = 'grey') +
-  
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2) +
-  geom_line( size = 0.8) +
- # labs(title = title, x = x_label, y = y_label) +
-  theme_classic() +
-  labs(title =0.04, x = "Dist. severity [%]", y = '') +
-  ylim(0,45)+
-  theme(#text = element_text(size = 5),
-        panel.border = element_rect(color = "black", size = 0.7, fill = NA))
-
-
-p_resid_cover <- ggplot(pred_residual_cover, aes(x = x*100, y = predicted/1000)) +
-  geom_jitter(data = filtered_df_plot, aes( x =residual_mature_trees*100 , 
-                                           y =stem_regeneration/1000 ), 
-             size = .5, alpha = 0.5,color = 'grey') +
-  
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2) +
-  geom_line( size = 0.8) +
-  # labs(title = title, x = x_label, y = y_label) +
-  theme_classic() +
-  labs(title =0.12, x = "Residual tree cover [%]", y = '') +
-  ylim(0,45)
-
-
-
-p_edge <- ggplot(pred_edge, aes(x = x, y = predicted/1000)) +
-  geom_jitter(data = filtered_df_plot, aes( x = distance_edge, 
-                                           y = stem_regeneration/1000), 
-              size = .5, alpha = 0.5, color = 'grey') +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2) +
-  geom_line( size = 0.8) +
-  # labs(title = title, x = x_label, y = y_label) +
-  theme_classic() +
-  labs(title =0.05, x = "Distance to edge [m]", y = '') +
-  
-  ylim(0,45)+
-  theme(#text = element_text(size = 5),
-        panel.border = element_rect(color = "black", size = 0.7, fill = NA))
-
-library(ggpubr)
-combined_plot <- ggarrange(p_int1, p_severity, p_edge, ncol = 3, nrow = 1)
-combined_plot
-# Save the combined plot
-ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, 
-       width = 4, height = 4, bg = 'white')
-
-
-windows(7,4)
-combined_plot2 <- ggarrange(p_int1, p_int2_rev, 
-                            labels = c("[a]","[b]"), font.label = 'plain',
-                            ncol = 2, nrow = 1)
-combined_plot2
 
 
 
