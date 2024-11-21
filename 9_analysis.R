@@ -1441,8 +1441,7 @@ dev.off()#summary(interaction_model_4)
 
 
 
-### split analysis in two ??? nope! keep random effects to have both scales in ----------------------------------------------------------
-# one for climate: on grid 9x9, for disturbance severity vs distance_edge - on local basis
+# et median data per clim cluster -----------------------------------------one for climate: on grid 9x9, for disturbance severity vs distance_edge - on local basis
 
 df_median <- df_stem_regeneration2 %>%
   group_by(clim_grid) %>%
@@ -1461,26 +1460,27 @@ head(df_median)
 # averaged values lead to completely different results! importance of tmp, not prec
 m_med_int <- gam(stem_regeneration ~
                s(prcp, k = 5) + s(tmp, k = 5) + 
-               s(spei12, k = 5) + 
+               #s(spei12, k = 5) + 
                #s(distance_edge, k = 5) +
-               s(depth_extract, k = 4) +
+               #s(depth_extract, k = 4) +
                #s(disturbance_severity, k =5) +
                #s(mature_dist_severity, k = 5) +
-               s(clay_extract, k = 5) +
-               s(av.nitro, k =5) +
+               #s(clay_extract, k = 5) +
+               #s(av.nitro, k =5) +
                ti(tmp, prcp, k = 5) +
-               #ti(disturbance_severity, distance_edge, k = 10) +
+               te(disturbance_severity, distance_edge, k = 5) +
                #ti(disturbance_severity_c, prcp_c, k = 5) +
-               s(management_intensity,by = country_pooled, k = 4) + 
-               s(country_pooled, bs = "re") + 
+               #s(management_intensity,by = country_pooled, k = 4) + 
+               #s(country_pooled, bs = "re") + 
                s(x,y) #+
                #s(clim_grid, bs = "re") 
              ,
              family = tw(), method = "REML", data = df_median)
 
 
-plot(m_med_int, page = 1)
-
+appraise(m_med_int, page = 1)
+summary(m_med_int)
+summary(m)
 
 # test between large scale an local drivers:  keep them in separate model
 
@@ -1840,19 +1840,18 @@ m_int_res_edge_full <- gam(
   data = df_stem_regeneration2
 )
 
-
-
-m_int_mat_edge_full <- gam(
+# only interaction modelling: for climate and disturbance chars 
+m_int_res_edge_full_te <- gam(
   stem_regeneration ~ 
-    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(prcp, k = 5) + s(tmp, k = 5) +
     #s(residual_mature_trees  , k = 5) + 
-    s(sum_stems_mature  , k = 5) + 
-    s(distance_edge, k = 5) +
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
     #s(disturbance_severity, k = 5) +
-    ti(sum_stems_mature, distance_edge, k = 5 ) +
-    ti(prcp,tmp, k = 5 ) +
+    te(residual_mature_trees, distance_edge, k = 5 ) +
+    te(prcp,tmp, k = 5 ) +
     s(management_intensity,by = country_pooled, k = 4) + 
-    #s(country_pooled, bs = "re") +
+    s(country_pooled, bs = "re") +
     #s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
     s(x, y),                                 # Spatial autocorrelation
   family = tw(),
@@ -1862,7 +1861,70 @@ m_int_mat_edge_full <- gam(
 )
 
 
-AIC(m_int_res_edge_full,m_int_sev_edge_full)
+# interaction and single effects for climate
+# just interaction modelling
+m_int_res_edge_full_te_comb <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(residual_mature_trees, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    #s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+
+m_int_sev_edge_full_te_comb <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_int_mat_edge_full_te_comb <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(sum_stems_mature, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+AIC(m_int_sev_edge_full_te_comb, m_int_res_edge_full_te_comb, m_int_mat_edge_full_te_comb)
+
 
 ##### test on centered vars ---------------------------------------------------
 
@@ -1983,55 +2045,7 @@ AIC(m_combined_mature_manag,
     m_combined_mature_stems, m_combined_mature, m_combined,m_combined_mature_stems_sc ,m_combined_mature_basic, m_combined_mature_dist)
 
 # quick visualization
-
-m <- m_combined_mature_resid_manag_tmp_RS     # m_combined_mature_manag
-summary(m)
-vis.gam(m, view = c("prcp", "tmp"))
-
-vis.gam(m, view = c("prcp", "residual_mature_trees"))
-vis.gam(m, view = c("tmp", "residual_mature_trees"))
-
-vis.gam(m, view = c("distance_edge", "residual_mature_trees"))
-plot(m, page = 1)
-
-
-df_stem_regeneration2 %>% 
-  ggplot(aes(x = sum_stems_mature, #residual_mature_trees,
-             y = stem_regeneration)) +
-  geom_point() #+
-  geom_smooth()
-
-
-df_pred_test <- ggpredict(m, #int_re_fin_dist, 
-                          terms = c(#"tmp_c", 'prcp_c' 
-                           "tmp",
-                             #'prcp',
-                            #'tmp[8,9,10]'
-                            #'mature_dist_severity',
-                            #'distance_edge[100,200,300]'#,
-                            #'disturbance_severity'
-                           # 'distance_edge',
-                            "residual_mature_trees[0.4,0.6,0.8]"
-                            #'mature_dist_severity[0.2,0.5,0.7]'#,
-                            
-                            
-                            #tmp,
-                            #"distance_edge",
-                            #"disturbance_severity[0.7,0.8,0.9]",
-                            #"disturbance_severity", 
-                            #        "prcp"
-                          ))
-
-ggplot(df_pred_test, aes(x = x, y = predicted )) +
-  geom_line(aes(color = group), linewidth = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2) #+
-  #facet_grid(.~group    )
-
-ggplot(df_pred_test, aes(x = x, y = predicted )) +
-  geom_line(aes(color = group), linewidth = 1) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2)# +
-facet_grid(.~group    )
-
+AIC(m_int_res_edge_full_te_comb,m_int_res_edge_full_te, fin.m.reg.density)
 
 
 # store the best model for regeneration density
@@ -2190,6 +2204,64 @@ ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot,
 
 
 # make plot manually:  --------------------------
+
+
+# try with te?
+#  m_int_sev_edge_full_te_comb 
+
+m <- m_int_res_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
+k.check(m)
+AIC(m, fin.m.reg.density)
+# test -----------
+# Generate predictions using ggpredict
+# Interaction 1: Precipitation and Temperature
+pred1 <- ggpredict(m, terms = c("prcp", "tmp [8.5,9,9.5]"))
+
+# Interaction 2: Distance to Edge and Disturbance Severity
+pred2 <- ggpredict(m, terms = c("distance_edge", "residual_mature_trees [0.1,0.2,0.5]"))
+pred2 <- ggpredict(m, terms = c("distance_edge", "disturbance_severity [0.3,0.6,0.9]"))
+
+# Plot the first interaction
+p1 <- ggplot(pred1, aes(x = x, y = predicted, color = group)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2, color = NA) +
+  scale_color_manual(values = c("red", "green", "blue"), name = "Temperature [°C]") +
+  scale_fill_manual(values = c("red", "green", "blue"), name = "Temperature [°C]") +
+  theme_minimal() +
+  labs(x = "Precipitation [mm]", y = "Stem Density [#/ha]", title = "[a]") +
+  theme(plot.title = element_text(hjust = 0, size = 14))
+
+# Plot the second interaction
+p2 <- ggplot(pred2, aes(x = x, y = predicted, color = group)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2, color = NA) +
+  scale_color_manual(values = c("red", "green", "blue"), name = "Dist severity [%]") +
+  scale_fill_manual(values = c("red", "green", "blue"), name = "Dist severity [%]") +
+  theme_minimal() +
+  labs(x = "Distance to Edge [m]", y = "Stem Density [#/ha]", title = "[b]") +
+  theme(plot.title = element_text(hjust = 0, size = 14))
+
+ggarrange(p1, p2)
+# END
+df_fin %>% 
+ggplot(aes(x = adv_delayed,
+           y = residual_mature_trees)) +
+  geom_boxplot()
+
+plot(df_fin$disturbance_severity, df_fin$residual_mature_trees)
+
+table_data <- table(df_fin$adv_delayed, df_fin$sum_stems_mature_pres_abs )
+
+
+# Display the table in percentages
+percent_table <- prop.table(table(df_fin$adv_delayed, df_fin$residual_mature_trees))*100
+
+# Combine levels 0.25 and 0.6 into "Other"
+table_data_combined <- table_data
+colnames(table_data_combined)[2:5] <- c("Other", "Other", "Other", "Other")
+table_data_combined <- rowsum(table_data_combined, group = colnames(table_data_combined))
+fisher_test_combined <- fisher.test(table_data_combined)
+fisher_test_combined
 
 # Predict interaction: prcp and tmp
 pred_prcp_tmp <- ggpredict(
