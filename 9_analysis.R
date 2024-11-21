@@ -1670,13 +1670,14 @@ summary(site_clim_grid$num_sites)
 # 
 
 # Extract model residuals
-model_residuals <- residuals(fin.m.reg.density, type = "pearson")
+m <- m_med_int # fin.m.reg.density
+model_residuals <- residuals(m , type = "pearson")  
 
 # Load necessary libraries
 library(spdep)
 
 # Create coordinates matrix
-coords <- cbind(df_stem_regeneration2$x, df_stem_regeneration2$y)
+coords <- cbind(m$x, m$y)
 
 # Create a spatial neighbors object (e.g., using k-nearest neighbors)
 # Adjust k based on the density and distribution of your data points
