@@ -306,8 +306,7 @@ top_species_site_share <- species_site_share %>%
   arrange(desc(share_of_sites)) %>%
   slice_head(n = 10) # Select the top 7 rows
 
-# Create a horizontal bar plot 
-# !!!
+# Create a horizontal bar plot -------------------------------------------------
 p_sites_share_species <- species_site_share %>%
   arrange(desc(share_of_sites)) %>%
   slice_head(n = 10) %>% # Select the top X rows
@@ -404,10 +403,6 @@ setdiff(top_species_layer_vect, top_species_overall_vect )
 
 # Make a barplot - use previous colors and color schemes!!
 
-# Generate custom color palette based on the number of unique species
-n_colors <- length(unique(top_species_layer$Species))
-my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Extend to n_colors
-
 # Reverse the color palette and map to the species in the desired order
 n_colors <- 10  # Number of species
 my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Generate colors
@@ -419,6 +414,19 @@ reversed_colors <- rev(my_colors)
 species_colors <- setNames(
   reversed_colors,
   c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
+)
+
+species_colors <- c(
+  piab = "#006837",
+  fasy = "#229C52",
+  quro = "#74C364",
+  pisy = "#B7E075",
+  soau = "#E9F6A2",
+  acps = "#FEEDA2",
+  potr = "#FDBE6E",
+  abal = "#F67B49",
+  besp = "#DA362A",
+  lade = "#A50026"
 )
 
 # Print the color assignments for confirmation
@@ -601,9 +609,13 @@ ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fil
 library(scales) # For color adjustment (lighter/darker shades)
 
 # Generate separate colors for Juveniles (darker) and Saplings (lighter)
-species_colors_juveniles <- species_colors
+#species_colors_juveniles <- species_colors
+
+species_colors_juveniles <- lapply(species_colors, function(color) darken(color, 
+                                                                          amount = 0.2)) %>% unlist()
+
 species_colors_saplings <- lapply(species_colors, function(color) lighten(color, 
-                                                                          amount = 0.4)) %>% unlist()
+                                                                          amount = 0.2)) %>% unlist()
 
 # Create a named vector combining Juveniles and Saplings
 species_colors_combined <- c(
@@ -617,24 +629,31 @@ species_composition_sapl_juv_summary <- species_composition_sapl_juv_summary %>%
 
 # Diverging bar chart with species-specific colors
 p_share_vertical_species <- ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fill = fill_key)) +
-  geom_bar(stat = "identity", position = "identity", alpha = 0.8) + # Horizontal bars
-  geom_errorbarh(aes(xmin = iqr_low, xmax = iqr_high), height = 0.2, color = "black") + # Add IQR error bars
+  geom_bar(stat = "identity", position = "identity", alpha = 1) + # Horizontal bars
+  geom_errorbarh(aes(xmin = iqr_low, xmax = iqr_high), 
+                 height = 0.1, 
+                 color = "black",
+                 linewidth = 0.2) + # Add IQR error bars
   scale_x_continuous(
     labels = abs, # Show positive labels
-    name = "Median Share\n(%)"
+    name = "Stem density\nMedian share [%]",
   ) +
   scale_fill_manual(values = species_colors_combined) + # Use combined color palette
   labs(
-    x = "Median share [%]",
+    x = "Stem density\nMedian share [%]",
     y = "",
     title = ""
   ) +
   geom_vline(xintercept = 0, linetype = "solid", color = "black", linewidth = 0.2) + #
   theme_classic(base_size = 8) +
-  annotate("text", x = -30, y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
-           label = "Saplings", color = "gray30", size = 4, fontface = "bold") + # Add Saplings label
-  annotate("text", x = 30, y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
-           label = "Juveniles", color = "gray30", size = 4, fontface = "bold") + # Add Juveniles label
+  annotate("text", x = -60, 
+           #y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
+           y = 1,
+           label = "Sapling", color = "gray30", size = 3, fontface = "plain") + # Add Saplings label
+  annotate("text", x = 50, 
+           #y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
+           y = 1,
+           label = "Juveniles", color = "gray30", size = 3, fontface = "plain") + # Add Juveniles label
   
   theme(
     axis.text.x = element_text(size = 8, angle = 0, hjust = 0.5),
@@ -643,77 +662,66 @@ p_share_vertical_species <- ggplot(species_composition_sapl_juv_summary, aes(x =
     plot.title = element_text(size = 8, hjust = 0.5)
   )
 
-ggarrange(p_sites_share_species, p_stem_density_species, p_share_vertical_species, ncol = 3 )
 
 library(cowplot)
 
+# update labels
+species_labels <- c(
+  "piab" = "Picea abies",
+  "fasy" = "Fagus sylvatica",
+  "quro" = "Quercus robur/petraea",
+  "pisy" = "Pinus sylvestris",
+  "soau" = "Sorbus aucuparia",
+  "acps" = "Acer pseudoplatanus",
+  "potr" = "Populus tremula",
+  "abal" = "Abies alba",
+  "besp" = "Betula sp.",
+  "lade" = "Larix decidua"
+)
 
 # Remove x- and y-axis labels from individual plots
-p1 <- p_sites_share_species # + theme(axis.title.x = element_blank(), axis.title.y = element_blank())
-p2 <- p_stem_density_species + theme( axis.text.y = element_blank())
-p3 <- p_share_vertical_species + theme( axis.text.y = element_blank())
+p1 <- p_sites_share_species +
+  scale_y_discrete(labels = species_labels) + # Replace y-axis labels with full Latin names
+ # theme_classic(base_size = 8) +
+  theme(
+    axis.text.y = element_text(face = "italic", size = 8) #, # Italics for Latin names
+ #   axis.text.x = element_text(size = 8),  # Adjust x-axis label size
+  #  axis.title = element_text(size = 8)   # Adjust axis title size
+  )
+p2 <- p_stem_density_species + theme(axis.ticks.y = element_blank(),
+                                     axis.text.y = element_blank(), axis.title.y = element_blank())
+p3 <- p_share_vertical_species + theme(axis.ticks.y = element_blank(), 
+                                       axis.text.y = element_blank(), axis.title.y = element_blank())
 
 
 # Combine plots with aligned axes
 combined_plot <- plot_grid(
   p1,p2,p3,
-  align = "v",  # Align vertically
-  ncol = 3,     # Three plots in a row
-  rel_widths = c(1, 1, 1) # Adjust relative widths if necessary
+  align = "h",  # Align vertically
+  ncol = 3 ,     # Three plots in a row
+  rel_widths = c(1.4, 1, 1), # Adjust relative widths if necessary
+  labels = c("[a]", "[b]", "[c]"), # Add labels
+  label_size = 8,           # Adjust label size
+  label_fontface = "plain"   # Use plain font for labels
 )
 
 # Print combined plot
 print(combined_plot)
 
+# Save the combined plot as an image
+ggsave(
+  filename = "outFigs/combined_plot.png",    # File name (change extension for different formats, e.g., .pdf)
+  plot = combined_plot,             # Plot object to save
+  width = 7,                       # Width of the saved plot in inches
+  height = 3.5,                       # Height of the saved plot in inches
+  dpi = 300,                        # Resolution (dots per inch)
+  units = "in"                      # Units for width and height
+)
+
+
 # species composition per vert class and species: totals in 100% juv and sapl -------------
 # not very pretty
 
-# START 
-# Summarize the total stem density per species 
-species_composition_sapl_juv_simpl <- stem_dens_species_long_cluster %>%
-  dplyr::filter(Species %in% top_species_site_share$Species) %>% 
-  dplyr::filter(VegType != "Mature") %>% 
-  group_by(Species,VegType) %>%
-  summarize(sum_regeneration = sum(stem_density, na.rm = TRUE)) %>% 
-  ungroup() 
-
-# Calculate the stem density er regeneration class and share of each species
-species_composition_sapl_juv_simpl <- 
-  species_composition_sapl_juv_simpl %>%
-  group_by(Species) %>% 
-  mutate(total_stems = sum(sum_regeneration),  # Total stem density in each climate class
-         share = (sum_regeneration / total_stems) * 100) %>%  # Calculate percentage share
-  ungroup() %>% 
-  filter(!is.nan(share) & share > 0)
-
-# Transform data to make saplings negative for diverging plot
-species_composition_plot_data_simpl <- species_composition_sapl_juv_simpl %>%
-  mutate(
-    share = ifelse(VegType == "Saplings", -share, share) # Saplings are negative
-  )
-
-# Diverging bar chart with switched axes
-ggplot(species_composition_plot_data_simpl, aes(x = share, y = Species, fill = VegType)) +
-  geom_bar(stat = "identity", position = "identity", alpha = 0.8) + # Horizontal bars
-  scale_x_continuous(
-    labels = abs, # Show positive labels
-    name = "Share (%)"
-  ) +
-  scale_fill_manual(values = c("Saplings" = "#56B4E9", "Juveniles" = "#E69F00")) + # Custom colors
-  labs(
-    y = "Species",
-    title = "Diverging Bar Chart: Share of Saplings and Juveniles by Species"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    axis.text.y = element_text(size = 10),
-    axis.text.x = element_text(size = 10),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 10),
-    plot.title = element_text(size = 14, hjust = 0.5)
-  )
-
-# END
 
 # END
 # Density plot of stem density  ----------------------------------
@@ -734,11 +742,14 @@ df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
 df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
   mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
 
-# test with log values
 p_stem_density_species <- df_stem_sp_sum_ordered %>%
   ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
-  geom_density_ridges(aes(fill = Species), alpha = 0.8, 
-                      color = 'NA') +
+  geom_density_ridges(
+    aes(fill = Species), 
+    alpha = 1, 
+    color = 'NA', 
+    scale = 0.9 # Adjust the vertical scale of the ridges
+  ) +
   scale_fill_manual(values = species_colors) +
   stat_summary(
     aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
@@ -747,44 +758,37 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
     geom = "pointrange", 
     color = "black",  # Black outline for points
-    #fill = "grey",  # Default fill color (or leave as `Species` to map by color)
     shape = 21,  # Shape 21 is a circle with a fill and border
-    size = 0.2,
-    linewidth = 0.1,
+    size = 0.5,
+    linewidth = 0.2,
     stroke = 0.2,
-    position = position_nudge(y = 0.3)  # Adjust position slightly
+    position = position_nudge(y = 0.2)  # No vertical nudge for alignment
   ) +
   theme_classic() +
-  labs(title = "",
-       x = "Stem density\n(log10) [#*1000/ha]",
-       y = "")  +
-  scale_x_continuous(
-    labels = scales::label_number(scale = 1000, accuracy = 1,
-                                  big.mark = ""), # Multiplies values by 1000 for labels
-    name = "Stem density\n[#/ha]" # Updated axis label
+  labs(
+    title = "",
+    x = "Stem density\n(log10) [#/ha]",
+    y = ""
   ) +
+  scale_x_continuous(
+    labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
+  ) +
+  
+  scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) + # Adjust y-axis padding
   theme_classic(base_size = 8) +
-  #scale_x_continuous(
-  #  labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
-  #) +
-   theme(    axis.text = element_text(size = 8),    # Axis tick labels
-             axis.title = element_text(size = 8),   # Axis titles
-             
-     #axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate the y-axis text (Species)
-       # panel.border = element_rect(color = "black", fill = NA, size = 1),  # Black border around facets
-        #strip.background = element_rect(color = "black", linewidth = 1),  # Black border around facet labels
-        #panel.grid.major = element_line(color = "grey", linetype = "dotted"),  # Add grey dashed major grid lines
-        panel.grid.minor = element_blank(),  # Remove minor grid lines
-        legend.position = 'none'#,
-     #   plot.margin = margin(t = 7, r = 5, b = 5, l = 3)
-     )  # Adjust plot margins) #+  # Hide the legend
+  theme(
+    axis.text = element_text(size = 8),    # Axis tick labels
+    axis.title = element_text(size = 8),   # Axis titles
+    panel.grid.minor = element_blank(),    # Remove minor grid lines
+    legend.position = 'none'               # Hide the legend
+  )
 
+# Print the plot
+print(p_stem_density_species)
 
-p_stem_density_species
-
-ggsave(filename = 'outFigs/p_stem_density_ridge_log.png', 
-       plot = p_stem_density_species, 
-       width = 3, height = 3.5, dpi = 300, bg = 'white')
+# ggsave(filename = 'outFigs/p_stem_density_ridge_log.png', 
+#        plot = p_stem_density_species, 
+#        width = 3, height = 3.5, dpi = 300, bg = 'white')
 
 
 ## Bar plot with error plot ---------------------------------------------------------
@@ -958,11 +962,6 @@ p_bar_IRQ_color_sp <- stem_dens_species_long_cluster %>%
   labs(x = "Stem density\n[n/ha]", y = "") +
   scale_x_continuous(labels = math_format(10^.x))  # Format x-axis labels
 
-
-
-
-
-# export plot alternatives -------------------------------------------------
 
 
 
