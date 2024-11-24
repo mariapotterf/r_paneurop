@@ -213,6 +213,70 @@ species_dominance_rIVI <- df_fin %>%
 species_dominance_rIVI
 
 
+# get plots share by most frequent dominant species -------------------------------
+# Filter species with > 5% proportion
+
+# Create the barplot
+species_dominance_rIVI %>%
+  dplyr::filter(proportion_percent > 3) %>% 
+  mutate(dominant_species = reorder(dominant_species, -proportion_percent)) %>%  # Reorder by descending proportion
+  ggplot(aes(x = 1, y = proportion_percent, fill = dominant_species)) +
+  geom_bar(stat = "identity", color = 'black') + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
+  geom_text(aes(label = paste0(round(proportion_percent, 1), "%")), 
+            position = position_stack(vjust = 0.5), size = 2) +  # Add labels with share percentages
+  labs(
+    title = "Species Dominance (>5% Proportion)",
+    x = "Dominant Species",
+    y = "Proportion (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12, face = "bold")
+  )
+
+
+# share of plots by species richness
+
+
+# Categorize richness into bins and calculate proportions
+richness_summary <- df_fin %>%
+  mutate(
+    richness_category = case_when(
+      richness == 0 ~ "0",
+      richness == 1 ~ "1",
+      richness == 2 ~ "2",
+      richness == 3 ~ "3",
+      richness >= 4 ~ ">4",
+      TRUE ~ "Other"  # Just in case there are unexpected values
+    )
+  ) %>%
+  group_by(richness_category) %>%
+  summarise(site_count = n_distinct(site)) %>%
+  mutate(proportion = site_count / sum(site_count) * 100)  # Calculate proportions
+
+# Create a stacked bar plot
+ggplot(richness_summary, aes(x = 1, y = proportion, fill = richness_category)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = paste0(round(proportion, 1), "%")), 
+            position = position_stack(vjust = 0.5), size = 4) +  # Add percentage labels
+  scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
+  labs(
+    title = "Proportion of Sites by Richness Category",
+    x = NULL,
+    y = "Proportion (%)",
+    fill = "Richness Category"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),  # Remove x-axis text since it's a single bar
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 12, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+  )
+
+
 ## Species composition: Tables --------------
 
 df_stem_sp_sum <- stem_dens_species_long_cluster %>% 
@@ -2125,17 +2189,17 @@ p_boxplot_wilcox_rm_outliers <-
     scales = "free_y", 
     ylab = "Values", xlab = "Regeneration Status",
     outlier.shape = NA,  # Hide outliers
-    size = 0.2) +
+    size = 0.2#,
+    #notch = T
+    ) +
   #geom_jitter(size = 0.1, alpha = 0.5, aes(color = adv_delayed)) +
-  scale_color_manual(values = c("#A50026", 
-                                "#FDAE61",
-                                "#006837")) +
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
                      label = "p.signif", 
                      size = 2,
                      label.x = 1.5) +  # Position labels between the groups
   labs(title = "",
        x = "", y = "Vals") +
+  theme_classic() +
   theme(
     legend.position = 'none',
     text = element_text(size = 5),         # Set all text to size 3
@@ -2147,7 +2211,7 @@ p_boxplot_wilcox_rm_outliers <-
     strip.background = element_blank(),    # Remove the box around facet names
     strip.placement = "outside",           # Optional: Move facet label outside the plot area
     #panel.border = element_blank(),        # Remove top and right border
-    panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
+    #panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
     axis.line = element_line(color = "black", linewidth = 0.5)  # Add bottom and left axis lines
   )
 #"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
