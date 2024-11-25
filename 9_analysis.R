@@ -151,6 +151,18 @@ print(df_fin_clim_clust_xy)
 
 #fwrite(df_fin, 'outTable/df_fin.csv')
 
+
+# add to gpkg: 10 prevailing species -------------------------
+# 
+# # Create a new column in the sf object
+# df_fin_clim_clust_xy$dominant_species_grouped <- ifelse(
+#   df_fin_clim_clust_xy$dominant_species %in% top_species_site_share$Species,
+#   df_fin_clim_clust_xy$dominant_species,  # Keep the species name if it's in the top species
+#   "other"  # Otherwise, assign 'other'
+# )
+#st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
+
+
 # Analysis ------------------------------------------------------------
 # desription of current regeneration state
 # structure 
@@ -210,7 +222,7 @@ species_dominance_rIVI
 # Filter species with > 5% proportion
 
 # Create the barplot
-species_dominance_rIVI %>%
+p_bar_species_dominance <- species_dominance_rIVI %>%
   dplyr::filter(proportion_percent > 3) %>% 
   mutate(dominant_species = reorder(dominant_species, -proportion_percent)) %>%  # Reorder by descending proportion
   ggplot(aes(x = 1, y = proportion_percent, fill = dominant_species)) +
@@ -220,14 +232,17 @@ species_dominance_rIVI %>%
   geom_text(aes(label = paste0(round(proportion_percent, 1), "%")), 
             position = position_stack(vjust = 0.5), size = 2) +  # Add labels with share percentages
   labs(
-    title = "Sites by\nSpecies Dominance (>5% Proportion)",
-    x = "Dominant Species",
+    title = "",
+    fill = 'Dominant tree\nspecies (rIVI)',
+    x = NULL,
     y = "Proportion (%)"
   ) +
   theme_minimal() +
-  theme(
-    axis.text = element_text(size = 10),
-    axis.title = element_text(size = 12, face = "bold")
+  theme(axis.text.x = element_blank(),  # Remove x-axis text since it's a single bar
+        axis.title.x = element_blank(),
+        
+    axis.text = element_text(size = 8),
+    axis.title = element_text(size = 8, face = "plain")
   )
 
 
@@ -246,30 +261,34 @@ richness_summary <- df_fin %>%
       TRUE ~ "Other"  # Just in case there are unexpected values
     )
   ) %>%
+  mutate(richness_category = factor(richness_category, levels = c("0","1","2","3",">4"))) %>% 
   group_by(richness_category) %>%
   summarise(site_count = n_distinct(site)) %>%
   mutate(proportion = site_count / sum(site_count) * 100)  # Calculate proportions
 
 # Create a stacked bar plot
-ggplot(richness_summary, aes(x = 1, y = proportion, fill = richness_category)) +
+p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fill = richness_category)) +
   geom_bar(stat = "identity", color = "black") +
-  geom_text(aes(label = paste0(round(proportion, 1), "%")), 
-            position = position_stack(vjust = 0.5), size = 4) +  # Add percentage labels
+  geom_text(aes(label = paste0(round(proportion, 1), "%", '(', site_count, ')')), 
+            position = position_stack(vjust = 0.5), size = 2) +  # Add percentage labels
   scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
   labs(
-    title = "Proportion of Sites by Richness Category",
+    title = "",
     x = NULL,
     y = "Proportion (%)",
-    fill = "Richness Category"
+    fill = "Richness"
   ) +
   theme_minimal() +
   theme(
     axis.text.x = element_blank(),  # Remove x-axis text since it's a single bar
     axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 12, face = "bold"),
-    plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+    axis.title.y = element_text(size = 8, face = "plain"),
+    plot.title = element_text(size = 8, face = "plain", hjust = 0.5)
   )
 
+
+ggarrange(p_bar_richness_groups, p_bar_species_dominance, labels = c("[a]", "[b]"),  # Add labels
+          font.label = list(size = 10, face = "plain"))
 
 ## Species composition: Tables --------------
 
@@ -330,6 +349,7 @@ p_sites_share_species <- species_site_share %>%
   )
 
 p_sites_share_species
+
 ## Species composition overall: total sum of stems ----------------------------------
 
 # Summarize the total stem density per species for each climate class
@@ -355,15 +375,6 @@ top_species_overall_vect <- top_species_overall$Species
 
 (top_species_overall_vect)
 
-# add to gpkg
-
-# Create a new column in the sf object
-df_fin_clim_clust_xy$dominant_species_grouped <- ifelse(
-  df_fin_clim_clust_xy$dominant_species %in% top_species_overall_vect,
-  df_fin_clim_clust_xy$dominant_species,  # Keep the species name if it's in the top species
-  "other"  # Otherwise, assign 'other'
-)
-#st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
 
 
 
