@@ -350,69 +350,8 @@ p_sites_share_species <- species_site_share %>%
 
 p_sites_share_species
 
-## Species composition overall: total sum of stems ----------------------------------
 
-# Summarize the total stem density per species for each climate class
-species_composition_overall <- stem_dens_species_long_cluster %>%
-  group_by(Species) %>%
-  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
-  ungroup() 
-
-# Calculate the total stem density per climate class and the share of each species
-species_composition_overall <- species_composition_overall %>%
-  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
-         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
-  ungroup()
-
-
-# Find the top species with more then 5% share 
-top_species_overall <- species_composition_overall %>%
-  arrange(desc(share)) %>%  
-#  slice_head(n = 7) #%>%  # Select the top X species
-  dplyr::filter(share > 5)# %>%  # select species with share > 5%
-
-top_species_overall_vect <- top_species_overall$Species
-
-(top_species_overall_vect)
-
-
-
-
-# Species composition by layer -----------------------------------------------------
-
-# Summarize the total stem density per species 
-species_composition_layer <- stem_dens_species_long_cluster %>%
-  group_by(Species, VegType) %>%
-  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
-  ungroup() 
-
-# Calculate the total stem density per climate class and the share of each species
-species_composition_layer <- species_composition_layer %>%
-  group_by(VegType) %>%
-  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
-         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
-  ungroup()
-
-
-# Find the top species > 5% share 
-top_species_layer <- species_composition_layer %>%
-  group_by(VegType) %>% 
-  arrange(desc(share)) %>%  
-  #slice_head(n = 7) #%>%  # Select the top X species
-  dplyr::filter(share > 5)# %>%  # select species with share > 5%
-
-top_species_layer_vect <- top_species_layer$Species
-
-(top_species_overall_vect)
-unique((top_species_layer_vect))
-
-# compare teh species by overall ominance and by layer:
-setdiff(top_species_layer_vect, top_species_overall_vect )
-
-
-
-
-# Make a barplot - use previous colors and color schemes!!
+# Get a color scheme per species -------------------------
 
 # Reverse the color palette and map to the species in the desired order
 n_colors <- 10  # Number of species
