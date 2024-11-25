@@ -720,11 +720,11 @@ names(species_shaded_colors) <- c(
 
 
 p_bar_IRQ_shaded <- stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>% 
+  dplyr::filter(Species %in% top_species_site_share$Species) %>% 
   dplyr::filter(stem_density > 0) %>% 
-  mutate(Species = factor(Species, levels = rev(my_species_levels ))) %>%  # Set ordertop_species_overall_vect[1:7]
+  mutate(Species = factor(Species, levels = rev(my_species_levels ))) %>%  # Set ordertop_species_site_share$Species
   mutate(
-   # Species = factor(Species, levels = top_species_overall_vect[1:7]),  # Set order
+   # Species = factor(Species, levels = top_species_site_share$Species),  # Set order
     species_veg = paste(Species, VegType_acc, sep = "_")  # Combine Species and VegType_acc
   ) %>%
   ggplot(aes(y = VegType_acc, x = stem_density/1000 , fill = species_veg)) +
@@ -778,11 +778,11 @@ p_bar_IRQ_shaded <- stem_dens_species_long_cluster %>%
 p_bar_IRQ_shaded
 
 p_bar_IRQ_color_sp <- stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>% 
+  dplyr::filter(Species %in% top_species_site_share$Species) %>% 
   dplyr::filter(stem_density > 0) %>% 
   mutate(Species = factor(Species, levels = my_species_levels)) %>%  # Set order
   mutate(
-    Species = factor(Species, levels = top_species_overall_vect[1:7]),  # Set order
+    Species = factor(Species, levels = top_species_site_share$Species),  # Set order
     species_veg = paste(Species, VegType_acc, sep = "_")  # Combine Species and VegType_acc
   ) %>%
   ggplot(aes(y = VegType_acc, x = stem_density , fill = Species)) +
@@ -843,9 +843,9 @@ p_bar_IRQ_color_sp <- stem_dens_species_long_cluster %>%
 
 # Get a summary table:
 summary_stem_dens_VegType <- stem_dens_species_long_cluster %>%
-  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>%
+  dplyr::filter(Species %in% top_species_site_share$Species) %>%
   dplyr::filter(stem_density > 0) %>%
-  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%
+  mutate(Species = factor(Species, levels = top_species_site_share$Species)) %>%
   group_by(Species, VegType_acc) %>%
   summarise(min = min(stem_density, na.rm =T),
             max = max(stem_density, na.rm =T),
@@ -861,9 +861,9 @@ summary_stem_dens_VegType <- stem_dens_species_long_cluster %>%
 summary_stem_dens_VegType
 # # Get a summary table:
 summary_stem_dens_spec <- stem_dens_species_long_cluster %>%
-  dplyr::filter(Species %in% top_species_overall_vect[1:7]) %>%
+  dplyr::filter(Species %in% top_species_site_share$Species) %>%
   dplyr::filter(stem_density > 0) %>%
-  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%
+  mutate(Species = factor(Species, levels = top_species_site_share$Species)) %>%
   group_by(Species) %>%
   summarise(
     min = min(stem_density, na.rm =T),
@@ -909,10 +909,10 @@ sjPlot::tab_df(summary_stem_dens_spec_formated,
 
 
 p_stem_density_error <- stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:7]  ) %>% 
+  dplyr::filter(Species %in% top_species_site_share$Species  ) %>% 
   dplyr::filter(stem_density > 0) %>% 
   mutate(Species = factor(Species, 
-                          levels = top_species_overall_vect[1:7])) %>%
+                          levels = top_species_site_share$Species)) %>%
   
   ggplot(aes(x = stem_density, 
              y = VegType_acc, 
@@ -963,85 +963,9 @@ ggsave(filename = 'outFigs/p_stem_density_error.png',
 
 
 
-## Density plot per vertical class: -----------------------------------------------
 
-stem_dens_species_long_cluster %>%  
-  dplyr::filter(Species %in% top_species_overall_vect[1:7]  ) %>% 
-  dplyr::filter(stem_density > 0) %>% 
-  mutate(Species = factor(Species, levels = top_species_overall_vect[1:7])) %>%  # Set order
-  ggplot(aes(x = log_stem_density , y = VegType_acc, 
-             fill = VegType_acc,
-             #color = VegType_acc,
-             group = species_VegType )) +
-  geom_density_ridges(aes(fill = Species), alpha = 0.5, color = 'NA') +
-  #scale_fill_manual(values = species_colors) +
-  stat_summary(
-    aes(x = log_stem_density), 
-    fun = median, 
-    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-    geom = "pointrange", 
-    size = 0.1,
-    position = position_nudge(y = .2)  # Adjust position slightly
-  ) +
-  #scale_color_manual(values = colorRampPalette(brewer.pal(11, "RdYlGn"))(3)) +  # Apply the color palette based on seral type
-  facet_grid(Species ~ ., switch = "y") +
-  scale_x_continuous(
-    labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
-  ) +
-  # Adjust theme
-  theme_classic() +
-  theme(
-    legend.position = 'none',
-    strip.background = element_blank(),  # Remove background from facet labels
-    strip.text.y.left = element_text(face = "bold", angle = 0,vjust = 1),  # Make facet labels bold and horizontal
-    strip.placement = "outside",  # Place facet labels further outside
-    
-    # Expand plot margins to allow space for labels on the left
-    plot.margin = margin(t = 5, r = 5, b = 5, l = 7),  # Increase left margin
-    
-    # Ensure xy lines appear only on axes
-    panel.border = element_blank(),
-    panel.grid = element_blank(),
-    axis.line.x = element_line(color = "black"),
-    axis.line.y = element_line(color = "black")
-  ) +
-  labs(x = "", y = "")
+
  
-  
-
-
-
-## stem density: show only median and IQR?  ----------------------------------
-
-
-  # Calculate median and IQR for sum_stems per Species and VegType
-  df_median_iqr <- stem_dens_species_long_cluster %>%
-    dplyr::filter(stem_density >0) %>% 
-    group_by(Species, VegType) %>%
-    summarize(
-      median_stems = median(stem_density, na.rm = TRUE),
-      Q1 = quantile(stem_density, 0.25, na.rm = TRUE),  # First quartile (25th percentile)
-      Q3 = quantile(stem_density, 0.75, na.rm = TRUE)   # Third quartile (75th percentile)
-    ) %>%
-    ungroup()
-  
-  
-  
-  # Plot the median with IQR for each Species and VegType
-  df_median_iqr %>% 
-    dplyr::filter(Species %in% c('piab', 'fasy', 'pisy')) %>% 
-    ggplot(aes(x = Species, y = median_stems)) +
-    geom_bar(stat = "identity", position = "dodge", alpha = 0.6) +  # Bar plot for median values
-    geom_errorbar(aes(ymin = Q1, ymax = Q3), width = 0.2, position = position_dodge(0.9)) +  # IQR error bars
-    facet_wrap(.~VegType, scales = 'free') +
-    labs(title = "Median and IQR of Stem Density per Species and Vegetation Type",
-         x = "Species",
-         y = "Stem Density (Median ± IQR)") +
-    theme_minimal() +
-    theme(legend.position = "top")
-  
-  
 ## Species composition: vertical class  ------------------------------------
 # Summarize the data by VegType and Species
 mean_stems_vertical <- stem_dens_species_long_cluster %>%
@@ -1075,73 +999,93 @@ species_composition <- stem_dens_species_long_cluster %>%
 # Calculate the total stem density per climate class and the share of each species
 species_composition <- species_composition %>%
 #  group_by(clim_class) %>%
-  mutate(total_stems_clim_class = sum(sum_stems),  # Total stem density in each climate class
-         share = (sum_stems / total_stems_clim_class) * 100) %>%  # Calculate percentage share
+  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
+         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
   ungroup()
 
 
-#sum of species per fiel wrork: from 37 tree species
-# Calculate species richness per clim_class
-species_richness <- top_species_per_clim_class %>%
-  group_by(clim_class) %>%
-  summarise(species_richness = n_distinct(Species))
-
-stem_dens_species_long_cluster %>% 
-  ungroup() %>% 
-  dplyr::filter(stem_density > 0) %>% 
-  summarise(species_richness = n_distinct(Species))
- 
 
 
 #### Species composition: country -----------------------------------
+# get inication per inividual country 
+df_fin_country_ind <- df_fin %>% 
+  dplyr::select(site, country_abbr)
 
 # Summarize the total stem density per species for each climate class
 species_composition <- stem_dens_species_long_cluster %>%
-  group_by(Species, country) %>%
+  left_join(df_fin_country_ind, by = c("cluster" = "site")) %>% 
+  group_by(Species, country_abbr) %>%
   summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
   ungroup() 
 
 # Calculate the total stem density per climate class and the share of each species
 species_composition <- species_composition %>%
-  group_by(country) %>%
-  mutate(total_stems_clim_class = sum(sum_stems),  # Total stem density in each climate class
-         share = (sum_stems / total_stems_clim_class) * 100) %>%  # Calculate percentage share
+  group_by(country_abbr) %>%
+  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
+         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
   ungroup() %>% 
-  dplyr::filter(share >5)
+  dplyr::filter(share >5) %>%
+  group_by(country_abbr) %>% 
+  arrange(share) %>% 
+  mutate(Species = factor(Species))
 
 
 # Create a color palette with 12 colors based on RdYlGn
 my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(length(unique(species_composition$Species)))
+length(my_colors)
+
+# Define species full Latin names
+species_labels_full <- c(
+  "abal" = "Abies alba",
+  "acps" = "Acer pseudoplatanus",
+  "besp" = "Betula sp.",
+  "fasy" = "Fagus sylvatica",
+  "piab" = "Picea abies",
+  "pisy" = "Pinus sylvestris",
+  "potr" = "Populus tremula",
+  "prav" = "Prunus avium",
+  "soau" = "Sorbus aucuparia",
+  "frex" = "Fraxinus excelsior",
+  "quro" = "Quercus robur/petraea",
+  "lade" = "Larix decidua",
+  "acpl" = "Acer platanoides",
+  "cabe" = "Carpinus betulus"
+)
+
 
 # Create the stacked bar plot
 p_species_distribution_country <- species_composition %>% 
   dplyr::filter(share >5) %>% 
   ggplot(
-                                 aes(x = country, 
+                                 aes(x = country_abbr, 
                                      y = share, 
                                      fill = Species)) +
   geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
-  geom_text(aes(label = ifelse(share >= 5, paste0(round(share, 1), "%"), "")),
+  geom_text(aes(label = ifelse(share >= 5, paste0(round(share, 1), ""), "")),
             position = position_stack(vjust = 0.5),  # Labels inside the bars
             size = 3, color = "black") +  # Adjust text size and color
-  labs(x = "", y = "Percentage", 
-       fill = "Species",
+  labs(x = "", y = "Share [%]", 
+       fill = "",
        title = "") +
-  scale_fill_manual(values = my_colors) +
+  scale_fill_manual(values = rev(my_colors),
+                    labels = species_labels_full) +  # Use full Latin names) +
   #scale_fill_manual(values = species_colors) +  # Apply the color palette based on seral type
   theme_classic() +  # Use a clean theme
   theme(
-    legend.position = 'right',
+    legend.position = "bottom",  # Move legend to the bottom
+    legend.text = element_text(size = 8, face = "italic"),  # Make legend text italic
+    
     # axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
     plot.title = element_text(hjust = 0.5)  # Center the title
-  ) 
+  ) +
+  guides(fill = guide_legend(ncol = 3))  # Split legend into 3 columns
 
 p_species_distribution_country
 
 
-ggsave(filename = 'outFigs/fig_p_species_distribution_global_country.png', 
+ggsave(filename = 'outFigs/fig_p_species_distribution_country_full.png', 
        plot = p_species_distribution_country, 
-       width = 7, height = 5, dpi = 300, bg = 'white')
+       width = 7, height = 6, dpi = 300, bg = 'white')
 
 
 
@@ -1271,45 +1215,6 @@ upset_data <- dd_wide %>% dplyr::select(m, j, s) %>%
 # Step 3: Create the UpSet plot
 upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
 
-
-
-
-
-
-
-
-### Descriptive plots  -----------------------------------------------------------
-
-# Richness desc 
-
-# decrsibe richness: how many clusters have how many species?
-df_fin %>% 
-  group_by(richness) %>% 
-  dplyr::summarize(count = n(),
-                   prop = count/cluster_n*100)
-
-
-# what are dominant species??
-df_fin %>% 
-  dplyr::filter(rIVI> 0.5) %>%
-  # nrow()
-  group_by(dominant_species) %>% 
-  dplyr::summarize(count = n(),
-                   prop = count/n_subplot *100) %>% 
-  arrange(desc(prop)) %>% 
-  mutate(dominant_species = factor(dominant_species, 
-                                   levels = unique(dominant_species[order(count, decreasing = TRUE)]))) %>%
-  ggplot(aes(x = dominant_species,
-             y = count)) +
-  geom_bar(stat = 'identity') + 
-  geom_text(aes(label = paste0(round(prop, 1), "%")), 
-            position = position_stack(vjust = 1.4), 
-            angle = 90,
-            color = "black",
-            size= 4) + # Adjust color as needed
-  labs(x = '',
-       y = 'Counts [#]') +
-  theme_bw()
 
 
 
@@ -1754,47 +1659,6 @@ m_int_mat_edge_full_te_comb <- gam(
 AIC(m_int_sev_edge_full_te_comb, m_int_res_edge_full_te_comb, m_int_mat_edge_full_te_comb)
 
 
-##### test on centered vars ---------------------------------------------------
-
-# Step 1: Center the variables
-df_stem_regeneration2 <- df_stem_regeneration2 %>%
-  mutate(
-    prcp_c = prcp - mean(prcp, na.rm = TRUE),
-    tmp_c = tmp - mean(tmp, na.rm = TRUE),
-    residual_mature_trees_c = residual_mature_trees - mean(residual_mature_trees, na.rm = TRUE),
-    distance_edge_c = distance_edge - mean(distance_edge, na.rm = TRUE),
-    disturbance_severity_c = disturbance_severity - mean(disturbance_severity, na.rm = TRUE),
-    management_intensity_c = management_intensity - mean(management_intensity, na.rm = TRUE)
-  )
-
-# Step 2: Run the model using the centered variables
-m_int_sev_edge_full_centered <- gam(
-  stem_regeneration ~ 
-    s(prcp_c, k = 5) + s(tmp_c, k = 5) +
-    s(residual_mature_trees_c, k = 5) + 
-    s(distance_edge_c, k = 5) +
-    s(disturbance_severity_c, k = 5) +
-    ti(disturbance_severity_c, distance_edge_c, k = 5) +
-    ti(prcp_c, tmp_c, k = 5) +
-    s(management_intensity_c, by = country_pooled, k = 4) + 
-    s(country_pooled, bs = "re") +
-    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
-    s(x, y),                                 # Spatial autocorrelation
-  family = tw(),
-  method = 'REML',
-  data = df_stem_regeneration2
-)
-
-# Step 3: Summarize the model
-summary(m_int_sev_edge_full_centered)
-
-# 
-AIC(m_int_sev_edge_full_centered, m_int_sev_edge_full)  # AIC is exactly teh same, keep it like this
-
-
-# quick visualization
-AIC(m_int_res_edge_full_te_comb,m_int_res_edge_full_te, fin.m.reg.density)
-
 
 # store the best model for regeneration density
 fin.m.reg.density <- m_int_sev_edge_full_te_comb      
@@ -1865,18 +1729,27 @@ summary(fin.m.reg.density)
 
 # show only 95% quatile for stem density
 # Define the quantiles for stem_density and tmp columns
-quantiles_stem_density <- quantile(df_stem_regeneration2$stem_regeneration  , 
-                                   probs = c(0, 0.995), na.rm = TRUE)
-#quantiles_tmp <- quantile(df_stem_regeneration2$tmp, probs = c(0, 0.95), na.rm = TRUE)
+quantiles_stem_density99 <- quantile(df_stem_regeneration2$stem_regeneration  , 
+                                   probs = c(0, 0.99), na.rm = TRUE)
+
+quantiles_stem_density90 <- quantile(df_stem_regeneration2$stem_regeneration  , 
+                                     probs = c(0, 0.90), na.rm = TRUE)
+
 
 # Filter the DataFrame to keep rows within these quantile ranges
-filtered_df_plot <- df_stem_regeneration2 %>%
-  dplyr::filter(stem_regeneration     >= quantiles_stem_density[1] & stem_regeneration  <= quantiles_stem_density[2])
+filtered_df_plot99 <- df_stem_regeneration2 %>%
+  dplyr::filter(stem_regeneration     >= quantiles_stem_density99[1] & stem_regeneration  <= quantiles_stem_density99[2])
+
+filtered_df_plot90 <- df_stem_regeneration2 %>%
+  dplyr::filter(stem_regeneration     >= quantiles_stem_density90[1] & stem_regeneration  <= 
+                  quantiles_stem_density90[2])
+
+
 # ,tmp >= quantiles_tmp[1] & tmp <= quantiles_tmp[2]
 
 # Display the filtered data
-filtered_df_plot
-summary(filtered_df_plot$stem_regeneration)
+filtered_df_plot99
+summary(filtered_df_plot99$stem_regeneration)
 
 
 ###  dynamic plot title: ad significance level---------------------------------------------
@@ -1929,62 +1802,48 @@ title_interaction1          = create_dynamic_plot_title("ti(prcp,tmp)", formatte
 
 
 
-library(cowplot)
-combined_plot <- plot_grid(plot_disturbance_severity, 
-                           plot_residual_mature_trees,
-                           plot_distance_edge,
-                           
-                           plot_interaction1,
-                           #plot_interaction2, plot_interaction3,
-                       
-                       
-                        ncol = 2,nrow = 2,
-                        labels = c("[a]","[b]", "[c]","[d]"), 
-                        label_size = 8, label_fontface = "plain")
-
-combined_plot
-
-
-# Save the combined plot
-ggsave('outFigs/fig_regen_pool_drivers.png', plot = combined_plot, 
-       width = 6, height = 6.5, bg = 'white')
-
-
-
 
 # make plot manually:  --------------------------
-
-
-# try with te?
-#  m_int_sev_edge_full_te_comb 
 
 m <- m_int_sev_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
 k.check(m)
 summary(m)
-AIC(m, fin.m.reg.density)
+
+
 # test -----------
 # Generate predictions using ggpredict
 # Interaction 1: Precipitation and Temperature
-pred1 <- ggpredict(m, terms = c("prcp", "tmp [8,9,10]"))
+pred1 <- ggpredict(m, terms = c("prcp", "tmp [8,10]"))
+
+pred1_df <- as.data.frame(pred1)
+pred1_df$group <- as.numeric(as.character(pred1_df$group)) 
+pred1_df$group <- factor(pred1_df$group)
+
 
 # Interaction 2: Distance to Edge and Disturbance Severity
-pred2 <- ggpredict(m, terms = c("distance_edge", "disturbance_severity [0.3,0.6,0.9]"))
+pred2 <- ggpredict(m, terms = c("distance_edge", "disturbance_severity [0.3,0.9]"))
 # Example: Convert disturbance_severity to percent
 pred2_df <- as.data.frame(pred2)
 pred2_df$group <- as.numeric(as.character(pred2_df$group)) * 100
 pred2_df$group <- factor(pred2_df$group)
 
-my_colors_interaction <- c( "blue","gray", "red")
+my_colors_interaction <- c( "#FDAE61", "#A50026")
 # Plot the first interaction
-p1 <- ggplot(pred1, aes(x = x, y = predicted/1000, color = group, linetype = group)) +
- # geom_jitter(data = filtered_df_plot, 
-#              aes( x = disturbance_severity*100, y = stem_regeneration/1000), size = .5, alpha = 0.5, color = 'grey') +
-  geom_line(size = 1) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
+p1 <- 
+  ggplot(pred1, aes(x = x, y = predicted/1000)) +
+  geom_jitter(data = filtered_df_plot99, 
+              aes( x = prcp, y = stem_regeneration/1000), 
+              size = 1, alpha = 0.2, color = 'grey') +
+  geom_line(linewidth = 1, aes(color = group) ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
+              alpha = 0.2, color = NA) +
   scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
   scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
   theme_classic() +
-  labs(x = "Precipitation [mm]", y = "Stem density [#*1000/ha]", title = "***\np<0.0001", linetype =  "Temperature [°C]") +
+  labs(x = "Precipitation [mm]", 
+       y = "Regeneration stem density [#*1000/ha]", title = "***\np<0.0001", 
+      # linetype =  "Temperature [°C]"
+       ) +
   theme(
     plot.title = element_text(hjust = 0.5, size = 8),       # Title size
     axis.title = element_text(size = 8),                   # Axis title size
@@ -1995,20 +1854,29 @@ p1 <- ggplot(pred1, aes(x = x, y = predicted/1000, color = group, linetype = gro
     legend.position = c(0.05, 0.9),
     legend.justification = c(0.05, 0.9)
   )
+
+p1
 # Plot the second interaction
-p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group,linetype = group)) +
-  #geom_jitter(data = filtered_df_plot, 
-  #            aes( x = distance_edge, y = stem_regeneration/1000), size = .5, alpha = 0.5, color = 'grey') +
-  geom_line(size = 1) +
+p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
+  geom_jitter(data = filtered_df_plot90, 
+              aes( x = distance_edge, y = stem_regeneration/1000), 
+              size = 1, alpha = 0.2, color = 'grey',
+              width = 7,
+              height = 1) +
+  geom_line(linewidth = 1, aes(color = group) ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
-  scale_color_manual(values = my_colors_interaction, name = "Disturbance\nseverity [%]") +
-  scale_fill_manual(values = my_colors_interaction, name = "Disturbance\nseverity [%]") +
+  scale_color_manual(values = my_colors_interaction, 
+                     name = "Disturbance\nseverity",
+                     labels = c("Low", "High")) +
+  scale_fill_manual(values = my_colors_interaction, 
+                    name = "Disturbance\nseverity",
+                    labels = c("Low", "High")) +
   theme_classic() +
   #ylim(0,20) +
-  labs(x = "Distance to Edge [m]", y = "Stem density [#*1000/ha]", title = "**\np=0.0011",linetype = "Disturbance\nseverity [%]") +
+  labs(x = "Distance to Edge [m]", y = "", title = "**\np=0.0011",linetype = "Disturbance\nseverity [%]") +
   theme(
     plot.title = element_text(hjust = 0.5, size = 8),       # Title size
-    axis.title = element_text(size = 8),                   # Axis title size
+    axis.title.y = element_blank(),                   # Axis title size
     axis.text = element_text(size = 8),                    # Axis text size
     legend.key.size = unit(0.5, "cm"),                     # Legend key size
     legend.text = element_text(size = 8),                  # Legend text size
@@ -2016,6 +1884,8 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group,linetype = g
     legend.position = c(0.05, 0.9),
     legend.justification = c(0.05, 0.9)
   )
+p2
+
 p_combined_int <- ggarrange(p1, p2, 
                             labels = c("[a]","[b]"),  
                             font.label = list(size = 8, face = "plain")) # Specify plain font style)
@@ -2323,6 +2193,124 @@ p_boxplot_wilcox_rm_outliers <-
 # Save the plot ensuring text sizes are preserved
 p_boxplot_wilcox_rm_outliers
 
+
+# Test 
+
+df_fin %>% 
+  group_by(adv_delayed) %>% 
+  summarize(
+    min_distance = min(distance_edge, na.rm = TRUE),
+    max_distance = max(distance_edge, na.rm = TRUE),
+    mean_distance = mean(distance_edge, na.rm = TRUE),
+    median_distance = median(distance_edge, na.rm = TRUE),
+    IQR_distance = IQR(distance_edge, na.rm = TRUE),
+    sd_distance = sd(distance_edge, na.rm = TRUE),
+    n = n()
+  )
+
+df_fin %>% 
+  #group_by(adv_delayed) %>% 
+  summarize(
+    min_distance = min(distance_edge, na.rm = TRUE),
+    max_distance = max(distance_edge, na.rm = TRUE),
+    mean_distance = mean(distance_edge, na.rm = TRUE),
+    median_distance = median(distance_edge, na.rm = TRUE),
+    IQR_distance = IQR(distance_edge, na.rm = TRUE),
+    sd_distance = sd(distance_edge, na.rm = TRUE),
+    n = n()
+  )
+
+
+df_fin %>% 
+  #group_by(adv_delayed) %>% 
+  summarize(
+    min_distance = min(disturbance_severity, na.rm = TRUE),
+    max_distance = max(disturbance_severity, na.rm = TRUE),
+    mean_distance = mean(disturbance_severity, na.rm = TRUE),
+    median_distance = median(disturbance_severity, na.rm = TRUE),
+    IQR_distance = IQR(disturbance_severity, na.rm = TRUE),
+    sd_distance = sd(disturbance_severity, na.rm = TRUE),
+    n = n()
+  )
+
+
+# TEST 
+
+library(ggpubr)
+library(dplyr)
+
+# Manually calculate p-values for each comparison
+comparison_results <- lapply(comparisons, function(comp) {
+  test <- wilcox.test(
+    Value ~ adv_delayed, 
+    data = df_long_narrow_filtered %>% filter(adv_delayed %in% comp),
+    paired = FALSE
+  )
+  data.frame(
+    group1 = comp[1],
+    group2 = comp[2],
+    p.value = test$p.value
+  )
+})
+
+# Combine results into a single data frame
+comparison_results <- bind_rows(comparison_results)
+
+# Filter for significant results only (p < 0.05)
+significant_comparisons <- comparison_results %>%
+  dplyr::filter(p.value < 0.05) %>%
+  select(group1, group2) %>%
+  as.list()
+
+# Create the boxplot
+p_boxplot_wilcox_rm_outliers <- 
+  df_long_narrow_filtered %>% 
+  mutate(Variable = factor(Variable, 
+                           levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity",
+                                      "mature_dist_severity", 
+                                      "sum_stems_mature",  
+                                      "residual_mature_trees"))) %>% 
+  ggboxplot(
+    x = "adv_delayed", y = "Value", 
+    fill = "adv_delayed", 
+    palette = c("#A50026", 
+                "#FDAE61",
+                "#006837"),
+    alpha = 0.5,
+    facet.by = "Variable", 
+    scales = "free_y", 
+    ylab = "Values", xlab = "Regeneration Status",
+    outlier.shape = NA,  # Hide outliers
+    size = 0.2
+  ) +
+  stat_compare_means(
+    comparisons = significant_comparisons,  # Use only significant comparisons
+    method = "wilcox.test", 
+    label = "p.signif", 
+    size = 2,
+    label.x = 1.5
+  ) +
+  labs(title = "",
+       x = "", y = "Vals") +
+  theme_classic() +
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 8),         # Set all text to size 8
+    axis.text = element_text(size = 8),    # Axis tick labels
+    axis.title = element_text(size = 8),   # Axis titles
+    strip.text = element_text(size = 8),   # Facet labels
+    legend.text = element_text(size = 8),  # Legend text
+    plot.title = element_text(size = 8),   # Plot title
+    strip.background = element_blank(),    # Remove the box around facet names
+    strip.placement = "outside",           # Move facet label outside the plot area
+    axis.line = element_line(color = "black")  # Add bottom and left axis lines
+  )
+
+p_boxplot_wilcox_rm_outliers
+
+
+
+# END
 # Save the plot ensuring text sizes are preserved
 ggsave("outFigs/p_boxplot_wilcox_with_outliers.png", plot = p_boxplot_wilcox_outliers , 
        width = 3, height = 3.2, units = "in", dpi = 300, 
