@@ -383,78 +383,76 @@ species_colors <- c(
 print(species_colors)
 
 
+# Density plot of stem density  ----------------------------------
 
-# colors for map:
-#'#B0B0B0' # forest?
-#'#F7F7F7' # background?
+# Calculate median for each species and reorder the factor levels
+df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
+  dplyr::filter(sum_stem_density >0) %>% 
+  dplyr::filter(Species %in% top_species_site_share$Species ) %>%  #top_species_overall
+  dplyr::group_by(Species) %>%
+  dplyr::mutate(median_stem_density = median(sum_stem_density, na.rm = TRUE)) %>% 
+  dplyr::ungroup() %>%
+  mutate(Species = factor(Species, levels = rev(top_species_site_share$Species))) # Set custom order
+# dplyr::mutate(Species = reorder(Species, median_stem_density))  # Reorder species by median stem density
 
-# Order the species based on their share
-top_species_layer$Species <- reorder(top_species_layer$Species, 
-                                     top_species_layer$share, 
-                                     decreasing = TRUE)
+#my_species_levels <-  levels(df_stem_sp_sum_ordered$Species)
 
-# Create the bar plot with custom colors and ordered species
-p_species_vert_layer <- 
-  ggplot(top_species_layer, aes(x = Species, y = share, fill = Species)) +
-  geom_bar(stat = "identity", color = 'black') +  # Create bar plot with species share
-  facet_grid(VegType ~ ., scales = "free_x") +  # Facet by VegType
-  labs(title = "", 
-       x = "", y = "Share (%)") +
-  scale_fill_manual(values = species_colors) +  # Apply custom color palette
-  theme_classic() +  # Use a minimal theme for a clean look
-  #coord_flip() + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate the y-axis text (Species)
-        panel.border = element_rect(color = "black", fill = NA, linewidth = 1),  # Black border around facets
-        strip.background = element_rect(color = "black", linewidth = 1),  # Black border around facet labels
-        panel.grid.major = element_line(color = "grey", linetype = "dotted"),  # Add grey dashed major grid lines
-        panel.grid.minor = element_blank(),  # Remove minor grid lines
-        legend.position = 'none') #+  # Hide the legend
- # Rotate x-axis labels for better readability
+# Add a log-transformed column for sum_stem_density
+df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
+  mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
 
-### Speceies composition: share per plot: filetr the most important species -------------
-# Summarize the total stem density per species 
-species_composition_layer_cluster <- stem_dens_species_long_cluster %>%
-  group_by(cluster, Species,VegType) %>%
-  summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
-  ungroup() 
+p_stem_density_species <- df_stem_sp_sum_ordered %>%
+  ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
+  geom_density_ridges(
+    aes(fill = Species), 
+    alpha = 1, 
+    color = 'NA', 
+    scale = 0.9 # Adjust the vertical scale of the ridges
+  ) +
+  scale_fill_manual(values = species_colors) +
+  stat_summary(
+    aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
+    fun = median, 
+    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+    geom = "pointrange", 
+    color = "black",  # Black outline for points
+    shape = 21,  # Shape 21 is a circle with a fill and border
+    size = 0.5,
+    linewidth = 0.2,
+    stroke = 0.2,
+    position = position_nudge(y = 0.2)  # No vertical nudge for alignment
+  ) +
+  theme_classic() +
+  labs(
+    title = "",
+    x = "Stem density\n(log10) [#/ha]",
+    y = ""
+  ) +
+  scale_x_continuous(
+    labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
+  ) +
+  
+  scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) + # Adjust y-axis padding
+  theme_classic(base_size = 8) +
+  theme(
+    axis.text = element_text(size = 8),    # Axis tick labels
+    axis.title = element_text(size = 8),   # Axis titles
+    panel.grid.minor = element_blank(),    # Remove minor grid lines
+    legend.position = 'none'               # Hide the legend
+  )
 
-# Calculate the total stem density per climate class and the share of each species
-species_composition_layer_cluster <- species_composition_layer_cluster %>%
-  group_by(cluster,VegType) %>%
-  mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
-         share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
-  ungroup() %>% 
-  filter(!is.nan(share) & share > 0) 
+# Print the plot
+print(p_stem_density_species)
 
-
-unique((top_species_layer_vect))
-
-# Reorder Species factor in descending order based on median share
-species_composition_layer_cluster <- species_composition_layer_cluster %>%
-  dplyr::mutate(Species = factor(Species, levels = names(sort(tapply(share, Species, median), decreasing = TRUE))))
-
-
-
-species_composition_layer_cluster %>% 
-  dplyr::filter(Species %in% top_species_layer_vect ) %>% 
-  ggplot(aes(x = Species, y = share, fill = Species)) +
-   stat_summary(fun = median, geom = "bar", color = "black", width = 0.7) +  # Bar plot with median share
- stat_summary(fun.min = function(y) quantile(y, 0.25),  # Lower bound of IQR
-              fun.max = function(y) quantile(y, 0.75),  # Upper bound of IQR
-              geom = "errorbar", width = 0.2, color = "black") +  # Add IQR error bars
-  facet_wrap(~ VegType, scales = "free_x") +  # Facet by VegType
-  labs(title = "Median Species Share by Vegetation Type", 
-       x = "Species", y = "Share stem density\n[(%])") +
-  scale_fill_manual(values = species_colors) +  # Apply custom color palette
-  theme_classic2() +  # Use a minimal theme for a clean look
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
-        legend.position = "none")  # Hide legend if not needed
+# ggsave(filename = 'outFigs/p_stem_density_ridge_log.png', 
+#        plot = p_stem_density_species, 
+#        width = 3, height = 3.5, dpi = 300, bg = 'white')
 
 
 
 
 # get % of stems per saplings/juveniles -----------------------------------------
-# START
 # Summarize the total stem density per species 
 species_composition_sapl_juv <- stem_dens_species_long_cluster %>%
   dplyr::filter(Species %in% top_species_site_share$Species) %>% 
@@ -478,7 +476,6 @@ species_composition_sapl_juv_med <- species_composition_sapl_juv %>%
   summarise(med_share = median(share))
 
 # Transform data to make saplings negative for diverging plot
-# !!!
 species_composition_plot_data <- species_composition_sapl_juv_med %>%
   mutate(
     med_share = ifelse(VegType == "Saplings", -med_share, med_share) # Saplings are negative
@@ -487,9 +484,7 @@ species_composition_plot_data <- species_composition_sapl_juv_med %>%
                           levels = rev(top_species_site_share$Species))) # Set custom order
 
   
-
-# Diverging bar chart
-# Diverging bar chart with switched axes
+# Plot: juv vs saplings Diverging bar chart with switched axes -----------------------------------------
 ggplot(species_composition_plot_data, aes(x = med_share, y = Species, fill = VegType)) +
   geom_bar(stat = "identity", position = "identity", alpha = 0.8) + # Horizontal bars
   scale_x_continuous(
@@ -513,8 +508,6 @@ ggplot(species_composition_plot_data, aes(x = med_share, y = Species, fill = Veg
   )
 
 
-
-# START --------
 # Calculate median and IQR for each species and VegType
 species_composition_sapl_juv_summary <- species_composition_sapl_juv %>% 
   group_by(Species, VegType) %>% 
@@ -555,7 +548,7 @@ ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fil
   )
 
 
-
+## adjust colors -----------------------------------------------------------------
 library(scales) # For color adjustment (lighter/darker shades)
 
 # Generate separate colors for Juveniles (darker) and Saplings (lighter)
@@ -668,77 +661,6 @@ ggsave(
   units = "in"                      # Units for width and height
 )
 
-
-# species composition per vert class and species: totals in 100% juv and sapl -------------
-# not very pretty
-
-
-# END
-# Density plot of stem density  ----------------------------------
-
-# Calculate median for each species and reorder the factor levels
-df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
-  dplyr::filter(sum_stem_density >0) %>% 
-  dplyr::filter(Species %in% top_species_site_share$Species ) %>%  #top_species_overall
-  dplyr::group_by(Species) %>%
-  dplyr::mutate(median_stem_density = median(sum_stem_density, na.rm = TRUE)) %>% 
-  dplyr::ungroup() %>%
-  mutate(Species = factor(Species, levels = rev(top_species_site_share$Species))) # Set custom order
- # dplyr::mutate(Species = reorder(Species, median_stem_density))  # Reorder species by median stem density
-
-#my_species_levels <-  levels(df_stem_sp_sum_ordered$Species)
-
-# Add a log-transformed column for sum_stem_density
-df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
-  mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
-
-p_stem_density_species <- df_stem_sp_sum_ordered %>%
-  ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
-  geom_density_ridges(
-    aes(fill = Species), 
-    alpha = 1, 
-    color = 'NA', 
-    scale = 0.9 # Adjust the vertical scale of the ridges
-  ) +
-  scale_fill_manual(values = species_colors) +
-  stat_summary(
-    aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
-    fun = median, 
-    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-    geom = "pointrange", 
-    color = "black",  # Black outline for points
-    shape = 21,  # Shape 21 is a circle with a fill and border
-    size = 0.5,
-    linewidth = 0.2,
-    stroke = 0.2,
-    position = position_nudge(y = 0.2)  # No vertical nudge for alignment
-  ) +
-  theme_classic() +
-  labs(
-    title = "",
-    x = "Stem density\n(log10) [#/ha]",
-    y = ""
-  ) +
-  scale_x_continuous(
-    labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
-  ) +
-  
-  scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) + # Adjust y-axis padding
-  theme_classic(base_size = 8) +
-  theme(
-    axis.text = element_text(size = 8),    # Axis tick labels
-    axis.title = element_text(size = 8),   # Axis titles
-    panel.grid.minor = element_blank(),    # Remove minor grid lines
-    legend.position = 'none'               # Hide the legend
-  )
-
-# Print the plot
-print(p_stem_density_species)
-
-# ggsave(filename = 'outFigs/p_stem_density_ridge_log.png', 
-#        plot = p_stem_density_species, 
-#        width = 3, height = 3.5, dpi = 300, bg = 'white')
 
 
 ## Bar plot with error plot ---------------------------------------------------------
