@@ -276,7 +276,7 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
     title = "",
     x = NULL,
     y = "Proportion (%)",
-    fill = "Richness"
+    fill = "Count species\nrichness"
   ) +
   theme_minimal() +
   theme(
@@ -287,7 +287,49 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
   )
 
 
-ggarrange(p_bar_richness_groups, p_bar_species_dominance, labels = c("[a]", "[b]"),  # Add labels
+# vertical classes share -----------------------------------
+
+# Categorize richness into bins and calculate proportions
+vert_str_summary <- df_fin %>%
+  mutate(
+    vert_category = case_when(
+      n_vertical == 0 ~ "0",
+      n_vertical == 1 ~ "1",
+      n_vertical == 2 ~ "2",
+      n_vertical == 3 ~ "3",
+      TRUE ~ "Other"  # Just in case there are unexpected values
+    )
+  ) %>%
+  mutate(vert_category = factor(vert_category, levels = c("0","1","2","3"))) %>% 
+  group_by(vert_category) %>%
+  summarise(site_count = n_distinct(site)) %>%
+  mutate(proportion = site_count / sum(site_count) * 100)  # Calculate proportions
+
+# Create a stacked bar plot
+p_bar_vertical_groups <- ggplot(vert_str_summary, aes(x = 1, y = proportion, 
+                                                      fill = vert_category)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = paste0(round(proportion, 1), "%", '(', site_count, ')')), 
+            position = position_stack(vjust = 0.5), size = 2) +  # Add percentage labels
+  scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
+  labs(
+    title = "",
+    x = NULL,
+    y = "Proportion (%)",
+    fill = "Count vertical\nlayers"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),  # Remove x-axis text since it's a single bar
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 8, face = "plain"),
+    plot.title = element_text(size = 8, face = "plain", hjust = 0.5)
+  )
+
+
+ggarrange(p_bar_vertical_groups,p_bar_species_dominance, p_bar_richness_groups,  
+          labels = c("[a]", "[b]", "[c]"),  # Add labels
+          ncol = 3,
           font.label = list(size = 10, face = "plain"))
 
 ## Species composition: Tables --------------
@@ -484,28 +526,18 @@ species_composition_plot_data <- species_composition_sapl_juv_med %>%
                           levels = rev(top_species_site_share$Species))) # Set custom order
 
   
-# Plot: juv vs saplings Diverging bar chart with switched axes -----------------------------------------
-ggplot(species_composition_plot_data, aes(x = med_share, y = Species, fill = VegType)) +
-  geom_bar(stat = "identity", position = "identity", alpha = 0.8) + # Horizontal bars
-  scale_x_continuous(
-    labels = abs, # Show positive labels
-    name = "Median Share (%)"
-  ) +
-  scale_fill_manual(values = species_colors) %>%  # Set custom order
-
- # scale_fill_manual(values = c("Saplings" = "#56B4E9", "Juveniles" = "#E69F00")) + 
-  labs(
-    x = "",
-    title = ""
-  ) +
-  theme_classic(base_size = 12) +
-  theme(
-    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-    axis.text.y = element_text(size = 10),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 10),
-    plot.title = element_text(size = 14, hjust = 0.5)
+# Calculate overall median share for Juveniles and Saplings
+overall_med_share <- species_composition_sapl_juv_summary %>%
+  group_by(VegType) %>%  # Group by Vegetation Type (Juveniles/Saplings)
+  summarize(
+    overall_med_share = median(med_share, na.rm = TRUE),
+    IRQ_med_share = IQR(med_share, na.rm = TRUE),
+    min_med_share = min(med_share, na.rm = TRUE),
+    max_med_share = max(med_share, na.rm = TRUE)# Calculate median
   )
+
+# View the results
+print(overall_med_share)
 
 
 # Calculate median and IQR for each species and VegType
@@ -514,7 +546,8 @@ species_composition_sapl_juv_summary <- species_composition_sapl_juv %>%
   summarise(
     med_share = median(share, na.rm = TRUE),
     iqr_low = quantile(share, 0.25, na.rm = TRUE),
-    iqr_high = quantile(share, 0.75, na.rm = TRUE)
+    iqr_high = quantile(share, 0.75, na.rm = TRUE),
+    iqr = IQR(share, 0.75, na.rm = TRUE)
   ) %>%
   ungroup() %>%
   mutate(
@@ -523,6 +556,12 @@ species_composition_sapl_juv_summary <- species_composition_sapl_juv %>%
     iqr_high = ifelse(VegType == "Saplings", -iqr_high, iqr_high),    # Adjust IQR for saplings
     Species = factor(Species, levels = rev(top_species_site_share$Species)) # Custom species order
   )
+
+species_composition_sapl_juv_summary %>% 
+  group_by(VegType) %>% 
+  summarize(median_iqr = median(iqr),
+            min_iqr = min(iqr),
+            max_iqr = max(iqr))
 
 # Diverging bar chart with IQR
 ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fill = VegType)) +
@@ -1873,8 +1912,9 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
                     labels = c("Low", "High")) +
   theme_classic() +
   #ylim(0,20) +
-  labs(x = "Distance to Edge [m]", y = "", title = "**\np=0.0011",linetype = "Disturbance\nseverity [%]") +
+  labs(x = "Distance to edge [m]", y = "", title = "**\np=0.0011") +
   theme(
+    axis.title = element_text(size = 8),
     plot.title = element_text(hjust = 0.5, size = 8),       # Title size
     axis.title.y = element_blank(),                   # Axis title size
     axis.text = element_text(size = 8),                    # Axis text size
@@ -1887,12 +1927,14 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
 p2
 
 p_combined_int <- ggarrange(p1, p2, 
-                            labels = c("[a]","[b]"),  
+                            labels = c("[a]","[b]"), 
+                            align = 'hv',
                             font.label = list(size = 8, face = "plain")) # Specify plain font style)
 
 # Save the combined plot
 ggsave('outFigs/fig_regen_int_drivers.png', plot = p_combined_int, 
        width = 6, height = 3.1, bg = 'white')
+summary(df_fin$elevation)
 
 
           
