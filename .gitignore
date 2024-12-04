@@ -9,6 +9,7 @@ rawData/
 outData/
 outFigs/
 outTable/
+data_share/
 # Ignore overview directory
 overview/
 # ignore all html files
