@@ -1,0 +1,32 @@
+---
+title: "Data Processing and Visualization for Slovakia"
+author: "Your Name"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+# Load required libraries
+# Load necessary libraries
+library(terra)
+library(sf)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(rnaturalearth)
+library(rnaturalearthdata)
+```
+
+
+```{r}
+# Load shapefiles for European countries
+sk <- ne_countries(country = "Slovakia", type = "countries", returnclass = "sf", scale = "medium")
+
+# Plot Slovakia and spatial data points
+ggplot() +
+  geom_sf(data = sk, fill = "lightblue") +
+  geom_sf(data = data_clean, aes(color = cluster), size = 1.5) +
+  labs(title = "Spatial Distribution of Clusters in Slovakia",
+       subtitle = "Focus on Cluster 18_167",
+       color = "Cluster") +
+  theme_minimal()
+```
