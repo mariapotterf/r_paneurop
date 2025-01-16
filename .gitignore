@@ -18,3 +18,4 @@ process_iLand/*.html
 #et --soft HEAD~1
 compare_iLand_field_data.html
 4_get_simulated_vegetation_stats.nb.html
+prepare_data_country.nb.html

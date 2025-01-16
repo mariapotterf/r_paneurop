@@ -152,6 +152,37 @@ print(df_fin_clim_clust_xy)
 #fwrite(df_fin, 'outTable/df_fin.csv')
 
 
+# check for Czechia -------------
+df_fin_cz <- df_fin %>% 
+  dplyr::filter(country == "CZ")
+
+
+dim(df_fin_cz)
+table(df_fin_cz$dominant_species)
+
+# Assuming the table 'table(df_fin$dominant_species)' has already been created
+# as "dominant_species_table"
+dom_species_table_cz <- table(df_fin_cz$dominant_species)
+
+# Convert the table to a data frame for easier manipulation
+dom_species_table_cz_df <- as.data.frame(dom_species_table_cz)
+colnames(dom_species_table_cz_df) <- c("species", "count")
+
+# Calculate proportions
+dom_species_table_cz_df$proportion <- round(dom_species_table_cz_df$count / sum(dom_species_table_cz_df$count) * 100, 1)
+
+# Sort the data frame by proportion in descending order
+dom_species_table_cz_df <- dom_species_table_cz_df[order(-dom_species_table_cz_df$proportion), ]
+
+# Calculate species richness (number of unique species)
+species_richness_cz <- nrow(dom_species_table_cz_df)
+
+# Print the results
+print(dom_species_table_cz_df)
+cat("Species Richness:", species_richness_cz, "\n")
+
+
+
 # add to gpkg: 10 prevailing species -------------------------
 # 
 # # Create a new column in the sf object
