@@ -2199,7 +2199,6 @@ print(summary_stats_narrow, n=20)
 df_delayed_advanced <- df_fin %>% 
   dplyr::select(site, country, adv_delayed)
 
-fwrite(df_delayed_advanced, 'outTable/df_delayed_advanced.csv')
 
 # summarize stem deregeneration, rIVI, richness, n_vert
 df_fin %>% 
@@ -2616,6 +2615,13 @@ ggarrange(p.country.density, p.country.richness)
 # Save the model object and input data
 save(fin.m.reg.density, df_stem_regeneration2,
      file = "outData/stem_density_models.RData")
+
+
+
+# Save data ------------------------------------------------
+fwrite(df_delayed_advanced, 'outTable/df_delayed_advanced.csv')
+fwrite(df_stem_regeneration2, 'outTable/df_stem_regeneration2.csv')
+
 
 # 4. future developmenet -------------------------------------------
 
