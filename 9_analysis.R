@@ -247,6 +247,19 @@ species_colors <- c(
   lade = "#A50026"
 )
 
+species_colors <- c(
+  piab = "#004488",  # Dark Blue (Deep forest green alternative)
+  fasy = "#2C7BB6",  # Rich Blue-Green
+  quro = "#66CCEE",  # Light Sky Blue
+  pisy = "#228833",  # Teal Green
+  soau = "#55A868",  # Soft Green
+  acps = "#E69F00",  # Golden Yellow
+  potr = "#CCBB44",  # Mustard Yellow
+  abal = "#EE6677",  # Warm Orange
+  besp = "#882255",  # Dark Red
+  lade = "#A50026"   # Deep Red
+)
+
 
 ## Get summary tables ---------------------------------------------------------
 
