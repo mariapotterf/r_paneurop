@@ -34,13 +34,13 @@ download_data <- function(variable, month) {
   link_text <- page %>% html_elements("a") %>% html_text()
   links <- paste0(page_url, link_text)[-1]
   
-  # Extract filenames and filter for year 2000
+  # Extract filenames and filter for years 1950-2024
   filenames <- stringr::str_extract(link_text[-1], "\\d+")
-  year_2000_files <- grep("^2000", filenames, value = TRUE)
-  year_2000_links <- links[filenames %in% year_2000_files]
+  year_filtered_files <- grep("^(195[0-9]|196[0-9]|197[0-9]|198[0-9]|199[0-9]|200[0-9]|201[0-9]|202[0-4])", filenames, value = TRUE)
+  year_filtered_links <- links[filenames %in% year_filtered_files]
   
-  if (length(year_2000_links) == 0) {
-    message(paste("No files found for", variable, month, "in the year 2000"))
+  if (length(year_filtered_links) == 0) {
+    message(paste("No files found for", variable, month, "in the years 1950-2024"))
     return(NULL)
   }
   
@@ -52,10 +52,10 @@ download_data <- function(variable, month) {
   options(timeout = max(600, getOption("timeout")))
   
   # Download files
-  for (i in seq_along(year_2000_links)) {
-    file_path <- paste0(save_dir, "/", year_2000_files[i], "asc.gz")
+  for (i in seq_along(year_filtered_links)) {
+    file_path <- paste0(save_dir, "/", year_filtered_files[i], "asc.gz")
     if (!file_exists(file_path)) {
-      download.file(year_2000_links[i], file_path, mode = "wb")
+      download.file(year_filtered_links[i], file_path, mode = "wb")
       message(paste("Downloaded:", file_path))
     } else {
       message(paste("File already exists:", file_path))
@@ -67,7 +67,6 @@ download_data <- function(variable, month) {
 for (variable in names(base_urls)) {
   lapply(month_names, function(month) download_data(variable, month))
 }
-
 
 # --- END 
 
