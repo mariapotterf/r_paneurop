@@ -146,9 +146,9 @@ for (i in vars){
   
   long.df <- extracted_values %>%
     pivot_longer(!c(ID,cluster), names_to = "time", values_to = 'vals') %>%
-    mutate(month = as.integer(str_sub(time, -2, -1)),
-           year = as.integer(str_sub(time, 5,6))) %>%
-    dplyr::select(c(time))
+    mutate(month = as.integer(str_sub(time, 5, 6)),
+           year = as.integer(str_sub(time, 1,4))) #%>%
+   # dplyr::select(c(time))
   
   result_list[[i]] <- long.df
   
@@ -172,15 +172,13 @@ hist(df_prec$prcp)
 
 # merge data
 df_clim <- df_prec %>% 
-  left_join(df_temp, by = join_by(globalid, falsto_name, month, year, ID)) %>% 
-  right_join(as.data.frame(xy2  ), by = c('falsto_name',  'globalid'                )) %>% 
-  dplyr::select(c(falsto_name, prcp, month,  year,   tmp, y_wgs)) %>% 
+  left_join(df_temp, by = join_by(cluster, month, year, ID)) %>% 
+  right_join(as.data.frame(xy2  ), by = c("cluster")) %>% 
+  dplyr::select(c(cluster, prcp, month,  year, tmp, y_wgs)) %>% 
   distinct()
 
 summary(df_clim)
 (df_clim)
-
-unique(df_clim$falsto_name)
 
 
 # get SPEI -----------------------------------------------------------
@@ -197,25 +195,20 @@ calculate_pet_thornthwaite <- function(temp, latitude) {
 df1 <-
   df_clim %>% 
   na.omit() %>% # remove duplicated values
-  group_by(falsto_name) %>%
+  group_by(cluster) %>%
   mutate(PET = calculate_pet_thornthwaite(tmp, unique(y_wgs)[1]),
          BAL = prcp - PET) 
 
 # calculate SPEI for each falsto location:
 df_ls <- df1 %>%
-  #group_by(falsto_name, .add = TRUE) %>% 
-  group_split(falsto_name)
-
-#df.ts$SPEI <- dd
-
-
+  group_split(cluster)
 
 
 # Calculate the SPEI for each location:
 get_SPEI <- function(df, ...){
   #df <- test
   # get XY name
-  id = unique(df$falsto_name)
+  id = unique(df$cluster)
   
   # convert df to time series
   df.ts <- df %>% 
@@ -258,31 +251,12 @@ df_spei_ID <- do.call('rbind', df_ls2)
 df_spei_ID2 <- df_spei_ID
 
 df_spei_ID2 %>% 
-  # filter(falsto_name == 'Bleichach_1') %>% 
-  filter(scale == 12) %>%
+  dplyr::filter(scale == 12) %>%
   ggplot(aes(x = date, y = spei)) +
   #geom_line() +
   stat_summary(fun = mean, geom = "point", color = "black", size = 1) +
-  scale_x_date(limits = as.Date(c("1980-01-01", "2021-12-01"))) # Replace with actual dates
+  scale_x_date(limits = as.Date(c("1980-01-01", "2023-12-01"))) # Replace with actual dates
 
-
-hist(df_prec$prcp)
-
-
-df_spei_ID2 %>% 
-  filter(falsto_name == 'Blaichach_1') %>% 
-  filter(scale == 12) %>%
-  ggplot(aes(x = date, y = spei)) +
-  geom_line() 
-
-
-df_prec %>% 
-  group_by(year, falsto_name) %>% 
-  summarize(sum_prcp = sum(prcp)) %>%
-  View()
-ggplot(aes(x = year,
-           y = sum_prcp)) +
-  geom_line(alpha = 0.5)
 
 # summarize spei per year - one SPEI value per year and ID! 
 df_spei_ID <-  df_spei_ID %>% 
@@ -291,46 +265,10 @@ df_spei_ID <-  df_spei_ID %>%
   dplyr::select(-c(date))
 
 
-# plot if correct??
-df_spei_ID %>%
-  filter(year %in% 2015:2021) %>% 
-  ggplot(aes(x = month ,
-             y = spei,
-             group = factor(year),
-             color = factor(year))) +
-  
-  #geom_point(alpha = 0.5)  +
-  geom_smooth()+
-  #geom_point(alpha = 0.5)  +
-  facet_grid(year~scale) +
-  geom_hline(yintercept = 0, col = 'red', lty = 'dashed') 
-
-
-
-
-
-# export file:
-#fwrite(out.df, paste(myPath, outTable, 'xy_spei.csv', sep = "/"))
-
-# spei does only up to 2021
-df_spei_veg_season <- 
-  df_spei_ID %>% 
-  dplyr::filter(month %in% veg.months & year %in% study.period.extended) %>% 
-  ungroup(.) %>% 
-  group_by(falsto_name, year, scale) %>% 
-  summarise(spei = median(spei)) 
-
-
-
-
 # Export data -------------------------------------------------------------
 
-
 data.table::fwrite(df_clim, 
-                   'outTable/xy_clim_DWD.csv')
-data.table::fwrite(df_spei_veg_season, 
-                   'outTable/xy_spei_veg_season_DWD.csv')
-
+                   'outData/xy_DE_clim_DWD_1980_2024.csv')
 data.table::fwrite(df_spei_ID, 
-                   'outTable/xy_spei_all_DWD.csv')
+                   'outData/xy_DE_spei_DWD_1980_2024.csv')
 
