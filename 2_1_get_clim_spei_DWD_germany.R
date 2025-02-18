@@ -53,34 +53,41 @@ library(stringr)
 library(terra)
 
 # SPEI scales:
-my_spei_scales = c(1,3, 6, 12, 24) #c(3,12) # 3,6,12
+my_spei_scales = c(1, 6, 12) #c(3,12) # 3,6,12
 # filter through years: >1980 ------------------------
 # 
 pattern_years = "^19(8[0-9]|9[0-9])|^20(0[0-9]|1[0-9]|2[0-3]).*\\.gz$"
 
+# Get spatial data for each plot ---------
+xy_subplots        <- vect("outData/dat_germany.gpkg") # read DE trap location
 
 
-# Get spatial data for each trap
-#xy        <- vect(paste(myPath, outFolder, "/xy_all_3035.gpkg", sep = "/"), 
-#                  layer = 'xy_all_3035') # read trap location
-# Convert data to DWD coordinate system:
-#xy2 <- terra::project(xy, "EPSG:31467")  # coordinate system from the DWD data: Germany
+# converet to average coordinates per cluster ----------
+# Example: If `xy` is a SpatVector with geometry
+xy_sub_df <- as.data.frame(xy_subplots)  # Convert SpatVector to DataFrame
+
+# Extract coordinates
+coords <- crds(xy_sub_df)  # Extract X, Y coordinates
+xy_sub_df$X <- coords[,1]
+xy_sub_df$Y <- coords[,2]
+
+# Compute mean coordinates per cluster
+mean_coords <- xy_sub_df %>%
+  group_by(cluster) %>%
+  summarise(mean_X = mean(X, na.rm = TRUE),
+            mean_Y = mean(Y, na.rm = TRUE))
+
+# Convert back to SpatVector if needed
+xy <- vect(mean_coords, geom = c("mean_X", "mean_Y"), crs = crs(xy))
+
+# Print result
+print(mean_coords)
 
 
-# Get spatial data for each trap
-xy        <- vect(paste(myPath, data_share, "DE_regen_stem_density.gpkg", sep = "/")) # read trap location
+# convert coordinate system
 xy2       <- terra::project(xy, "EPSG:31467")  # coordinate system from the DWD data: Germany
 xy_latlng <- terra::project(xy2, 
                             "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
-unique(xy2$falsto_name)
-
-# remove all special characters
-xy2$falsto_name <- gsub("[^A-Za-z0-9_]", "", xy2$falsto_name) # Remove all non-alphanumeric characters except underscore
-xy_latlng$falsto_name <- gsub("[^A-Za-z0-9_]", "", xy_latlng$falsto_name) # Remove all non-alphanumeric characters except underscore
-
-length(unique(xy_latlng$falsto_name))
-
-#Encoding(xy2$falsto_name)        <-  "UTF-8"
 
 # get lat long values
 crds(xy_latlng)
@@ -92,22 +99,6 @@ xy2 <- unique(xy2)
 # get xy as wgs for teh SPEI
 xy2$x_wgs <- crds(xy_latlng)[,'x']
 xy2$y_wgs <- crds(xy_latlng)[,'y']
-
-# select just one location to inspect it for SPEI
-
-# Find rows where falsto_name is "Offenhausen_2"
-# Find rows where falsto_name is either "Offenhausen_2" or "Blaichach_1"
-#rows_to_keep <- which(xy2$falsto_name == "Offenhausen_2" | xy2$falsto_name == "Blaichach_1")
-
-# Subset those rows and keep only 'year' and 'id' columns
-#xy2 <- xy2[rows_to_keep, ]
-
-
-
-
-
-
-
 
 
 # stack rasters firsst
@@ -130,7 +121,7 @@ result_list <- list()
 vars <- c("temp", "precip")  # Assuming these are your variables
 
 for (i in vars){
-  file_ls <- list.files(paste(myPath, "rawData/DeutschWetter", i, sep = "/"),
+  file_ls <- list.files(paste("rawData", i, sep = "/"),
                         pattern = pattern_years,#"^19(8[0-9]|9[0-9])|^20(0[0-9]|1[0-9]|2[01]).*\\.gz$",
                         recursive=TRUE)
   
@@ -140,23 +131,24 @@ for (i in vars){
   #(file_ls_gz_only)
   
   # Assuming file_ls contains the paths of all raster files
-  ras_ls <- lapply(file_ls_gz_only, process_raster_file, path_prefix = paste(myPath, "rawData/DeutschWetter", sep = "/"), var = i)
+  ras_ls <- lapply(file_ls_gz_only, process_raster_file, path_prefix = paste("rawData", sep = "/"), var = i)
   
   ras_stack <- rast(ras_ls)
   
-  #ras_stack <- process_raster_file(file_ls)  # Stack all rasters
+  # extract values
   extracted_values <- terra::extract(ras_stack, xy2)
   
-  extracted_values$falsto_name <- xy2$falsto_name
-  extracted_values$globalid    <- xy2$globalid
+  # add plot ID
+  extracted_values$cluster <- xy2$cluster
+ # extracted_values$globalid    <- xy2$globalid
   
-  names(extracted_values) <- gsub('asc', '', names(extracted_values))
+ # names(extracted_values) <- gsub('asc', '', names(extracted_values))
   
   long.df <- extracted_values %>%
-    pivot_longer(!c(ID, globalid, falsto_name), names_to = "time", values_to = 'vals') %>%
-    mutate(month = as.numeric(str_sub(time, -2, -1)),
-           year = as.numeric(str_sub(time, 1, 4))) %>%
-    dplyr::select(-c(time))
+    pivot_longer(!c(ID,cluster), names_to = "time", values_to = 'vals') %>%
+   # mutate(month = as.numeric(str_sub(time, -2, -1)),
+    #       year = as.numeric(str_sub(time, 1, 4))) %>%
+    dplyr::select(c(time))
   
   result_list[[i]] <- long.df
   
