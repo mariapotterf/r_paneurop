@@ -146,8 +146,8 @@ for (i in vars){
   
   long.df <- extracted_values %>%
     pivot_longer(!c(ID,cluster), names_to = "time", values_to = 'vals') %>%
-   # mutate(month = as.numeric(str_sub(time, -2, -1)),
-    #       year = as.numeric(str_sub(time, 1, 4))) %>%
+    mutate(month = as.integer(str_sub(time, -2, -1)),
+           year = as.integer(str_sub(time, 5,6))) %>%
     dplyr::select(c(time))
   
   result_list[[i]] <- long.df
