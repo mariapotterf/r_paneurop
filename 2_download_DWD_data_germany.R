@@ -7,8 +7,8 @@ library(fs)  # For directory creation
 
 # Base URLs for different climate variables
 base_urls <- list(
-  temperature = "https://opendata.dwd.de/climate_environment/CDC/grids_germany/monthly/air_temperature_mean/",
-  precipitation = "https://opendata.dwd.de/climate_environment/CDC/grids_germany/monthly/precipitation/"
+  temp = "https://opendata.dwd.de/climate_environment/CDC/grids_germany/monthly/air_temperature_mean/",
+  precip = "https://opendata.dwd.de/climate_environment/CDC/grids_germany/monthly/precipitation/"
 )
 
 # List of month folder names
