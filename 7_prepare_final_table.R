@@ -1,6 +1,6 @@
 # create final database
 # merge veg data
-# predictors - climate, disturbance chars, soils
+# predictors - climate, disturbance chars, soils - update climate predictors for Germany from DWD data
 # dependent - regeneretion, density, richness
 # output file
 # 
@@ -28,8 +28,9 @@ library(cluster)   # cluster analysis
 
 
 
-### read data --------------------------------------------------------------------
+# Read data --------------------------------------------------------------------
 
+# all states - from ERA, 10 km res
 climate           <- fread("outData/climate_18_23.csv")
 spei              <- fread("outData/SPEI.csv")
 distance_to_edge  <- fread("outData/distance_to_edge.csv")
@@ -37,14 +38,18 @@ disturbance_chars <- fread("outData/disturbance_chars.csv")
 soil              <- as.data.frame(terra::vect("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg"))
 terrain           <- fread("outData/terrain.csv")
 
+# more detailed data: germany (1 km res), calculated on cluster (plot) level across 5 subplots
+climate_de           <- fread("outData/xy_DE_clim_DWD_1980_2024.csv")
+spei_de              <- fread("outData/xy_DE_spei_DWD_1980_2024.csv")
+
+
+
 # get vegetation data
 load("outData/veg.Rdata")
 
 
-
-
-
-### clean up data -----------------------------------------------------------------
+# clean up data -----------------------------------------------------------------
+## Vegetation data --------------------------------------
 # sum stems first up across vertical groups!!
 
 # create idividual table for each of the vertical regeneration class 
@@ -186,15 +191,6 @@ df_predictors <-
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
 
-
-
-
-
-
-
-
-length(unique(df_predictors$cluster)) # 957
-anyNA(df_predictors)
 # merge predcitors on cluster level: calculate medians
 # keep only temp and prcp: 2021-2023 average
 df_predictors_plot <- 
@@ -205,6 +201,7 @@ df_predictors_plot <-
             prec         = median(prec, na.rm = T),
             tmp_z        = median(tmp_z, na.rm = T),
             prcp_z       = median(prcp_z, na.rm = T),
+            
             # Summary for drought years (2018-2020)
             drought_tmp  = median(drought_tmp, na.rm = TRUE),
             drought_prcp = median(drought_prcp , na.rm = TRUE),
@@ -234,39 +231,6 @@ df_predictors_plot <-
             )
 
 
- df_predictors_subplot <- 
-  df_predictors %>% 
- # dplyr::filter(year %in% 2018:2023) %>% 
-  group_by(ID) %>% 
-  summarise(tmp = median(tmp, na.rm = T),
-            prec = median(prec, na.rm = T),
-            # Calculate drought temperature and precipitation only for 2018-2020
-            drought_tmp = median(drought_tmp, na.rm = TRUE),
-            drought_prcp = median(drought_prcp , na.rm = TRUE),
-            tmp_z = median(tmp_z, na.rm = T),
-            prcp_z = median(prcp_z, na.rm = T),
-            spei1   = median(spei1, na.rm = T),
-            spei3   = median(spei3, na.rm = T),
-            spei6   = median(spei6, na.rm = T),
-            spei12   = median(spei12, na.rm = T),
-            spei24   = median(spei24, na.rm = T),
-            distance = median(distance, na.rm = T),
-            disturbance_year= as.integer(median(disturbance_year, na.rm = T)),
-            disturbance_severity= median(disturbance_severity, na.rm = T),
-            disturbance_agent= as.integer(median(disturbance_agent, na.rm = T)),
-            elevation = median(elevation, na.rm = T),
-            #region = median(tmp, na.rm = T),
-            #country = median(tmp, na.rm = T),
-            sand_extract= median(sand_extract, na.rm = T),
-            silt_extract = median(silt_extract, na.rm = T),
-            clay_extract = median(clay_extract, na.rm = T),
-            depth_extract = median(depth_extract, na.rm = T),
-            av.nitro    = median(av.nitro, na.rm = T),
-            slope   = median(slope, na.rm = T),
-            aspect= median(aspect, na.rm = T))
-
-
-#fwrite(df_predictors_subplot, 'outData/all_predictors_subplot.csv')
 
 fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
