@@ -236,10 +236,31 @@ df_predictors_plot <-
 fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
 
-# imporve climate resolution for germamny and check with original data: 
+# improve climate resolution for germamny and check with original data: 
 # - get clim anomalies
 # get SPEI
-# medians 
+# medians over 2018-2023
+
+reference_period = 1980:2015
+
+
+# Calculate temp anomalies
+climate_de_anom <- climate_de %>% 
+  group_by(cluster) %>%
+  mutate(tmp_mean = mean(tmp[year %in% reference_period]),
+         tmp_sd = sd(tmp[year %in% reference_period]),
+         tmp_z  = (tmp - mean(tmp[year %in% reference_period])) / sd(tmp[year %in% reference_period]),
+         prcp_z = (prcp - mean(prcp[year %in% reference_period])) / sd(prcp[year %in% reference_period]))
+
+ggplot(climate_de_anom, aes(x = year, y = tmp_z, group = year)) +
+  geom_violin() + 
+  geom_jitter() + 
+  geom_smooth()
+  
+
+head(spei_de)
+
+
 
 
 # Get climate plots for map: TEMP, PREC, SPEI  -------------
