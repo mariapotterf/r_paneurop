@@ -30,7 +30,7 @@ library(cluster)   # cluster analysis
 
 # Read data --------------------------------------------------------------------
 
-# all states - from ERA, 10 km res
+# all states - from ERA, 10 km res, level of subplots
 climate           <- fread("outData/climate_18_23.csv")
 spei              <- fread("outData/SPEI.csv")
 distance_to_edge  <- fread("outData/distance_to_edge.csv")
@@ -191,6 +191,7 @@ df_predictors <-
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
 
+
 # merge predcitors on cluster level: calculate medians
 # keep only temp and prcp: 2021-2023 average
 df_predictors_plot <- 
@@ -233,6 +234,13 @@ df_predictors_plot <-
 
 
 fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
+
+
+# imporve climate resolution for germamny and check with original data: 
+# - get clim anomalies
+# get SPEI
+# medians 
+
 
 # Get climate plots for map: TEMP, PREC, SPEI  -------------
 

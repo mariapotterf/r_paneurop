@@ -40,20 +40,20 @@ library(sf)
 library(dplyr)
 library(data.table)
 library(tidyr)
-library(rgdal)
+#library(rgdal)
 library(raster)
 #library(tidyverse)
 library(lubridate)
 #library(patchwork)
 library(fasterize)
 library(ggpubr)
-library(terra)
+
 library(R.utils)
 library(stringr)
 library(terra)
 
 # SPEI scales:
-my_spei_scales = c(1, 6, 12) #c(3,12) # 3,6,12
+my_spei_scales = c(12) #c(3,12) # 3,6,121, 6, 
 # filter through years: >1980 ------------------------
 # 
 pattern_years = "^19(8[0-9]|9[0-9])|^20(0[0-9]|1[0-9]|2[0-3]).*\\.gz$"
@@ -67,7 +67,7 @@ xy_subplots        <- vect("outData/dat_germany.gpkg") # read DE trap location
 xy_sub_df <- as.data.frame(xy_subplots)  # Convert SpatVector to DataFrame
 
 # Extract coordinates
-coords <- crds(xy_sub_df)  # Extract X, Y coordinates
+coords <- crds(xy_subplots)  # Extract X, Y coordinates
 xy_sub_df$X <- coords[,1]
 xy_sub_df$Y <- coords[,2]
 
@@ -78,7 +78,7 @@ mean_coords <- xy_sub_df %>%
             mean_Y = mean(Y, na.rm = TRUE))
 
 # Convert back to SpatVector if needed
-xy <- vect(mean_coords, geom = c("mean_X", "mean_Y"), crs = crs(xy))
+xy <- vect(mean_coords, geom = c("mean_X", "mean_Y"), crs = crs(xy_subplots))
 
 # Print result
 print(mean_coords)
@@ -236,7 +236,7 @@ get_SPEI <- function(df, ...){
   
   # add location indication
   out_scales <-out_scales %>% 
-    mutate(falsto_name = rep(id, nrow(out_scales)))
+    mutate(cluster = rep(id, nrow(out_scales)))
   # (out_scales)
   return(out_scales)
   
