@@ -16,11 +16,7 @@ library(terra)
 library(ggplot2)
 library(lubridate)
 library(stringr)
-
 library(ggpubr)
-
-#library(dunn.test) # Duncan test, post hoc Kruskal-Wallis
-
 library(cluster)   # cluster analysis
 
 
@@ -38,13 +34,15 @@ disturbance_chars <- fread("outData/disturbance_chars.csv")
 soil              <- as.data.frame(terra::vect("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg"))
 terrain           <- fread("outData/terrain.csv")
 
-# more detailed data: germany (1 km res), calculated on cluster (plot) level across 5 subplots
+# higher resolution climate data: germany (1 km res), calculated on cluster (plot) level across 5 subplots
 climate_de           <- fread("outData/xy_DE_clim_DWD_1980_2024.csv")
 spei_de              <- fread("outData/xy_DE_spei_DWD_1980_2024.csv")
 
+# correcpr precipitation ame
+climate <- climate %>% 
+  rename(prcp = prec)
 
-
-# get vegetation data
+# get vegetation data - on subplot level
 load("outData/veg.Rdata")
 
 
@@ -54,18 +52,18 @@ load("outData/veg.Rdata")
 
 # create idividual table for each of the vertical regeneration class 
 df_stems_saplings <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType == 'Saplings') %>%  # 20 cm - 2 m
+  dplyr::filter(VegType == 'Saplings') %>%  # 20 cm - 2 m
   group_by(cluster) %>% 
   summarise(sum_stems_sapling = sum(total_stems))# %>% 
 
 df_stems_juveniles <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType == 'Juveniles') %>%  # > 2m heigh
+  dplyr::filter(VegType == 'Juveniles') %>%  # > 2m heigh
   group_by(cluster) %>% 
   summarise(sum_stems_juvenile = sum(total_stems))# %>% 
 
 
 df_stems_mature <- stem_dens_ha_cluster_sum %>% 
-  filter(VegType == 'Mature') %>% 
+  dplyr::filter(VegType == 'Mature') %>% 
   group_by(cluster) %>% 
   summarise(sum_stems_mature = sum(total_stems))# %>% 
 
@@ -175,7 +173,7 @@ climate_subplot_drought <- climate %>%
   #View()
   group_by(ID) %>%
   summarise(drought_tmp = median(tmp, na.rm = T),
-            drought_prcp = median(prec, na.rm = T)) 
+            drought_prcp = median(prcp, na.rm = T)) 
 
 
 # merge all predictors together, ID (=subplot) level per year: having a median per years 2018-2023
@@ -187,7 +185,7 @@ df_predictors <-
   left_join(soil) %>%
   left_join(spei_subplot) %>%          # clim values are medians from 2018-2023
   left_join(spei_subplot_drought) %>%  # clim values are medians from 2018-2020
-  left_join(dplyr::select(terrain, c(-country, -region, -cluster.x, -cluster.y))) #%>% 
+  left_join(dplyr::select(terrain, c(-country, region, -cluster.x, -cluster.y))) #%>% 
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
 
@@ -197,9 +195,9 @@ df_predictors <-
 df_predictors_plot <- 
   df_predictors %>% 
   #dplyr::filter(year %in% 2018:2023) %>% 
-  group_by(cluster) %>% 
+  group_by(cluster, country) %>% 
   summarise(tmp          = median(tmp, na.rm = T),
-            prec         = median(prec, na.rm = T),
+            prcp         = median(prcp, na.rm = T),
             tmp_z        = median(tmp_z, na.rm = T),
             prcp_z       = median(prcp_z, na.rm = T),
             
@@ -236,13 +234,12 @@ df_predictors_plot <-
 fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
 
-# improve climate resolution for germamny and check with original data: 
+# improve climate resolution for germamny and check with original data: ------------
 # - get clim anomalies
-# get SPEI
-# medians over 2018-2023
+# - get SPEI
+# - calculate medians over 2018-2023
 
 reference_period = 1980:2015
-
 
 # Calculate temp anomalies
 climate_de_anom <- climate_de %>% 
@@ -252,18 +249,94 @@ climate_de_anom <- climate_de %>%
          tmp_z  = (tmp - mean(tmp[year %in% reference_period])) / sd(tmp[year %in% reference_period]),
          prcp_z = (prcp - mean(prcp[year %in% reference_period])) / sd(prcp[year %in% reference_period]))
 
-ggplot(climate_de_anom, aes(x = year, y = tmp_z, group = year)) +
-  geom_violin() + 
-  geom_jitter() + 
+# get sum of precipitation per year: 
+climate_de_prec_sum <- climate_de %>% 
+  group_by(cluster, year) %>%
+  dplyr::summarize(prcp_sum = sum(prcp, na.rm = T))
+
+# merge precipitation sum back to original table
+climate_de_anom_18_23_avg <- climate_de_anom %>% 
+  left_join(climate_de_prcp_sum, by = join_by(cluster, year)) %>% 
+  dplyr::filter(year %in% 2018:2023) %>% 
+  group_by(cluster) %>%
+  dplyr::summarise(across(where(is.numeric), \(x) median(x, na.rm = TRUE))) %>%  # Use lambda function for median
+  dplyr::select(cluster, tmp, prcp_sum, tmp_z, prcp_z) %>% 
+  rename(prcp = prcp_sum)
+
+ggplot(climate_de_anom_18_23_avg, aes(x = prcp, y = tmp)) +
+  geom_point() + 
+  #geom_jitter() + 
   geom_smooth()
+  
+# check how many clusters have identical prcp
+table(climate_de$prcp)
   
 
 head(spei_de)
 
+spei_de_18_23_avg <- spei_de %>% 
+  dplyr::filter(year %in% 2018:2023) %>% 
+  ungroup(.) %>% 
+  group_by(cluster) %>%
+  summarize(spei = median(spei, na.rm  = T))
+
+(spei_de_18_23_avg)
+
+clim_spei_de_upd <- climate_de_anom_18_23_avg %>% 
+  full_join(spei_de_18_23_avg) %>% 
+  mutate(source = "DWD")
 
 
+# how often i have clusters with teh same climate values? 
+# Count unique clusters where tmp and prcp are identical
+identical_clusters_DWD_de <- clim_spei_de_upd %>%
+  group_by(tmp, prcp) %>%
+  summarise(count = n(), .groups = "drop") %>%  # Count occurrences of each (tmp, prcp) pair
+  filter(count > 1)  # Keep only those that appear more than once
 
-# Get climate plots for map: TEMP, PREC, SPEI  -------------
+
+identical_clusters_ERA <- df_predictors_plot %>% 
+  dplyr::filter(country == '11') %>% 
+  group_by(tmp, prcp) %>%
+  summarise(count = n(), .groups = "drop") %>%  # Count occurrences of each (tmp, prcp) pair
+  filter(count > 1)  # Keep only those that appear more than once
+
+# calculate correlation between tmp and prcp for DWD (grmany) and ERA to make sure that i can replace values;
+df_ERA_de <- df_predictors_plot %>% 
+  dplyr::filter(country == '11')   %>% 
+  mutate(source = 'ERA') %>% 
+  dplyr::select(cluster, tmp, prcp) %>% 
+  rename(tmp_ERA = tmp,
+         prcp_ERA = prcp)
+
+df_de <- clim_spei_de_upd %>% 
+  dplyr::select(cluster, tmp, prcp) %>% 
+  rename(tmp_DWD = tmp,
+         prcp_DWD = prcp) %>% 
+  left_join(df_ERA_de) %>% 
+  drop_na()
+# merge updated data (date with higher climate resolution with original ones): 
+
+# Sample scatter plot
+plot(df_de$tmp_DWD, df_de$tmp_ERA, 
+     main = "Scatter Plot with Correlation",
+     xlab = "tmp_DWD", ylab = "tmp_ERA",
+     pch = 19, col = "blue")
+
+# Add a regression line
+model <- lm(df_de$tmp_ERA ~ df_de$tmp_DWD)
+abline(model, col = "red", lwd = 2)
+
+# Compute correlation
+correlation <- cor(df_de$tmp_DWD, df_de$tmp_ERA)
+
+# Add correlation text
+text(x = min(df_de$tmp_DWD), y = max(df_de$tmp_ERA), 
+     labels = paste("Correlation: ", round(correlation, 2)), 
+     pos = 4, col = "red", cex = 1.2)
+
+
+# Get climate plots for map: TEMP, prcp, SPEI  -------------
 
 ### Custom function to return median and IQR for stat_summary
 median_iqr <- function(y) {
@@ -278,7 +351,7 @@ median_iqr <- function(y) {
 # climate full
 reference_period <- 1980:2010
 
-# read temp and prec over years
+# read temp and prcp over years
 climate_full           <- fread("outData/climate_1980_2023.csv")
 
 spei_overview <- spei %>% 
@@ -296,14 +369,14 @@ clim_overview <- climate_full %>%
   ungroup(.) %>% 
   group_by(cluster, year) %>% 
   dplyr::summarize(tmp = median(tmp),
-                   prec = median(prec)) %>%
+                   prcp = median(prcp)) %>%
   mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
                            TRUE ~ 'ref')) #%>% 
 
 # get reference values
 ref_spei <- median(spei_overview$spei[spei_overview$year %in% reference_period], na.rm =T)
 ref_tmp  <- median(clim_overview$tmp[clim_overview$year %in% reference_period])
-ref_prec <- median(clim_overview$prec[clim_overview$year %in% reference_period])
+ref_prcp <- median(clim_overview$prcp[clim_overview$year %in% reference_period])
 
 
 p.map.spei <- spei_overview %>% 
@@ -332,28 +405,28 @@ p.map.temp <- clim_overview %>%
   theme(legend.position = "NULL") 
 
 
-# Plot for precipitation
-p.map.prec <- clim_overview %>% 
+# Plot for prcpipitation
+p.map.prcp <- clim_overview %>% 
   ggplot(aes(x = year,
-             y = prec,
+             y = prcp,
              color = class)) +
   stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +  # Use median and IQR for pointrange
   stat_summary(fun = median, geom = "point", size = 0.2) +     # Add point for median
-  geom_hline(yintercept = ref_prec, lty = 'dashed', col = 'grey70') +
+  geom_hline(yintercept = ref_prcp, lty = 'dashed', col = 'grey70') +
   scale_color_manual(values = c('red', 'black')) +
   labs(x = "", y =  expression(paste("Precipitation [mm]", sep=""))) +
   theme_classic() +
   theme(legend.position = "NULL")
 
 windows(7,2)
-p.clim.map <- ggarrange(p.map.temp, p.map.prec,p.map.spei, ncol = 3)
+p.clim.map <- ggarrange(p.map.temp, p.map.prcp,p.map.spei, ncol = 3)
 p.clim.map
 ggsave(filename = 'outFigs/Fig1_all_clim.png', plot = p.clim.map, width = 7, 
        height = 2, dpi = 300, bg = 'white')
 
 
 
-p.clim.map2 <- ggarrange(p.map.temp, p.map.prec, ncol = 2)
+p.clim.map2 <- ggarrange(p.map.temp, p.map.prcp, ncol = 2)
 p.clim.map2
 ggsave(filename = 'outFigs/Fig1_tmp_prcp.png', plot = p.clim.map2, width = 7, 
        height = 2, dpi = 300, bg = 'white')
@@ -419,7 +492,7 @@ length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with
 ## add country naming---------------
 
 df_fin <- df_fin %>% 
-  rename(prcp = prec) %>% 
+  rename(prcp = prcp) %>% 
   rename(site = cluster)
 
 # add country indication 
@@ -565,7 +638,7 @@ sjPlot::tab_df(summary_table,
     ) %>% 
   # ad new columns as reference values 1980-2010
   mutate( ref_tmp = ref_tmp, 
-          ref_prcp = ref_prec,
+          ref_prcp = ref_prcp,
           ref_spei = ref_spei) %>% 
     mutate(
      temp_diff = drought_temperature - ref_tmp,
