@@ -2529,13 +2529,10 @@ table(df_fin$adv_delayed)
 # Select relevant columns including 'RegenerationStatus' and the desired variables
 variables_to_plot <- c(
   "tmp",
-  "prcp",     
+  "prcp",  
+  "spei12",
   "distance_edge" , 
-  "disturbance_severity",
-  "mature_dist_severity",
-  "residual_mature_trees",
-  "sum_stems_mature"
-                       )
+  "disturbance_severity"                       )
 
 # differentiate classes:
 
@@ -2608,7 +2605,8 @@ df_long_narrow <- df_fin %>%
                 distance_edge, 
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
-  gather(key = "Variable", value = "Value", -adv_delayed)
+  gather(key = "Variable", value = "Value", -adv_delayed) %>% 
+  droplevels()
 
 
 # list groups to pairwise comparison
@@ -2847,9 +2845,9 @@ p_boxplot_wilcox_rm_outliers <-
     size = 0.2
   ) +
   stat_compare_means(
-    comparisons = significant_comparisons,  # Use only significant comparisons
+    #comparisons = significant_comparisons,  # Use only significant comparisons
     method = "wilcox.test", 
-    label = "p.signif", 
+    label = "p.format", 
     size = 2,
     label.x = 1.5
   ) +
