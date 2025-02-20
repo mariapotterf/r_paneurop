@@ -1,4 +1,23 @@
 
+# vars
+
+
+reference_period <- 1980:2015
+
+
+# functions 
+
+### Custom function to return median and IQR for stat_summary
+median_iqr <- function(y) {
+  median_val <- median(y, na.rm = TRUE)
+  iqr_val <- IQR(y, na.rm = TRUE)
+  ymin <- median_val - (iqr_val / 2)
+  ymax <- median_val + (iqr_val / 2)
+  return(c(y = median_val, ymin = ymin, ymax = ymax))
+}
+
+
+
 
 # Create effects plots and scatter points below
 
