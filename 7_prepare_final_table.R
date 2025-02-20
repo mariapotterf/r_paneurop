@@ -234,14 +234,14 @@ df_predictors_plot <-
 fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
 
 
-# improve climate resolution for germamny and check with original data: ------------
+## improve climate resolution for germamny and check with original data: ------------
 # - get clim anomalies
 # - get SPEI
 # - calculate medians over 2018-2023
 
 reference_period = 1980:2015
 
-# Calculate temp anomalies
+# Calculate temp and prcp anomalies
 climate_de_anom <- climate_de %>% 
   group_by(cluster) %>%
   mutate(tmp_mean = mean(tmp[year %in% reference_period]),
@@ -250,7 +250,7 @@ climate_de_anom <- climate_de %>%
          prcp_z = (prcp - mean(prcp[year %in% reference_period])) / sd(prcp[year %in% reference_period]))
 
 # get sum of precipitation per year: 
-climate_de_prec_sum <- climate_de %>% 
+climate_de_prcp_sum <- climate_de %>% 
   group_by(cluster, year) %>%
   dplyr::summarize(prcp_sum = sum(prcp, na.rm = T))
 
@@ -274,6 +274,7 @@ table(climate_de$prcp)
 
 head(spei_de)
 
+
 spei_de_18_23_avg <- spei_de %>% 
   dplyr::filter(year %in% 2018:2023) %>% 
   ungroup(.) %>% 
@@ -282,12 +283,13 @@ spei_de_18_23_avg <- spei_de %>%
 
 (spei_de_18_23_avg)
 
+# join spei to tmp and spei data
 clim_spei_de_upd <- climate_de_anom_18_23_avg %>% 
-  full_join(spei_de_18_23_avg) %>% 
-  mutate(source = "DWD")
+  full_join(spei_de_18_23_avg) #%>% 
+  #mutate(source = "DWD")
 
 
-# how often i have clusters with teh same climate values? 
+# Check how often i have clusters with teh same climate values? 
 # Count unique clusters where tmp and prcp are identical
 identical_clusters_DWD_de <- clim_spei_de_upd %>%
   group_by(tmp, prcp) %>%
@@ -301,7 +303,7 @@ identical_clusters_ERA <- df_predictors_plot %>%
   summarise(count = n(), .groups = "drop") %>%  # Count occurrences of each (tmp, prcp) pair
   filter(count > 1)  # Keep only those that appear more than once
 
-# calculate correlation between tmp and prcp for DWD (grmany) and ERA to make sure that i can replace values;
+### calculate correlation between tmp and prcp for DWD (grmany) and ERA to make sure that i can replace values; -
 df_ERA_de <- df_predictors_plot %>% 
   dplyr::filter(country == '11')   %>% 
   mutate(source = 'ERA') %>% 
@@ -317,7 +319,8 @@ df_de <- clim_spei_de_upd %>%
   drop_na()
 # merge updated data (date with higher climate resolution with original ones): 
 
-# Sample scatter plot
+#### Sample scatter plot: TMP --------------
+par(mfrow = c(1, 2))
 plot(df_de$tmp_DWD, df_de$tmp_ERA, 
      main = "Scatter Plot with Correlation",
      xlab = "tmp_DWD", ylab = "tmp_ERA",
@@ -328,12 +331,61 @@ model <- lm(df_de$tmp_ERA ~ df_de$tmp_DWD)
 abline(model, col = "red", lwd = 2)
 
 # Compute correlation
-correlation <- cor(df_de$tmp_DWD, df_de$tmp_ERA)
+correlation <- cor(df_de$tmp_DWD, df_de$tmp_ERA, method = "spearman")
 
 # Add correlation text
 text(x = min(df_de$tmp_DWD), y = max(df_de$tmp_ERA), 
      labels = paste("Correlation: ", round(correlation, 2)), 
      pos = 4, col = "red", cex = 1.2)
+
+#### Sample scatter plot: PRCP --------------
+plot(df_de$prcp_DWD, df_de$prcp_ERA, 
+     main = "Scatter Plot with Correlation",
+     pch = 19, col = "blue")
+
+# Add a regression line
+model <- lm(df_de$prcp_DWD ~ df_de$prcp_ERA)
+abline(model, col = "red", lwd = 2)
+
+# Compute correlation
+correlation <- cor(df_de$prcp_DWD, df_de$prcp_ERA, method = "spearman")
+
+# Add correlation text
+text(x = min(df_de$prcp_DWD), y = max(df_de$prcp_ERA), 
+     labels = paste("Correlation: ", round(correlation, 2)), 
+     pos = 4, col = "red", cex = 1.2)
+
+
+## Merge new clim resolution data to old dataset ----
+
+
+# select only germny from old dataset, remove teh columns to replace
+df_predictors_plot_de_extra_cols <- df_predictors_plot %>% 
+  dplyr::filter(country == '11') %>% 
+  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z, -spei12 )
+
+# keep other countryies unchanged
+df_predictors_plot_no_de <- df_predictors_plot %>% 
+  dplyr::filter(country != '11')
+
+head(clim_spei_de_upd) # updated data, update to merge with additional columns
+
+clim_spei_de_upd_add_cols <- clim_spei_de_upd %>% 
+  rename(spei12 = spei) %>% 
+  full_join(df_predictors_plot_de_extra_cols, by = join_by(cluster)) %>%
+  dplyr::select(all_of(names(df_predictors_plot_no_de))) #%>%   # change order to fit old data
+
+# bind tables together 
+df_predictors_plot_upd_clim <- rbind(clim_spei_de_upd_add_cols,
+                                     df_predictors_plot_no_de )
+
+df_predictors_plot_upd_clim <- df_predictors_plot_upd_clim %>% 
+  dplyr::select(-country)
+
+# export dataset
+fwrite(df_predictors_plot_upd_clim, 'outData/all_predictors_plot_upd_clim.csv')
+
+
 
 
 # Get climate plots for map: TEMP, prcp, SPEI  -------------
@@ -349,10 +401,13 @@ median_iqr <- function(y) {
 
 
 # climate full
-reference_period <- 1980:2010
+reference_period <- 1980:2015
 
 # read temp and prcp over years
 climate_full           <- fread("outData/climate_1980_2023.csv")
+
+climate_full <- climate_full %>% 
+  rename(prcp = prec)
 
 spei_overview <- spei %>% 
   dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
@@ -460,7 +515,7 @@ anyNA(df_plot_veg)
 # rename not necessary predictors for climate clustering, rename veg variables
 df_plot_full <- 
   df_plot_veg %>% 
-  left_join(df_predictors_plot, by = join_by(cluster)) %>% 
+  left_join(df_predictors_plot_upd_clim, join_by(cluster)) %>% #by = join_by(cluster)
   ungroup() %>% 
   dplyr::select(-c(disturbance_year, 
                    disturbance_agent,
@@ -472,7 +527,7 @@ df_plot_full <-
                 stem_density     = sum_stems,
                 distance_edge    = distance,
                 n_vertical       = n_layers) %>% 
-  left_join(dat_manag_intensity_cl)# %>% , by = join_by(cluster, management_intensity
+  left_join(dat_manag_intensity_cl, join_by(cluster))# %>% , by = join_by(cluster, management_intensity
   
 # set up proper structure (df) fr analysis  and claim characters as factors
 df_fin <- as.data.frame(df_plot_full) %>% 
@@ -485,14 +540,14 @@ plot_n <- length(unique(df_plot_full$cluster))
 
 #length(unique(df_plot$cluster))
 length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
-length(unique(df_predictors_plot$cluster))  # 957 - all clusters, from even with less plots
+length(unique(df_predictors_plot_upd_clim$cluster))  # 957 - all clusters, from even with less plots
 
 
 
 ## add country naming---------------
 
 df_fin <- df_fin %>% 
-  rename(prcp = prcp) %>% 
+  #rename(prcp = prcp) %>% 
   rename(site = cluster)
 
 # add country indication 
