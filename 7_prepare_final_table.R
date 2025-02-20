@@ -83,7 +83,7 @@ stem_dens_species_cluster_long_share <- stem_dens_species_long %>%
 disturbance_chars <- disturbance_chars %>%
   mutate(country = as.character(country))
 
-#left_join(dplyr::filter(spei, year %in% 2018:2023)) #%>% 
+#left_join(dplyr::filter(spei, year %in% study_period)) #%>% 
 
 #Process SPEI:  get cluster number
 spei <- spei %>% 
@@ -144,7 +144,7 @@ spei_wide <- spei %>%
 
 spei_subplot <- spei_wide %>% 
   ungroup(.) %>% 
-  dplyr::filter(year %in% 2018:2023 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter(year %in% study_period ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID, year) %>%
@@ -195,7 +195,7 @@ df_predictors <-
 # keep only temp and prcp: 2021-2023 average
 df_predictors_plot <- 
   df_predictors %>% 
-  #dplyr::filter(year %in% 2018:2023) %>% 
+  #dplyr::filter(year %in% study_period) %>% 
   group_by(cluster, country) %>% 
   summarise(tmp          = median(tmp, na.rm = T),
             prcp         = median(prcp, na.rm = T),
@@ -232,12 +232,11 @@ df_predictors_plot <-
 
 
 
-## improve climate resolution for germamny and check with original data: ------------
+## Improve climate resolution for Germany: ------------
 # - get clim anomalies
 # - get SPEI
 # - calculate medians over 2018-2023
 
-reference_period = 1980:2015
 
 # Calculate temp and prcp anomalies
 climate_de_anom <- climate_de %>% 
@@ -255,7 +254,7 @@ climate_de_prcp_sum <- climate_de %>%
 # merge precipitation sum back to original table
 climate_de_anom_18_23_avg <- climate_de_anom %>% 
   left_join(climate_de_prcp_sum, by = join_by(cluster, year)) %>% 
-  dplyr::filter(year %in% 2018:2023) %>% 
+  dplyr::filter(year %in% study_period) %>% 
   group_by(cluster) %>%
   dplyr::summarise(across(where(is.numeric), \(x) median(x, na.rm = TRUE))) %>%  # Use lambda function for median
   dplyr::select(cluster, tmp, prcp_sum, tmp_z, prcp_z) %>% 
@@ -274,7 +273,7 @@ head(spei_de)
 
 
 spei_de_18_23_avg <- spei_de %>% 
-  dplyr::filter(year %in% 2018:2023) %>% 
+  dplyr::filter(year %in% study_period) %>% 
   ungroup(.) %>% 
   group_by(cluster) %>%
   summarize(spei = median(spei, na.rm  = T))
@@ -317,7 +316,8 @@ df_de <- clim_spei_de_upd %>%
   drop_na()
 # merge updated data (date with higher climate resolution with original ones): 
 
-#### Sample scatter plot: TMP --------------
+### Corr plot DWD vs ERA ---------------
+#### Sample scatter plot: TMP 
 par(mfrow = c(1, 2))
 plot(df_de$tmp_DWD, df_de$tmp_ERA, 
      main = "Scatter Plot with Correlation",
@@ -336,7 +336,7 @@ text(x = min(df_de$tmp_DWD), y = max(df_de$tmp_ERA),
      labels = paste("Correlation: ", round(correlation, 2)), 
      pos = 4, col = "red", cex = 1.2)
 
-#### Sample scatter plot: PRCP --------------
+#### Sample scatter plot: PRCP 
 plot(df_de$prcp_DWD, df_de$prcp_ERA, 
      main = "Scatter Plot with Correlation",
      pch = 19, col = "blue")
@@ -354,7 +354,7 @@ text(x = min(df_de$prcp_DWD), y = max(df_de$prcp_ERA),
      pos = 4, col = "red", cex = 1.2)
 
 
-## Merge new clim resolution data to ERA dataset ----
+### Merge new clim resolution data to ERA dataset ----
 
 
 # select only germny from old dataset, remove teh columns to replace
@@ -382,92 +382,6 @@ df_predictors_plot_upd_clim <- df_predictors_plot_upd_clim %>%
 
 
 
-
-
-# Get climate plots for map: TEMP, prcp, SPEI  -------------
-
-# read temp and prcp over years
-climate_full           <- fread("outData/climate_1980_2023.csv")
-
-climate_full <- climate_full %>% 
-  rename(prcp = prec)
-
-spei_overview <- spei %>% 
-  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
-  filter(!if_any(everything(), is.infinite)) %>% 
-  group_by(cluster, year) %>% 
-  dplyr::summarise(spei = median(spei, na.rm =T)) %>% 
-  mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
-                           TRUE ~ 'ref')) #%>% 
-
-# get simplified df
-clim_overview <- climate_full %>% 
-  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
-  mutate(cluster = str_sub(ID, 1, -3)) %>% 
-  ungroup(.) %>% 
-  group_by(cluster, year) %>% 
-  dplyr::summarize(tmp = median(tmp),
-                   prcp = median(prcp)) %>%
-  mutate(class = case_when(year %in% 2018:2020 ~ 'drought',
-                           TRUE ~ 'ref')) #%>% 
-
-# get reference values
-ref_spei <- median(spei_overview$spei[spei_overview$year %in% reference_period], na.rm =T)
-ref_tmp  <- median(clim_overview$tmp[clim_overview$year %in% reference_period])
-ref_prcp <- median(clim_overview$prcp[clim_overview$year %in% reference_period])
-
-
-p.map.spei <- spei_overview %>% 
-  ggplot(aes(x = year, y = spei, color = class)) +
-  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +
-  stat_summary(fun = median, geom = "point", size = 0.2) +
-  geom_hline(yintercept = ref_spei, lty = 'dashed', col = 'grey70') +
-  scale_color_manual(values = c('red', 'black')) +
-  labs(x = "", y = expression(paste("SPEI [dim.]", sep=""))) +
-  theme_classic() +
-  theme(legend.position = "NULL")
-
-
-
-# Plot for temperature
-p.map.temp <- clim_overview %>% 
-  ggplot(aes(x = year,
-             y = tmp,
-             color = class)) +
-  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +  # Use median and IQR for pointrange
-  stat_summary(fun = median, geom = "point", size = 0.2) +     # Add point for median
-  geom_hline(yintercept = ref_tmp, lty = 'dashed', col = 'grey70') +
-  scale_color_manual(values = c('red', 'black')) +
-  labs(x = "", y =  expression(paste("Temperature [", degree, "C]", sep=""))) +
-  theme_classic() +
-  theme(legend.position = "NULL") 
-
-
-# Plot for prcpipitation
-p.map.prcp <- clim_overview %>% 
-  ggplot(aes(x = year,
-             y = prcp,
-             color = class)) +
-  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +  # Use median and IQR for pointrange
-  stat_summary(fun = median, geom = "point", size = 0.2) +     # Add point for median
-  geom_hline(yintercept = ref_prcp, lty = 'dashed', col = 'grey70') +
-  scale_color_manual(values = c('red', 'black')) +
-  labs(x = "", y =  expression(paste("Precipitation [mm]", sep=""))) +
-  theme_classic() +
-  theme(legend.position = "NULL")
-
-windows(7,2)
-p.clim.map <- ggarrange(p.map.temp, p.map.prcp,p.map.spei, ncol = 3)
-p.clim.map
-ggsave(filename = 'outFigs/Fig1_all_clim.png', plot = p.clim.map, width = 7, 
-       height = 2, dpi = 300, bg = 'white')
-
-
-
-p.clim.map2 <- ggarrange(p.map.temp, p.map.prcp, ncol = 2)
-p.clim.map2
-ggsave(filename = 'outFigs/Fig1_tmp_prcp.png', plot = p.clim.map2, width = 7, 
-       height = 2, dpi = 300, bg = 'white')
 
 
 
@@ -577,6 +491,100 @@ fwrite(df_fin,                      'outData/indicators_for_cluster_analysis.csv
 
 
 # PLOTS: clim cluster : ------------------------
+
+## Time series for map: TEMP, prcp, SPEI  -------------
+
+# read temp and prcp over years
+climate_full           <- fread("outData/climate_1980_2023.csv")
+
+climate_full <- climate_full %>% 
+  rename(prcp = prec)
+
+spei_overview <- spei %>% 
+  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
+  filter(!if_any(everything(), is.infinite)) %>% 
+  group_by(cluster, year) %>% 
+  dplyr::summarise(spei = median(spei, na.rm =T)) %>% 
+  mutate(class = case_when(year %in% drought_period ~ 'drought',
+                           TRUE ~ 'ref')) #%>% 
+
+# get simplified df
+clim_overview <- climate_full %>% 
+  dplyr:: filter(!str_detect(ID, "^17")) %>% # remove Italy
+  mutate(cluster = str_sub(ID, 1, -3)) %>% 
+  ungroup(.) %>% 
+  group_by(cluster, year) %>% 
+  dplyr::summarize(tmp = median(tmp),
+                   prcp = median(prcp)) %>%
+  mutate(class = case_when(year %in% drought_period ~ 'drought',
+                           TRUE ~ 'ref')) #%>% 
+
+# get reference values
+ref_spei <- median(spei_overview$spei[spei_overview$year %in% reference_period], na.rm =T)
+ref_tmp  <- median(clim_overview$tmp[clim_overview$year %in% reference_period])
+ref_prcp <- median(clim_overview$prcp[clim_overview$year %in% reference_period])
+
+
+p.map.spei <- spei_overview %>% 
+  ggplot(aes(x = year, y = spei, color = class)) +
+  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +
+  stat_summary(fun = median, geom = "point", size = 0.2) +
+  geom_hline(yintercept = ref_spei, lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y = expression(paste("SPEI [dim.]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL")
+
+
+
+# Plot for temperature
+p.map.temp <- clim_overview %>% 
+  ggplot(aes(x = year,
+             y = tmp,
+             color = class)) +
+  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +  # Use median and IQR for pointrange
+  stat_summary(fun = median, geom = "point", size = 0.2) +     # Add point for median
+  geom_hline(yintercept = ref_tmp, lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y =  expression(paste("Temperature [", degree, "C]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL") 
+
+
+# Plot for prcpipitation
+p.map.prcp <- clim_overview %>% 
+  ggplot(aes(x = year,
+             y = prcp,
+             color = class)) +
+  stat_summary(fun.data = median_iqr, geom = "pointrange", size = 0.1) +  # Use median and IQR for pointrange
+  stat_summary(fun = median, geom = "point", size = 0.2) +     # Add point for median
+  geom_hline(yintercept = ref_prcp, lty = 'dashed', col = 'grey70') +
+  scale_color_manual(values = c('red', 'black')) +
+  labs(x = "", y =  expression(paste("Precipitation [mm]", sep=""))) +
+  theme_classic() +
+  theme(legend.position = "NULL")
+
+windows(7,2)
+p.clim.map <- ggarrange(p.map.temp, p.map.prcp,p.map.spei, ncol = 3)
+p.clim.map
+ggsave(filename = 'outFigs/Fig1_all_clim.png', plot = p.clim.map, width = 7, 
+       height = 2, dpi = 300, bg = 'white')
+
+
+
+p.clim.map2 <- ggarrange(p.map.temp, p.map.prcp, ncol = 2)
+p.clim.map2
+ggsave(filename = 'outFigs/Fig1_tmp_prcp.png', plot = p.clim.map2, width = 7, 
+       height = 2, dpi = 300, bg = 'white')
+
+
+
+
+
+
+
+
+
 # scatter plot: tmp vs spei
 
 # Calculate the mean and standard deviation for each cluster
