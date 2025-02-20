@@ -6,6 +6,7 @@
 # 
 
 gc()
+source('my_functions.R')
 
 # Libs --------------------------------------------------------------------------
 
@@ -231,9 +232,6 @@ df_predictors_plot <-
 
 
 
-fwrite(df_predictors_plot, 'outData/all_predictors_plot.csv')
-
-
 ## improve climate resolution for germamny and check with original data: ------------
 # - get clim anomalies
 # - get SPEI
@@ -356,7 +354,7 @@ text(x = min(df_de$prcp_DWD), y = max(df_de$prcp_ERA),
      pos = 4, col = "red", cex = 1.2)
 
 
-## Merge new clim resolution data to old dataset ----
+## Merge new clim resolution data to ERA dataset ----
 
 
 # select only germny from old dataset, remove teh columns to replace
@@ -382,26 +380,11 @@ df_predictors_plot_upd_clim <- rbind(clim_spei_de_upd_add_cols,
 df_predictors_plot_upd_clim <- df_predictors_plot_upd_clim %>% 
   dplyr::select(-country)
 
-# export dataset
-fwrite(df_predictors_plot_upd_clim, 'outData/all_predictors_plot_upd_clim.csv')
 
 
 
 
 # Get climate plots for map: TEMP, prcp, SPEI  -------------
-
-### Custom function to return median and IQR for stat_summary
-median_iqr <- function(y) {
-  median_val <- median(y, na.rm = TRUE)
-  iqr_val <- IQR(y, na.rm = TRUE)
-  ymin <- median_val - (iqr_val / 2)
-  ymax <- median_val + (iqr_val / 2)
-  return(c(y = median_val, ymin = ymin, ymax = ymax))
-}
-
-
-# climate full
-reference_period <- 1980:2015
 
 # read temp and prcp over years
 climate_full           <- fread("outData/climate_1980_2023.csv")
@@ -583,7 +566,11 @@ df_fin <- df_fin %>%
                                      TRUE~country_abbr))
 
 
-fwrite( df_fin, 'outData/indicators_for_cluster_analysis.csv')
+# export tables --------------------------------------------------
+
+fwrite(df_predictors_plot,          'outData/all_predictors_plot.csv')               # predictors from ERA (10 km res)
+fwrite(df_predictors_plot_upd_clim, 'outData/all_predictors_plot_upd_clim.csv')      # contains all predictors: ERA & DWD
+fwrite(df_fin,                      'outData/indicators_for_cluster_analysis.csv')   # contains all veg data (stem, regeneration) and all predictors 
 
 
 
