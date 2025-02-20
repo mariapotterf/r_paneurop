@@ -2132,23 +2132,46 @@ AIC(m_int_sev_edge_full_te_comb,
 ## check variability withing clim grid --------------------------
 
 # Calculate standard deviation of stem_regeneration for each clim_grid
-stem_variability <- df_stem_regeneration2 %>%
-  group_by(clim_grid) %>%
+regional_variability <- df_fin %>%
+  dplyr::filter(region_manual != 'CH2') %>% 
+  group_by(region_manual) %>%
   summarise(
-    sd_stem_regeneration = sd(stem_regeneration, na.rm = TRUE)
+    mean_stem_regeneration = mean(stem_regeneration, na.rm = TRUE),
+    sd_stem_regeneration = sd(stem_regeneration, na.rm = TRUE),
+    cv_stem_regeneration = (sd_stem_regeneration / mean_stem_regeneration) * 100,
+    
+    mean_elevation = mean(elevation, na.rm = TRUE),
+    sd_elevation = sd(elevation, na.rm = TRUE),
+    cv_elevation = (sd_elevation / mean_elevation) * 100,
+    
+    mean_tmp = mean(tmp, na.rm = TRUE),
+    sd_tmp = sd(tmp, na.rm = TRUE),
+    cv_tmp = (sd_tmp / mean_tmp) * 100,
+    
+    mean_prcp = mean(prcp, na.rm = TRUE),
+    sd_prcp = sd(prcp, na.rm = TRUE),
+    cv_prcp = (sd_prcp / mean_prcp) * 100
   )
 
 # View variability
-head(stem_variability)
+#View(regional_variability)
 
-# Plot variability
-ggplot(stem_variability, aes(x = clim_grid, y = sd_stem_regeneration)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Variability in Stem Regeneration by Climate Grid",
-       x = "Climate Grid",
-       y = "SD of Stem Regeneration") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# Function to plot coefficient of variation
+plot_cv <- function(data, variable, title, y_label) {
+  ggplot(data, aes(x = region_manual, y = !!sym(variable))) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    labs(title = title, x = "Region", y = y_label) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+# Generate plots
+p_stems_cv <- plot_cv(regional_variability, "cv_stem_regeneration", "Variability in Stem Regeneration by Region", "CV of Stem Regeneration")
+p_tmp_cv <- plot_cv(regional_variability, "cv_tmp", "Variability in Temperature by Region", "CV of Temperature")
+p_prcp_cv <- plot_cv(regional_variability, "cv_prcp", "Variability in Precipitation by Region", "CV of Precipitation")
+p_elevation_cv <- plot_cv(regional_variability, "cv_elevation", "Variability in Elevation by Region", "CV of Elevation")
+
+ggarrange(p_stems_cv, p_tmp_cv, p_prcp_cv,p_elevation_cv, ncol = 2, nrow = 2)
 
 ##### sites per clim_grid ---------------------------------------
 
@@ -2157,6 +2180,12 @@ site_clim_grid <- df_fin %>%
   summarise(num_sites = n())
 
 summary(site_clim_grid$num_sites)
+
+
+# get summary statistics of variation in stem density, elevation, tmp and prcp within manual clusters
+
+
+
 ### test for spatial autocorrelation: ------------------------------------------
 
 # 
@@ -2359,6 +2388,76 @@ ggsave('outFigs/fig_regen_int_drivers.png', plot = p_combined_int,
 
 summary(df_fin$elevation)
 
+
+### p combined no points --------------------------
+
+# Plot the first interaction
+p1 <- 
+  ggplot(pred1, aes(x = x, y = predicted/1000)) +
+  # geom_point(data = filtered_df_plot99, 
+  #            aes( x = prcp, y = stem_regeneration/1000), 
+  #            size = 1, alpha = 0.2, color = 'grey') +
+  geom_line(linewidth = 1, aes(color = group) ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
+              alpha = 0.2, color = NA) +
+  scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
+  scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
+  theme_classic() +
+  labs(x = "Precipitation [mm]", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p<0.0001", 
+       # linetype =  "Temperature [°C]"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
+    axis.title = element_text(size = 8),                   # Axis title size
+    axis.text = element_text(size = 8),                    # Axis text size
+    legend.key.size = unit(0.5, "cm"),                     # Legend key size
+    legend.text = element_text(size = 8),                  # Legend text size
+    legend.title = element_text(size = 8),                 # Legend title size
+    legend.position = c(0.05, 0.9),
+    legend.justification = c(0.05, 0.9)
+  )
+
+p1
+# Plot the second interaction
+p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
+  # geom_jitter(data = filtered_df_plot90, 
+  #             aes( x = distance_edge, y = stem_regeneration/1000), 
+  #             size = 1, alpha = 0.2, color = 'grey',
+  #             width = 7,
+  #             height = 1) +
+  geom_line(linewidth = 1, aes(color = group) ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
+  scale_color_manual(values = my_colors_interaction, 
+                     name = "Disturbance\nseverity",
+                     labels = c("Low", "High")) +
+  scale_fill_manual(values = my_colors_interaction, 
+                    name = "Disturbance\nseverity",
+                    labels = c("Low", "High")) +
+  theme_classic() +
+  #ylim(0,20) +
+  labs(x = "Distance to edge [m]", y = "", title = "p=0.001") +
+  theme(
+    axis.title = element_text(size = 8),
+    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
+    axis.title.y = element_blank(),                   # Axis title size
+    axis.text = element_text(size = 8),                    # Axis text size
+    legend.key.size = unit(0.5, "cm"),                     # Legend key size
+    legend.text = element_text(size = 8),                  # Legend text size
+    legend.title = element_text(size = 8),                 # Legend title size
+    legend.position = c(0.05, 0.9),
+    legend.justification = c(0.05, 0.9)
+  )
+p2
+
+p_combined_int_no_points <- ggarrange(p1, p2, 
+                            labels = c("[a]","[b]"), 
+                            align = 'hv',
+                            font.label = list(size = 8, face = "plain")) # Specify plain font style)
+
+# Save the combined plot
+ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_points, 
+       width = 6, height = 3.1, bg = 'white')
 
           
           
