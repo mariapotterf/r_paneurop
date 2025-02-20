@@ -80,6 +80,14 @@ load("outData/veg.Rdata")
 # final tables on site level
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
 
+# add manually created regions
+regions_manual <- terra::vect('rawData/regions_manual2.gpkg')
+regions_manual_df <- as.data.frame(regions_manual)
+
+df_fin <- df_fin %>% 
+  full_join(regions_manual_df) %>% 
+  rename(region_manual = name)
+
 # ad disturbance severity based on presence/absence of mature trees 
 df_mature_dist_severity <- fread('outData/disturb_severity_mature.csv')
 
@@ -152,7 +160,7 @@ print(df_fin_clim_clust_xy)
 #fwrite(df_fin, 'outTable/df_fin.csv')
 
 
-# check for Czechia -------------
+## check for Czechia -------------
 df_fin_cz <- df_fin %>% 
   dplyr::filter(country == "CZ")
 
@@ -183,7 +191,7 @@ cat("Species Richness:", species_richness_cz, "\n")
 
 
 
-# add to gpkg: 10 prevailing species -------------------------
+## add to gpkg: 10 prevailing species 
 # 
 # # Create a new column in the sf object
 # df_fin_clim_clust_xy$dominant_species_grouped <- ifelse(
@@ -247,18 +255,6 @@ species_colors <- c(
   lade = "#A50026"
 )
 
-species_colors <- c(
-  piab = "#004488",  # Dark Blue (Deep forest green alternative)
-  fasy = "#2C7BB6",  # Rich Blue-Green
-  quro = "#66CCEE",  # Light Sky Blue
-  pisy = "#228833",  # Teal Green
-  soau = "#55A868",  # Soft Green
-  acps = "#E69F00",  # Golden Yellow
-  potr = "#CCBB44",  # Mustard Yellow
-  abal = "#EE6677",  # Warm Orange
-  besp = "#882255",  # Dark Red
-  lade = "#A50026"   # Deep Red
-)
 
 
 ## Get summary tables ---------------------------------------------------------
@@ -352,7 +348,7 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
   )
 
 
-# vertical classes share -----------------------------------
+## vertical classes share -----------------------------------
 
 # Categorize richness into bins and calculate proportions
 vert_str_summary <- df_fin %>%
@@ -406,7 +402,7 @@ df_stem_sp_sum <- stem_dens_species_long_cluster %>%
 
 
 
-# Share of plots by species -----------------------------------------------------
+## Share of plots by species -----------------------------------------------------
 
 # Count the unique clusters (sites) for each species
 species_site_share <- df_stem_sp_sum %>%
@@ -433,7 +429,7 @@ top_species_site_share <- species_site_share %>%
   slice_head(n = 10) # Select the top 7 rows
 
 
-# top species CZ start !!!-----
+### top species CZ start !!!-----
 
 df_stem_sp_sum_cz <- df_stem_sp_sum[grep("15_|26_", df_stem_sp_sum$cluster), ]
 # Count the unique clusters (sites) for each species
@@ -474,7 +470,7 @@ p_sites_share_species <- species_site_share %>%
            ) + # Horizontal bars
   scale_fill_manual(values = species_colors) +  # Apply custom color palette
   labs(
-    x = "Sites share\n[%]",
+    x = "Plots share\n[%]",
     y = "",
     title = ""
   ) +
@@ -1427,7 +1423,9 @@ df_fin <- df_fin %>%
   mutate(country_full    = factor(country_full),
          country_abbr    = factor(country_abbr),
          country_pooled  = factor(country_pooled),
-         region          = factor(region))
+         region          = factor(region),
+         region_manual          = factor(region_manual)
+         )
 
 # account for climatic variables - aggregated on 9 km resolution:
 df_fin <- df_fin %>%
@@ -1447,18 +1445,6 @@ df_fin <- df_fin %>%
 # include mature trees: present/absent
 df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
 
-# check my categories?
-df_fin %>% 
-  dplyr::select(site, 
-                stem_density,
-                stem_regeneration,
-                sum_stems_juvenile,
-                sum_stems_sapling, 
-                #sum_stems_mature,
-                adv_delayed
-               
-  ) %>% 
-  View()
 
 
 
@@ -1488,7 +1474,7 @@ hist(df_fin$stem_density)
 
 
 # Fit a GAM model with a Negative Binomial distribution
-m1 <- gam(stem_density ~ s(spei6, k = 15),  # Factors included without s() for categorical variables
+m1 <- gam(stem_density ~ s(spei12, k = 15),  # Factors included without s() for categorical variables
           family = nb,  # Negative Binomial to handle overdispersion
           data = df_fin)
 
@@ -1501,6 +1487,9 @@ predictor_vars_sub <- c(
   "spei12",
   "tmp", 
   "prcp", 
+  
+  "tmp_z", 
+  "prcp_z", 
   
   # 
   "salvage_intensity",
@@ -1564,7 +1553,9 @@ results <- results[order(results$AIC), ]
 # Display the results
 print(results)
 
-
+plot(df_fin$spei12, df_fin$prcp)
+cor(df_fin$spei12, df_fin$prcp, method = 'spearman')  # corr was smalle between the spei12 and prcp
+ 
 
 # correlation ;
 
@@ -1606,7 +1597,8 @@ pairs(eda_data, main = "")
 
 df_stem_regeneration2 <- df_fin %>% 
   dplyr::select(all_of(c("site", "stem_regeneration", predictor_vars_sub,
-                         "country_pooled", "clim_grid",  "x", "y")))
+                         
+                         "country_pooled","region", "region_manual", "clim_grid",  "x", "y")))
 
 
 # Centering the variables in your data frame
@@ -1656,11 +1648,6 @@ correlation_matrix <- cor(predictors, use = "complete.obs")
 # Display the correlation matrix
 print(correlation_matrix)
 
-# check correlations between disturbance severity from EU map and site-base (from presence/absence of mature trees)
-cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "spearman")
-cor(df_fin$disturbance_severity, df_fin$sum_stems_mature, method = "kendall") # better if many values lies in same tieghts
-cor(df_fin$disturbance_severity, df_fin$mature_dist_severity, method = "kendall") # better if many values lies in same tieghts
-plot(df_fin$disturbance_severity, df_fin$mature_dist_severity)
 
 par(mfrow = c(1, 2))
 plot(df_fin$prcp, df_fin$clim_grid)
@@ -1684,8 +1671,6 @@ ggplot(df_stem_regeneration2, aes(x = country_pooled , y = disturbance_severity 
 ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity     )) +
   geom_boxplot()
 
-
-library(corrplot)
 
 # Calculate correlation matrix
 correlation_matrix <- cor(predictors,  method = "spearman", use = "complete.obs")
@@ -1855,11 +1840,292 @@ AIC(m_int_sev_edge_full_te_comb, m_int_res_edge_full_te_comb, m_int_mat_edge_ful
 
 
 # store the best model for regeneration density
-fin.m.reg.density <- m_int_sev_edge_full_te_comb      
+#fin.m.reg.density <- m_int_sev_edge_full_te_comb     
+
+fin.m.reg.density <- m_anom_prcp_re_reg
 
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
         zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
+
+
+# 20250220 - ry to improve teh best mdoel with the updated DWD values ---------
+m_int_sev_edge_full_te_comb_spei <- gam(
+  stem_regeneration ~ s(spei12, k = 5) + 
+    #s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_int_sev_edge_full_te_comb_spei_add <- gam(
+  stem_regeneration ~ s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_int_sev_edge_full_te_comb_spei_add2 <- gam(
+  stem_regeneration ~ s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(spei12, prcp, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_int_sev_edge_full_te_comb_spei_add2_re <- gam(
+  stem_regeneration ~ s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(spei12, prcp, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_int_sev_edge_full_te_comb_spei_add2_re_simpl <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(spei12, prcp, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# anomalies -------------------
+m_anom_tmp_z <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp_z, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(spei12, prcp, k = 5 ) +
+    ti(prcp,tmp_z, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+   # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_anom_prcp_z <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp_z, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(spei12, prcp, k = 5 ) +
+    ti(prcp_z,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_anom_prcp_z_re <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp_z, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(spei12, prcp, k = 5 ) +
+    ti(prcp_z,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_anom_prcp_z_re_reg <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp_z, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(spei12, prcp, k = 5 ) +
+    ti(prcp_z,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_anom_prcp_re_reg <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(spei12, prcp, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_anom_prcp_fix_reg <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(residual_mature_trees  , k = 5) + 
+    #s(sum_stems_mature  , k = 5) + 
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(spei12, prcp, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    region_manual +                # use as fixed effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# tyry again to include teh dist values as single factors along intercation:
+
+m_anom_prcp_re_reg_test <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_anom_prcp_re_reg_test_fix <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    region_manual +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+AIC(m_anom_prcp_re_reg_test, m_anom_prcp_re_reg, m_anom_prcp_re_reg_test_fix)
+
+
+
+AIC(m_int_sev_edge_full_te_comb,
+    m_int_sev_edge_full_te_comb_spei, 
+    m_int_sev_edge_full_te_comb_spei_add2, 
+    m_int_sev_edge_full_te_comb_spei_add2_re,
+    m_int_sev_edge_full_te_comb_spei_add2_re_simpl,
+    m_anom_tmp_z,
+    m_anom_prcp_z,
+    m_anom_prcp_z_re,
+    m_anom_prcp_z_re_reg,
+    m_anom_prcp_fix_reg)
+
 
 
 
@@ -1896,7 +2162,7 @@ summary(site_clim_grid$num_sites)
 # 
 
 # Extract model residuals
-m <- m_med_int # fin.m.reg.density
+m <- fin.m.reg.density
 model_residuals <- residuals(m , type = "pearson")  
 
 # Load necessary libraries
@@ -1924,15 +2190,15 @@ summary(fin.m.reg.density)
 # show only 95% quatile for stem density
 # Define the quantiles for stem_density and tmp columns
 quantiles_stem_density99 <- quantile(df_stem_regeneration2$stem_regeneration  , 
-                                   probs = c(0, 0.99), na.rm = TRUE)
-
+                                    probs = c(0, 0.99), na.rm = TRUE)
+# 
 quantiles_stem_density90 <- quantile(df_stem_regeneration2$stem_regeneration  , 
                                      probs = c(0, 0.90), na.rm = TRUE)
 
 
 # Filter the DataFrame to keep rows within these quantile ranges
 filtered_df_plot99 <- df_stem_regeneration2 %>%
-  dplyr::filter(stem_regeneration     >= quantiles_stem_density99[1] & stem_regeneration  <= quantiles_stem_density99[2])
+   dplyr::filter(stem_regeneration     >= quantiles_stem_density99[1] & stem_regeneration  <= quantiles_stem_density99[2])
 
 filtered_df_plot90 <- df_stem_regeneration2 %>%
   dplyr::filter(stem_regeneration     >= quantiles_stem_density90[1] & stem_regeneration  <= 
@@ -1942,8 +2208,8 @@ filtered_df_plot90 <- df_stem_regeneration2 %>%
 # ,tmp >= quantiles_tmp[1] & tmp <= quantiles_tmp[2]
 
 # Display the filtered data
-filtered_df_plot99
-summary(filtered_df_plot99$stem_regeneration)
+#filtered_df_plot99
+#summary(filtered_df_plot99$stem_regeneration)
 
 
 ###  dynamic plot title: ad significance level---------------------------------------------
@@ -1999,7 +2265,7 @@ title_interaction1          = create_dynamic_plot_title("ti(prcp,tmp)", formatte
 
 # make plot manually:  --------------------------
 
-m <- m_int_sev_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
+m <- fin.m.reg.density #m_int_sev_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
 k.check(m)
 summary(m)
 
@@ -2025,7 +2291,7 @@ my_colors_interaction <- c( "#FDAE61", "#A50026")
 # Plot the first interaction
 p1 <- 
   ggplot(pred1, aes(x = x, y = predicted/1000)) +
-  geom_jitter(data = filtered_df_plot99, 
+  geom_point(data = filtered_df_plot99, 
               aes( x = prcp, y = stem_regeneration/1000), 
               size = 1, alpha = 0.2, color = 'grey') +
   geom_line(linewidth = 1, aes(color = group) ) +
@@ -2035,7 +2301,7 @@ p1 <-
   scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
   theme_classic() +
   labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "***\np<0.0001", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p<0.0001", 
       # linetype =  "Temperature [°C]"
        ) +
   theme(
@@ -2067,7 +2333,7 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
                     labels = c("Low", "High")) +
   theme_classic() +
   #ylim(0,20) +
-  labs(x = "Distance to edge [m]", y = "", title = "**\np=0.0011") +
+  labs(x = "Distance to edge [m]", y = "", title = "p=0.001") +
   theme(
     axis.title = element_text(size = 8),
     plot.title = element_text(hjust = 0.5, size = 8),       # Title size
@@ -2086,9 +2352,11 @@ p_combined_int <- ggarrange(p1, p2,
                             align = 'hv',
                             font.label = list(size = 8, face = "plain")) # Specify plain font style)
 
+(p_combined_int)
 # Save the combined plot
 ggsave('outFigs/fig_regen_int_drivers.png', plot = p_combined_int, 
        width = 6, height = 3.1, bg = 'white')
+
 summary(df_fin$elevation)
 
 
