@@ -47,8 +47,7 @@ climate <- climate %>%
 load("outData/veg.Rdata")
 
 
-# clean up data -----------------------------------------------------------------
-## Vegetation data --------------------------------------
+## Prepare veg data  -----------------------------------------------------------------
 # sum stems first up across vertical groups!!
 
 # create idividual table for each of the vertical regeneration class 
@@ -79,7 +78,7 @@ stem_dens_species_cluster_long_share <- stem_dens_species_long %>%
     
 
 #fwrite(stem_dens_species_cluster_long_share, 'vegData_cluster_densities.csv')
-
+## prepare clim and dist data ---------------------------------
 disturbance_chars <- disturbance_chars %>%
   mutate(country = as.character(country))
 
@@ -232,7 +231,7 @@ df_predictors_plot <-
 
 
 
-## Improve climate resolution for Germany: ------------
+### Improve climate resolution for Germany: ------------
 # - get clim anomalies
 # - get SPEI
 # - calculate medians over 2018-2023
@@ -386,7 +385,7 @@ df_predictors_plot_upd_clim <- df_predictors_plot_upd_clim %>%
 
 
 
-# Merge predictors with vegetation data ---------------------------------------------------
+## Merge predictors with vegetation data ---------------------------------------------------
 # select the dominant species per cluster
 df_IVI_max <- df_IVI %>% 
   dplyr::select(cluster, Species, country,rIVI) %>% 
@@ -441,10 +440,9 @@ length(unique(df_predictors_plot_upd_clim$cluster))  # 957 - all clusters, from 
 
 
 
-## add country naming---------------
+## add country naming
 
 df_fin <- df_fin %>% 
-  #rename(prcp = prcp) %>% 
   rename(site = cluster)
 
 # add country indication 
@@ -480,7 +478,7 @@ df_fin <- df_fin %>%
                                      TRUE~country_abbr))
 
 
-# export tables --------------------------------------------------
+# Export tables --------------------------------------------------
 
 fwrite(df_predictors_plot,          'outData/all_predictors_plot.csv')               # predictors from ERA (10 km res)
 fwrite(df_predictors_plot_upd_clim, 'outData/all_predictors_plot_upd_clim.csv')      # contains all predictors: ERA & DWD
@@ -490,7 +488,7 @@ fwrite(df_fin,                      'outData/indicators_for_cluster_analysis.csv
 
 
 
-# PLOTS: clim cluster : ------------------------
+# PLOTS:------------------------
 
 ## Time series for map: TEMP, prcp, SPEI  -------------
 
@@ -648,7 +646,7 @@ ggsave(filename = 'outFigs/fig_clim_clusters.png', plot = fig_spei_tmp_clusters,
        bg = 'white')
 
 
-# Get summary table 3 env clustersL -------------------------
+# Tables  -------------------------------------------------
 
 ## ENV CLIM conditions ------------------------------
 # Summarize the data based on 'clim_cluster_spei3' for the specified variables
