@@ -3,6 +3,8 @@
 
 
 reference_period <- 1980:2015
+drought_period   <- 2018:2020
+study_period     <- 2018:2023
 
 
 # functions 
