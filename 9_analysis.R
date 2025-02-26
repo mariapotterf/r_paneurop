@@ -256,32 +256,6 @@ species_colors <- c(
   lade = "#A50026"
 )
 
-species_colors <- c(
-  piab = "#0C0786",  # Dark Purple
-  fasy = "#3B0F8B",
-  quro = "#6915A2",
-  pisy = "#9623BB",
-  soau = "#BC3593",
-  acps = "#DC5B5B",
-  potr = "#F48849",
-  abal = "#FEB52E",
-  besp = "#F0E226",
-  lade = "#F0F921"   # Bright Yellow
-)
-
-
-species_colors <- c(
-  piab = "#440154",  # Dark Purple
-  fasy = "#482878",  # Deep Blue-Purple
-  quro = "#3E4989",  # Blue
-  pisy = "#31688E",  # Teal-Blue
-  soau = "#26828E",  # Greenish-Teal
-  acps = "#1F9E89",  # Teal-Green
-  potr = "#35B779",  # Bright Green
-  abal = "#6DCD59",  # Yellow-Green
-  besp = "#B8DE29",  # Yellow
-  lade = "#FDE725"   # Bright Yellow
-)
 
 
 
@@ -488,7 +462,7 @@ top_species_site_share_cz <- species_site_share_cz%>%
 
 
 
-# Create a horizontal bar plot -------------------------------------------------
+## Create a horizontal bar plot -------------------------------------------------
 p_sites_share_species <- species_site_share %>%
   arrange(desc(share_of_sites)) %>%
   slice_head(n = 10) %>% # Select the top X rows
@@ -514,7 +488,7 @@ p_sites_share_species <- species_site_share %>%
 p_sites_share_species
 
 
-# Get a color scheme per species -------------------------
+### Get a color scheme per species -------------------------
 
 # Reverse the color palette and map to the species in the desired order
 n_colors <- 10  # Number of species
@@ -528,7 +502,7 @@ reversed_colors <- rev(my_colors)
 print(species_colors)
 
 
-# Density plot of stem density  ----------------------------------
+## Density plot of stem density  ----------------------------------
 
 # Calculate median for each species and reorder the factor levels
 df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
@@ -590,13 +564,10 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
 # Print the plot
 print(p_stem_density_species)
 
-# ggsave(filename = 'outFigs/p_stem_density_ridge_log.png', 
-#        plot = p_stem_density_species, 
-#        width = 3, height = 3.5, dpi = 300, bg = 'white')
 
 
 
-# !!!get the species density plot for Czechia -------------
+### !!!get the species density plot for Czechia -------------
 
 df_cz <- df_stem_sp_sum[grep("15_|26_", df_stem_sp_sum$cluster), ]
 
@@ -673,7 +644,7 @@ print(p_stem_density_species_cz)
 
 
 
-# get % of stems per saplings/juveniles -----------------------------------------
+## get % of stems per saplings/juveniles -----------------------------------------
 # Summarize the total stem density per species 
 species_composition_sapl_juv <- stem_dens_species_long_cluster %>%
   dplyr::filter(Species %in% top_species_site_share$Species) %>% 
@@ -772,10 +743,10 @@ library(scales) # For color adjustment (lighter/darker shades)
 # Generate separate colors for Juveniles (darker) and Saplings (lighter)
 #species_colors_juveniles <- species_colors
 
-species_colors_juveniles <- lapply(species_colors, function(color) darken(color, 
+species_colors_juveniles <- lapply(species_colors, function(color) colorspace::darken(color, 
                                                                           amount = 0.2)) %>% unlist()
 
-species_colors_saplings <- lapply(species_colors, function(color) lighten(color, 
+species_colors_saplings <- lapply(species_colors, function(color) colorspace::lighten(color, 
                                                                           amount = 0.2)) %>% unlist()
 
 # Create a named vector combining Juveniles and Saplings
@@ -871,7 +842,7 @@ print(combined_plot)
 
 # Save the combined plot as an image
 ggsave(
-  filename = "outFigs/combined_plot.png",    # File name (change extension for different formats, e.g., .pdf)
+  filename = "outFigs/combined_plot2.png",    # File name (change extension for different formats, e.g., .pdf)
   plot = combined_plot,             # Plot object to save
   width = 7,                       # Width of the saved plot in inches
   height = 3.5,                       # Height of the saved plot in inches
