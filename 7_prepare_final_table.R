@@ -6,6 +6,7 @@
 # 
 
 gc()
+
 source('my_functions.R')
 
 # Libs --------------------------------------------------------------------------
@@ -45,6 +46,79 @@ climate <- climate %>%
 
 # get vegetation data - on subplot level
 load("outData/veg.Rdata")
+
+# get full climate data: 1980-2023 from ERA: calculate seasonalioty? 
+climate_months_1980_2023           <- fread("outData/climate_1980_2023_months.csv")
+
+climate_months_1980_2023 <- climate_months_1980_2023 %>% 
+  mutate(cluster = str_sub(ID, 4, -3))#%>%
+
+# Convert to data.table for efficiency
+setDT(climate_months_1980_2023)  # note that TMP is in kelvin, and prcp is in a day and in meters
+
+# Define growing season months
+growing_season_months <- 4:9
+
+# Filter data for growing season
+climate_growing_season <- climate_months_1980_2023[month %in% growing_season_months]
+
+# Step 1: Calculate reference period (1980-2015) mean and SD for each ID and variable
+reference_stats <- climate_growing_season[year %in% 1980:2015, 
+                                          .(mean_value = mean(value, na.rm = TRUE), 
+                                            sd_value = sd(value, na.rm = TRUE)), 
+                                          by = .(cluster, var, month)
+]
+
+# Step 2: Merge reference statistics with 2016-2023 data
+climate_growing_season <- merge(
+  climate_growing_season, 
+  reference_stats, 
+  by = c("cluster", "var", "month"),
+  all.x = TRUE
+)
+
+# Step 3: Calculate anomalies (Z-score)
+climate_growing_season[, anomaly := (value - mean_value) / sd_value]
+
+# Step 4: Filter only the target period (2016-2023)
+climate_grow_season_anomalies_2018_2023 <- climate_growing_season[year %in% 2018:2023]
+
+# keep only information per cluster level
+growth_anomalies_summary <- climate_grow_season_anomalies_2018_2023[, 
+                                                         .(mean_grw_anm = mean(anomaly, na.rm = TRUE),
+                                                           sd_grw_anm = sd(anomaly, na.rm = TRUE),
+                                                           median_grw_anm = median(anomaly, na.rm = TRUE),
+                                                           max_grw_anm = max(anomaly, na.rm = TRUE),
+                                                           min_grw_anm = min(anomaly, na.rm = TRUE)),  # Mean anomaly per group
+                                                         
+                                                         by = .(cluster, var)
+]
+
+
+# reshape to wide format ---------------------------------------
+
+# Rename `var` column values: "t2m" -> "tmp", "tp" -> "prcp"
+growth_anomalies_summary[var == "t2m", var := "tmp"]
+growth_anomalies_summary[var == "tp", var := "prcp"]
+
+# Convert to wide format after renaming
+growth_anomalies_wide <- dcast(growth_anomalies_summary, 
+                               cluster ~ var, 
+                               value.var = c("mean_grw_anm", "sd_grw_anm", 
+                                             "median_grw_anm", "max_grw_anm", "min_grw_anm"))
+
+# Print summary
+View(growth_anomalies_wide)
+
+# Select only numerical columns (excluding 'cluster')
+numeric_data <- growth_anomalies_wide[, !("cluster"), with = FALSE]
+
+# Create scatter plot matrix
+pairs(numeric_data, 
+      main = "Scatter Plot Matrix of Growth Anomalies",
+      pch = 20, col = rgb(0.2, 0.4, 0.6, 0.5))  # Semi-transparent blue points
+
+
 
 
 ## Prepare veg data  -----------------------------------------------------------------
