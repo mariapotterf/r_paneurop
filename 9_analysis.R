@@ -70,7 +70,8 @@ theme_set(
     )
 )
 
-
+colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                       "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 # Read data -----------------------------------------------------------------------
 
@@ -253,6 +254,33 @@ species_colors <- c(
   abal = "#F67B49",
   besp = "#DA362A",
   lade = "#A50026"
+)
+
+species_colors <- c(
+  piab = "#0C0786",  # Dark Purple
+  fasy = "#3B0F8B",
+  quro = "#6915A2",
+  pisy = "#9623BB",
+  soau = "#BC3593",
+  acps = "#DC5B5B",
+  potr = "#F48849",
+  abal = "#FEB52E",
+  besp = "#F0E226",
+  lade = "#F0F921"   # Bright Yellow
+)
+
+
+species_colors <- c(
+  piab = "#440154",  # Dark Purple
+  fasy = "#482878",  # Deep Blue-Purple
+  quro = "#3E4989",  # Blue
+  pisy = "#31688E",  # Teal-Blue
+  soau = "#26828E",  # Greenish-Teal
+  acps = "#1F9E89",  # Teal-Green
+  potr = "#35B779",  # Bright Green
+  abal = "#6DCD59",  # Yellow-Green
+  besp = "#B8DE29",  # Yellow
+  lade = "#FDE725"   # Bright Yellow
 )
 
 
