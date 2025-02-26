@@ -14,6 +14,7 @@ library(PCICt)
 library(zoo)                # for as.Date() specification
 
 
+source('my_functions.R')
 # get data from Pan-Europe ----------------------------------------------------
 
 
@@ -222,8 +223,6 @@ all_climate_months <- lapply(country_names, function(cn) {
 final_climate_months <- do.call(rbind, all_climate_months)
 
 
-
-reference_period = 1980:2015
 
 
 # Calculate temp anomalies
