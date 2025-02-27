@@ -47,9 +47,10 @@ climate <- climate %>%
 # get vegetation data - on subplot level
 load("outData/veg.Rdata")
 
-# get full climate data: 1980-2023 from ERA: calculate seasonalioty? 
+## get full climate data: 1980-2023 from ERA: calculate seasonalioty? --------------------- 
 climate_months_1980_2023           <- fread("outData/climate_1980_2023_months.csv")
 
+# create sluster name 
 climate_months_1980_2023 <- climate_months_1980_2023 %>% 
   mutate(cluster = str_sub(ID, 4, -3))#%>%
 
@@ -85,11 +86,11 @@ climate_grow_season_anomalies_2018_2023 <- climate_growing_season[year %in% 2018
 
 # keep only information per cluster level
 growth_anomalies_summary <- climate_grow_season_anomalies_2018_2023[, 
-                                                         .(mean_grw_anm = mean(anomaly, na.rm = TRUE),
-                                                           sd_grw_anm = sd(anomaly, na.rm = TRUE),
+                                                         .(mean_grw_anm   = mean(anomaly, na.rm = TRUE),
+                                                           sd_grw_anm     = sd(anomaly, na.rm = TRUE),
                                                            median_grw_anm = median(anomaly, na.rm = TRUE),
-                                                           max_grw_anm = max(anomaly, na.rm = TRUE),
-                                                           min_grw_anm = min(anomaly, na.rm = TRUE)),  # Mean anomaly per group
+                                                           max_grw_anm    = max(anomaly, na.rm = TRUE),
+                                                           min_grw_anm    = min(anomaly, na.rm = TRUE)),  # Mean anomaly per group
                                                          
                                                          by = .(cluster, var)
 ]
@@ -262,7 +263,7 @@ df_predictors <-
   left_join(dplyr::select(terrain, c(-country, region, -cluster.x, -cluster.y))) #%>% 
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
-
+length(unique(df_predictors$cluster))
 
 # merge predcitors on cluster level: calculate medians
 # keep only temp and prcp: 2021-2023 average
@@ -301,9 +302,10 @@ df_predictors_plot <-
             av.nitro         = median(av.nitro, na.rm = T),
             slope            = median(slope, na.rm = T),
             aspect           = median(aspect, na.rm = T)
-            )
+            ) %>% 
+  right_join(growth_anomalies_wide, by = join_by(cluster))
 
-
+nrow(df_predictors_plot)
 
 ### Improve climate resolution for Germany: ------------
 # - get clim anomalies
@@ -339,7 +341,7 @@ ggplot(climate_de_anom_18_23_avg, aes(x = prcp, y = tmp)) +
   geom_smooth()
   
 # check how many clusters have identical prcp
-table(climate_de$prcp)
+#table(climate_de$prcp)
   
 
 head(spei_de)
