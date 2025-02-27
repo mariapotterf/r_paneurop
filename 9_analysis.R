@@ -1827,21 +1827,41 @@ m_int_res_edge_full_te_comb <- gam(
 m_int_sev_edge_full_te_comb <- gam(
   stem_regeneration ~ 
     s(prcp, k = 5) + s(tmp, k = 5) +
-    #s(residual_mature_trees  , k = 5) + 
-    #s(sum_stems_mature  , k = 5) + 
     #s(distance_edge, k = 5) +
     #s(disturbance_severity, k = 5) +
     te(disturbance_severity, distance_edge, k = 5 ) +
     ti(prcp,tmp, k = 5 ) +
     s(management_intensity,by = country_pooled, k = 4) + 
     s(country_pooled, bs = "re") +
-    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
     s(x, y),                                 # Spatial autocorrelation
   family = tw(),
   method = 'REML',
   select = TRUE,
   data = df_stem_regeneration2
 )
+
+
+m_int_sev_edge_full_te_comb_factors <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    country_pooled +
+    #region_manual +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+AIC(m_int_sev_edge_full_te_comb_factors, m_int_sev_edge_full_te_comb)
+summary(m_int_sev_edge_full_te_comb)
+summary(m_int_sev_edge_full_te_comb_factors)
+
 
 
 m_int_mat_edge_full_te_comb <- gam(
@@ -1870,14 +1890,14 @@ AIC(m_int_sev_edge_full_te_comb, m_int_res_edge_full_te_comb, m_int_mat_edge_ful
 # store the best model for regeneration density
 #fin.m.reg.density <- m_int_sev_edge_full_te_comb     
 
-fin.m.reg.density <- m_anom_prcp_re_reg
+fin.m.reg.density <- m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
 
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
         zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
 
 
-# 20250220 - ry to improve teh best mdoel with the updated DWD values ---------
+### 20250220 - ry to improve teh best mdoel with the updated DWD values ---------
 m_int_sev_edge_full_te_comb_spei <- gam(
   stem_regeneration ~ s(spei12, k = 5) + 
     #s(prcp, k = 5) + s(tmp, k = 5) +
@@ -2157,6 +2177,7 @@ AIC(m_int_sev_edge_full_te_comb,
 
 
 # 20250227 check anomalies over growth season --------------------------------
+# more difficult to interpret - skip 
 m0 <- gam(
   stem_regeneration ~ #s(spei12, k = 5) + 
     s(tmp, k = 5) + s(prcp, k = 5) +
