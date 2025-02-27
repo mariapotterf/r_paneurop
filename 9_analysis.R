@@ -1421,7 +1421,7 @@ df_fin <- df_fin %>%
          country_abbr    = factor(country_abbr),
          country_pooled  = factor(country_pooled),
          region          = factor(region),
-         region_manual          = factor(region_manual)
+         region_manual   = factor(region_manual)
          )
 
 # account for climatic variables - aggregated on 9 km resolution:
@@ -1488,6 +1488,11 @@ predictor_vars_sub <- c(
   "tmp_z", 
   "prcp_z", 
   
+  # get drorught indiced : spei in 2018-2019
+  "drought_spei1",
+  "drought_spei12",
+  
+  
   # 
   "salvage_intensity",
   "protection_intensity",
@@ -1520,7 +1525,7 @@ predictor_vars_sub <- c(
   "max_grw_anm_prcp" ,        
   "max_grw_anm_tmp",
   "min_grw_anm_prcp",
-  "min_grw_anm_tmp",  
+  "min_grw_anm_tmp"#,  
   #"richness",
   #'rIVI',
   
@@ -1536,7 +1541,7 @@ response_var <- "stem_regeneration" # Replace with your actual response variable
 predictor_vars <- predictor_vars_sub
 
 # Create an empty data frame to store results
-results <- data.frame(
+AIC_results_univariate <- data.frame(
   Predictor = character(),
   AIC = numeric(),
   stringsAsFactors = FALSE
@@ -1554,17 +1559,18 @@ for (predictor in predictor_vars) {
   aic <- AIC(model)
   
   # Store the results
-  results <- rbind(results, data.frame(Predictor = predictor, AIC = aic))
+  AIC_results_univariate <- rbind(AIC_results_univariate, data.frame(Predictor = predictor, AIC = aic))
 }
 
 # Sort results by AIC (lower is better)
-results <- results[order(results$AIC), ]
+AIC_results_univariate <- AIC_results_univariate[order(AIC_results_univariate$AIC), ]
 
 # Display the results
-print(results)
+print(AIC_results_univariate)
 
-plot(df_fin$spei12, df_fin$prcp)
-cor(df_fin$spei12, df_fin$prcp, method = 'spearman')  # corr was smalle between the spei12 and prcp
+plot(df_fin$drought_spei1  , df_fin$prcp)
+cor(df_fin$drought_spei1  , df_fin$prcp, method = 'spearman')  # corr was small (0.12) between the spei12 and prcp
+# high correlation (0.7) for drought_spei1& drougt_spei12 and prcp
  
 
 # correlation ;
@@ -1664,6 +1670,11 @@ par(mfrow = c(1, 2))
 plot(df_fin$prcp, df_fin$clim_grid)
 plot(df_fin$tmp, df_fin$clim_grid )
 dev.off()
+
+ggplot(df_stem_regeneration2, aes(x = drought_spei12, y = stem_regeneration     )) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue")
+
 
 ggplot(df_stem_regeneration2, aes(x = clay_extract, y = stem_regeneration     )) +
   geom_point() +
@@ -1842,6 +1853,42 @@ m_int_sev_edge_full_te_comb <- gam(
 )
 
 
+m_int_spei1 <- gam(
+  stem_regeneration ~ 
+    s(drought_spei1, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(drought_spei1,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_int_spei12 <- gam(
+  stem_regeneration ~ 
+    s(drought_spei12, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(drought_spei12,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+
 m_int_sev_edge_full_te_comb_factors <- gam(
   stem_regeneration ~ 
     s(prcp, k = 5) + s(tmp, k = 5) +
@@ -1895,6 +1942,16 @@ fin.m.reg.density <- m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
         zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
+
+
+cor_matrix <- cor(df_fin %>% dplyr::select(drought_spei1, drought_spei12, tmp, prcp), use = "pairwise.complete.obs", method = "pearson")
+(cor_matrix)
+ 
+# drought_spei1 drought_spei12        tmp       prcp
+# drought_spei1      1.0000000      0.7803899 -0.1644824  0.6986090
+# drought_spei12     0.7803899      1.0000000 -0.1696574  0.7655749
+# tmp               -0.1644824     -0.1696574  1.0000000 -0.4270087
+# prcp               0.6986090      0.7655749 -0.4270087  1.0000000
 
 
 ### 20250220 - ry to improve teh best mdoel with the updated DWD values ---------
@@ -1999,7 +2056,7 @@ m_int_sev_edge_full_te_comb_spei_add2_re_simpl <- gam(
   data = df_stem_regeneration2
 )
 
-# anomalies -------------------
+### anomalies -------------------
 m_anom_tmp_z <- gam(
   stem_regeneration ~ #s(spei12, k = 5) + 
     s(prcp, k = 5) + s(tmp_z, k = 5) +
@@ -2176,7 +2233,7 @@ AIC(m_int_sev_edge_full_te_comb,
 
 
 
-# 20250227 check anomalies over growth season --------------------------------
+### 20250227 check anomalies over growth season --------------------------------
 # more difficult to interpret - skip 
 m0 <- gam(
   stem_regeneration ~ #s(spei12, k = 5) + 
@@ -2312,7 +2369,7 @@ ggplot(p3, aes(x = x , y = predicted , ymin = conf.low, ymax = conf.high)) +
 
 
 
-## check variability withing clim grid --------------------------
+### check variability withing clim grid --------------------------
 
 # Calculate standard deviation of stem_regeneration for each clim_grid
 regional_variability <- df_fin %>%
@@ -2715,7 +2772,8 @@ variables_to_plot <- c(
   "prcp",  
   "spei12",
   "distance_edge" , 
-  "disturbance_severity"                       )
+  "disturbance_severity"                       
+  )
 
 # differentiate classes:
 
@@ -2780,17 +2838,25 @@ df_long_narrow <- df_fin %>%
   na.omit() %>% 
   dplyr::select(tmp, 
                 prcp, 
-                #spei12,
+                max_grw_anm_prcp,
+                max_grw_anm_tmp,
+                spei12,
+                spei1,
+                spei6,
+                drought_spei1,
+                drought_spei12,
+                drought_spei1,
+                drought_spei6,
                 disturbance_severity, 
-                mature_dist_severity, 
-                sum_stems_mature,  
-                residual_mature_trees,
+                #mature_dist_severity, 
+                #sum_stems_mature,  
+                #residual_mature_trees,
                 distance_edge, 
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
   gather(key = "Variable", value = "Value", -adv_delayed) %>% 
   droplevels()
-
+unique(df_long_narrow$Variable)
 
 # list groups to pairwise comparison
 comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
@@ -2798,7 +2864,7 @@ comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", 
 # Plot using ggboxplot
 p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Value", 
                               fill = "adv_delayed", 
-                              palette = c("blue", "red", "green"),
+                              palette = c("lightblue", "red", "green"),
                               facet.by = "Variable", scales = "free_y", 
                               ylab = "Values", xlab = "Regeneration Status",
                               outlier.size = .2,
@@ -2843,9 +2909,15 @@ p_boxplot_wilcox_outliers <-
   df_long_narrow %>% 
   mutate(Variable = factor(Variable, 
                            levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity",
-                                      "mature_dist_severity", 
-                                      "sum_stems_mature",  
-                                      "residual_mature_trees"))) %>% 
+                                       
+                                      #"max_grw_anm_prcp",
+                                      #"max_grw_anm_tmp",
+                                      "drought_spei1"#,
+                                     # "mature_dist_severity", 
+                                     # "sum_stems_mature",  
+                                     # "residual_mature_trees"
+                                     ))) %>% 
+  droplevels() %>% 
   ggboxplot(
           x = "adv_delayed", y = "Value", 
           fill = "adv_delayed", 
@@ -2887,15 +2959,81 @@ p_boxplot_wilcox_outliers <-
 p_boxplot_wilcox_outliers
 
 
+facet_labels <- c(
+  "prcp" = "Precipitation (mm)", 
+  "drought_spei1" = "Drought Index (SPEI1)", 
+  "disturbance_severity" = "Disturbance Severity"
+)
+
+p_boxplot_wilcox_outliers_signif <-   df_long_narrow %>% 
+  dplyr::filter(Variable %in% c('prcp', 'drought_spei1',"disturbance_severity" )) %>% 
+  droplevels() %>% 
+  mutate(Variable = factor(Variable, 
+                           levels = c('prcp', #'tmp', 
+                                      #"distance_edge", 
+                                      "disturbance_severity",
+                                      #"max_grw_anm_prcp",
+                                      #"max_grw_anm_tmp",
+                                      "drought_spei1"#,
+                                      # "mature_dist_severity", 
+                                      # "sum_stems_mature",  
+                                      # "residual_mature_trees"
+                           ))) %>% 
+  
+  ggboxplot(
+    x = "adv_delayed", y = "Value", 
+    fill = "adv_delayed", 
+    palette = c("#A50026", 
+                "#FDAE61",
+                "#006837"),
+    alpha = 0.5,
+    facet.by = "Variable", 
+    scales = "free_y", 
+    ylab = "Values", xlab = "Regeneration Status",
+    outlier.shape = NA,  # Hide outliers
+    size = 0.2) +
+  # geom_jitter(size = 0.1, alpha = 0.5, aes(color = adv_delayed)) +
+  scale_color_manual(values = c("#A50026", 
+                                "#FDAE61",
+                                "#006837")) +
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+                     label = "p.signif", 
+                     size = 2,
+                     label.x = 1.5) +  # Position labels between the groups
+  labs(title = "",
+       x = "", y = "Vals") +
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 5),         # Set all text to size 3
+    axis.text = element_text(size = 5),    # Axis tick labels
+    axis.title = element_text(size = 5),   # Axis titles
+    strip.text = element_text(size = 5),   # Facet labels
+    legend.text = element_text(size = 5),  # Legend text
+    plot.title = element_text(size = 5),   # Plot title
+    strip.background = element_blank(),    # Remove the box around facet names
+    strip.placement = "outside",           # Optional: Move facet label outside the plot area
+    #panel.border = element_blank(),        # Remove top and right border
+    panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
+    axis.line = element_line(color = "black", linewidth = 0.5)  # Add bottom and left axis lines
+  )
+#"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
+# Save the combined plot (optional)
+p_boxplot_wilcox_outliers_signif
+
+
+
 # filtered outliers
 p_boxplot_wilcox_rm_outliers <- 
    df_long_narrow_filtered %>% 
   #df_long_narrow %>% 
   mutate(Variable = factor(Variable, 
-                           levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity",
-                                      "mature_dist_severity", 
-                                      "sum_stems_mature",  
-                                      "residual_mature_trees"))) %>% 
+                           levels = c('prcp', 'tmp',
+                                      "distance_edge", "disturbance_severity",
+                                      "drought_spei1"
+                                     # "mature_dist_severity", 
+                                    #  "sum_stems_mature",  
+                                     # "residual_mature_trees"
+                                    ))) %>% 
   ggboxplot(
     x = "adv_delayed", y = "Value", 
     fill = "adv_delayed", 
