@@ -70,8 +70,6 @@ theme_set(
     )
 )
 
-colorBlindBlack8  <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                       "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 # Read data -----------------------------------------------------------------------
 
@@ -1511,10 +1509,23 @@ predictor_vars_sub <- c(
    
    # site info
   "av.nitro",
+  
+  # anomalies per growing season for tmp and prcp
+  "mean_grw_anm_prcp" ,        
+  "mean_grw_anm_tmp"  ,        
+  "sd_grw_anm_prcp",           
+  "sd_grw_anm_tmp" ,           
+  "median_grw_anm_prcp"   ,   
+  "median_grw_anm_tmp" ,      
+  "max_grw_anm_prcp" ,        
+  "max_grw_anm_tmp",
+  "min_grw_anm_prcp",
+  "min_grw_anm_tmp",  
   #"richness",
   #'rIVI',
   
-    "n_vertical")
+  #  "n_vertical"
+  )
 
 
 
@@ -1636,10 +1647,11 @@ library(corrplot)
 
 # Select the relevant predictors from your data frame
 predictors <- df_stem_regeneration2 %>%
-  dplyr::select(prcp, tmp, spei12, distance_edge, depth_extract, 
-                disturbance_severity, mature_dist_severity , 
-                #sum_stems_mature ,
-                depth_extract , clay_extract, av.nitro, management_intensity)
+  dplyr::select(where(is.numeric))
+  # dplyr::select(prcp, tmp, spei12, distance_edge, depth_extract, 
+  #               disturbance_severity, mature_dist_severity , 
+  #               #sum_stems_mature ,
+  #               depth_extract , clay_extract, av.nitro, management_intensity)
 
 # Calculate the correlation matrix
 correlation_matrix <- cor(predictors, use = "complete.obs")
@@ -1657,6 +1669,23 @@ ggplot(df_stem_regeneration2, aes(x = clay_extract, y = stem_regeneration     ))
   geom_point() +
   geom_smooth(method = "loess", color = "blue")
 
+ggplot(df_stem_regeneration2, aes(x = sd_grw_anm_tmp, y = stem_regeneration     )) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue")
+
+# tmp_z is anomaly over whole year
+ggplot(df_stem_regeneration2, aes(x = tmp_z, y = stem_regeneration     )) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue")
+
+
+ggplot(df_stem_regeneration2, aes(x = max_grw_anm_tmp, y = stem_regeneration     )) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue")
+
+ggplot(df_stem_regeneration2, aes(x = median_grw_anm_prcp, y = stem_regeneration     )) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue")
 
 # get stats: distnace to edge and severity typesper country
 ggplot(df_stem_regeneration2, aes(x = country_pooled , y = distance_edge     )) +
@@ -2124,6 +2153,140 @@ AIC(m_int_sev_edge_full_te_comb,
     m_anom_prcp_z_re,
     m_anom_prcp_z_re_reg,
     m_anom_prcp_fix_reg)
+
+
+
+# 20250227 check anomalies over growth season --------------------------------
+m0 <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(tmp, k = 5) + s(prcp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(tmp,prcp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = 're') +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m1 <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(max_grw_anm_tmp, k = 5) + s(max_grw_anm_prcp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(max_grw_anm_prcp,max_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = 're') +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m1_te <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(max_grw_anm_tmp, k = 5) + s(max_grw_anm_prcp, k = 5) +
+   # s(distance_edge, k = 5) +
+   # s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(max_grw_anm_prcp,max_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = 're') +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m2 <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(tmp_z, k = 5) + s(prcp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(tmp_z,prcp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = 're') +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m3 <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(sd_grw_anm_tmp, k = 5) + s(max_grw_anm_prcp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(max_grw_anm_prcp,sd_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = 're') +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m4 <- gam(
+  stem_regeneration ~ #s(spei12, k = 5) + 
+    s(median_grw_anm_tmp, k = 5) + s(median_grw_anm_prcp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(median_grw_anm_prcp,median_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = 're') +                # simply the macro scale effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+AIC(m0, m1,m1_te, m2,m3, m4)
+summary(m1_te)
+summary(m4)
+
+fin.m <- m1
+
+# how does temp and max_growth tmp anomalies looks like ?
+
+df_stem_regeneration2 %>% 
+  ggplot(aes(x = median_grw_anm_tmp,
+             y = tmp)) + 
+  geom_point()
+
+ 
+# plot in easy way how tdoes the k value affect interaction 
+p1 <- ggpredict(fin.m, terms = "max_grw_anm_tmp [all]", allow.new.levels = TRUE)
+p2 <- ggpredict(fin.m, terms = "max_grw_anm_prcp [all]", allow.new.levels = TRUE)
+p3 <- ggpredict(fin.m, terms = c("max_grw_anm_prcp", "max_grw_anm_tmp[3,4]"), allow.new.levels = TRUE)
+p4 <- ggpredict(fin.m, terms = c("distance_edge", "disturbance_severity[0.3,0.9]"), allow.new.levels = TRUE)
+
+
+
+# test simple plot:
+ggplot(p3, aes(x = x , y = predicted , ymin = conf.low, ymax = conf.high)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) +
+  geom_line(aes(color = group, linetype = group), linewidth = 1) 
+
 
 
 
