@@ -30,3 +30,14 @@ ggplot() +
        color = "Cluster") +
   theme_minimal()
 ```
+
+
+# get number of management types
+# richness
+# rIVI
+# species oomposition
+# numebr of plots & subplots
+# basis statistics: 
+- elevation
+- disturbances severity
+- distance to edge
