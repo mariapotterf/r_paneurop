@@ -231,7 +231,7 @@ spei_subplot <- spei_wide %>%
 
 spei_subplot_drought <- spei_wide %>% 
   ungroup(.) %>% 
-  dplyr::filter(year %in% 2018 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter(year %in% 2018:2019 ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID) %>%
