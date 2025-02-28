@@ -1490,13 +1490,15 @@ predictor_vars_sub <- c(
   "tmp", 
   "prcp", 
   
+  "drought_tmp",
+  "drought_prcp",
+  
   "tmp_z", 
   "prcp_z", 
   
   # get drorught indiced : spei in 2018-2019
   "drought_spei1",
   "drought_spei12",
-  
   
   # 
   "salvage_intensity",
@@ -1612,7 +1614,7 @@ eda_data <- df_fin[, c("stem_regeneration", "sum_stems_mature", "sum_stems_matur
                        "disturbance_severity", "distance_edge")]
 
 # Generate a scatterplot matrix
-pairs(eda_data, main = "")
+#pairs(eda_data, main = "")
 
 
 
@@ -1673,7 +1675,13 @@ correlation_matrix <- cor(predictors, use = "complete.obs")
 
 # Display the correlation matrix
 print(correlation_matrix)
+library(corrplot)
 
+# Plot using corrplot
+corrplot(correlation_matrix, method = "color", type = "upper",
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         #addCoef.col = "black", 
+         tl.col = "black", tl.srt = 45)
 
 par(mfrow = c(1, 2))
 plot(df_fin$prcp, df_fin$clim_grid)
