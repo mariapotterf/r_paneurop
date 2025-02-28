@@ -1450,10 +1450,15 @@ df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
 
 library(car)
 selected_data <- df_fin %>%
-  dplyr::select(stem_density, 
+  dplyr::select(stem_regeneration, 
+                drought_spei12,
                 spei12,
                 tmp,  
-                prcp 
+                prcp,
+                spei1,
+                cv_t2m,
+                cv_tp,
+                sd_grw_anm_tmp
   )
 
 # Step 2: Fit a linear model predicting stem_density
@@ -1524,8 +1529,12 @@ predictor_vars_sub <- c(
   "median_grw_anm_tmp" ,      
   "max_grw_anm_prcp" ,        
   "max_grw_anm_tmp",
-  "min_grw_anm_prcp",
-  "min_grw_anm_tmp"#,  
+ # "min_grw_anm_prcp",
+#  "min_grw_anm_tmp",  
+  
+  # seasonality: CV - over year
+  "cv_t2m",
+  "cv_tp"    
   #"richness",
   #'rIVI',
   
@@ -1566,7 +1575,7 @@ for (predictor in predictor_vars) {
 AIC_results_univariate <- AIC_results_univariate[order(AIC_results_univariate$AIC), ]
 
 # Display the results
-print(AIC_results_univariate)
+View(AIC_results_univariate)
 
 plot(df_fin$drought_spei1  , df_fin$prcp)
 cor(df_fin$drought_spei1  , df_fin$prcp, method = 'spearman')  # corr was small (0.12) between the spei12 and prcp
@@ -1671,16 +1680,21 @@ plot(df_fin$prcp, df_fin$clim_grid)
 plot(df_fin$tmp, df_fin$clim_grid )
 dev.off()
 
+# understand teh one to one relationship --------------
+
 ggplot(df_stem_regeneration2, aes(x = drought_spei12, y = stem_regeneration     )) +
   geom_point() +
   geom_smooth(method = "lm", color = "blue")
 
+ggplot(df_stem_regeneration2, aes(x = sd_grw_anm_tmp, y = stem_regeneration     )) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue")
 
 ggplot(df_stem_regeneration2, aes(x = clay_extract, y = stem_regeneration     )) +
   geom_point() +
   geom_smooth(method = "loess", color = "blue")
 
-ggplot(df_stem_regeneration2, aes(x = sd_grw_anm_tmp, y = stem_regeneration     )) +
+ggplot(df_stem_regeneration2, aes(x = cv_t2m, y = stem_regeneration     )) +
   geom_point() +
   geom_smooth(method = "lm", color = "blue")
 
@@ -1713,6 +1727,7 @@ ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity 
 
 # Calculate correlation matrix
 correlation_matrix <- cor(predictors,  method = "spearman", use = "complete.obs")
+library(car)
 windows()
 # Plot the correlation matrix
 corrplot(correlation_matrix, method = "color", type = "upper",
@@ -1910,19 +1925,18 @@ summary(m_int_sev_edge_full_te_comb)
 summary(m_int_sev_edge_full_te_comb_factors)
 
 
+# 20250228 add seasonality ------------------------------------------------
 
-m_int_mat_edge_full_te_comb <- gam(
-  stem_regeneration ~ 
+m_sd_tmp <- gam(
+  stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
     s(prcp, k = 5) + s(tmp, k = 5) +
-    #s(residual_mature_trees  , k = 5) + 
-    #s(sum_stems_mature  , k = 5) + 
     #s(distance_edge, k = 5) +
     #s(disturbance_severity, k = 5) +
-    te(sum_stems_mature, distance_edge, k = 5 ) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
     ti(prcp,tmp, k = 5 ) +
     s(management_intensity,by = country_pooled, k = 4) + 
     s(country_pooled, bs = "re") +
-    # s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
     s(x, y),                                 # Spatial autocorrelation
   family = tw(),
   method = 'REML',
@@ -1930,9 +1944,104 @@ m_int_mat_edge_full_te_comb <- gam(
   data = df_stem_regeneration2
 )
 
-AIC(m_int_sev_edge_full_te_comb, m_int_res_edge_full_te_comb, m_int_mat_edge_full_te_comb)
+m_sd <- gam(
+  stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
+    s(prcp, k = 5) +# s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,sd_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+summary(m_sd)
+
+# start simple with CVS
+m1 <- gam(
+  stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
+    s(drought_spei1, k = 5) +
+    s(prcp, k = 5) + 
+    s(tmp, k = 5) +
+    s(cv_t2m, k = 5) + 
+    s(cv_tp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+   # te(disturbance_severity, distance_edge, k = 5 ) +
+    #ti(prcp,sd_grw_anm_tmp, k = 5 ) +
+    #s(management_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
 
 
+m2 <- gam(
+  stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
+    s(drought_spei1, k = 5) +
+    s(prcp, k = 5) + 
+    s(tmp, k = 5) +
+    s(cv_t2m, k = 5) + 
+    s(cv_tp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+     te(disturbance_severity, distance_edge, k = 5 ) +
+     ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m3 <- gam(
+  stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
+    s(drought_spei12, k = 5) +
+    s(prcp, k = 5) + 
+    s(tmp, k = 5) +
+    s(av.nitro, k = 5) +
+    #s(cv_t2m, k = 5) + 
+    s(cv_tp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+# check VIF again
+selected_data <- df_fin %>% dplyr::select(stem_regeneration,  prcp,  sd_grw_anm_tmp, cv_t2m, cv_tp)# drought_spei1,tmp,
+lm_model <- lm(stem_regeneration ~ ., data = selected_data)
+vif(lm_model)
+# still low VIF
+
+final_model <- gam(stem_density ~ s(drought_spei1, k = 5) + 
+                     s(prcp, k = 5) + 
+                     s(tmp, k = 5) + 
+                     s(sd_grw_anm_tmp, k = 5) + 
+                     s(cv_t2m, k = 5) + 
+                     s(cv_tp, k = 5),
+                   family = tw(), data = df_fin)
+
+AIC(final_model, m_sd_tmp, m_int_sev_edge_full_te_comb, m2, m3)
 
 # store the best model for regeneration density
 #fin.m.reg.density <- m_int_sev_edge_full_te_comb     
@@ -2771,6 +2880,7 @@ variables_to_plot <- c(
   "tmp",
   "prcp",  
   "spei12",
+  "drought_spei12",
   "distance_edge" , 
   "disturbance_severity"                       
   )
@@ -2959,11 +3069,61 @@ p_boxplot_wilcox_outliers <-
 p_boxplot_wilcox_outliers
 
 
+## START
+df_long_narrow_sub <- df_long_narrow %>%
+  dplyr::filter(Variable %in% c('prcp', 'drought_spei1', "disturbance_severity")) %>% 
+  droplevels() %>% 
+  mutate(Variable = factor(Variable, 
+                         levels = c("prcp", "disturbance_severity", "drought_spei1"), 
+                         labels = c("Precipitation (mm)", "Disturbance Severity", "Drought Index (SPEI)")))
+
+# Define custom labels for facets
 facet_labels <- c(
   "prcp" = "Precipitation (mm)", 
-  "drought_spei1" = "Drought Index (SPEI1)", 
+  "drought_spei1" = "Drought Index (SPEI)", 
   "disturbance_severity" = "Disturbance Severity"
 )
+
+# Create the plot using ggplot instead of ggboxplot
+p_boxplot_wilcox_outliers_signif <- df_long_narrow_sub %>% 
+  #dplyr::filter(Variable %in% c('prcp', 'drought_spei1', "disturbance_severity")) %>% 
+  #droplevels() %>% 
+ # mutate(Variable = factor(Variable, levels = c('prcp', 'disturbance_severity', 'drought_spei1'))) %>%
+  
+  ggplot(aes(x = adv_delayed, y = Value, fill = adv_delayed)) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, size = 0.2) +
+  scale_fill_manual(values = c("#A50026", "#FDAE61", "#006837")) +
+  
+  # Add facet labels using facet_wrap
+  facet_wrap(~ Variable, scales = "free_y") + #labeller = as_labeller(facet_labels)
+  
+  # Wilcoxon test annotations
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+                     label = "p.signif", size = 2, label.x = 1.5) +
+  
+  # Titles and axis labels
+  labs(title = "", x = "Regeneration Status", y = "Values") +
+  
+  # Theme modifications
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 5),         
+    axis.text = element_text(size = 5),    
+    axis.title = element_text(size = 5),   
+    strip.text = element_text(size = 5),   # Ensures facet labels show properly
+    legend.text = element_text(size = 5),  
+    plot.title = element_text(size = 5),   
+    strip.background = element_blank(),    
+    strip.placement = "outside",           
+    panel.grid = element_blank(),          
+    axis.line = element_line(color = "black", linewidth = 0.5)  
+  )
+
+# Display the plot
+print(p_boxplot_wilcox_outliers_signif)
+my_colors <- c("#E67E22", "#66A060", "#29502A")
+#my_colors <- viridis(3, option = "C")
+### END
 
 p_boxplot_wilcox_outliers_signif <-   df_long_narrow %>% 
   dplyr::filter(Variable %in% c('prcp', 'drought_spei1',"disturbance_severity" )) %>% 
@@ -3002,6 +3162,8 @@ p_boxplot_wilcox_outliers_signif <-   df_long_narrow %>%
                      label.x = 1.5) +  # Position labels between the groups
   labs(title = "",
        x = "", y = "Vals") +
+  # Modify facet labels
+  facet_wrap(~ Variable, scales = "free_y", labeller = as_labeller(facet_labels)) +
   theme(
     legend.position = 'none',
     text = element_text(size = 5),         # Set all text to size 3
