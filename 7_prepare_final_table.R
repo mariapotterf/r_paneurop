@@ -22,7 +22,7 @@ library(ggpubr)
 library(cluster)   # cluster analysis
 
 
-
+drought_period = 2018:2020
 
 
 
@@ -57,6 +57,39 @@ climate_months_1980_2023 <- climate_months_1980_2023 %>%
 # Convert to data.table for efficiency
 setDT(climate_months_1980_2023)  # note that TMP is in kelvin, and prcp is in a day and in meters
 
+### seasonality: CV -----------
+
+# seasonality over years
+df_cv_year <- climate_months_1980_2023 %>%
+ # dplyr::filter(year %in% 2018:2023, var %in% c("t2m", "tp")) %>% 
+  group_by(cluster, var, year) %>%
+  summarise(
+    mean_value = mean(value, na.rm = TRUE),
+    sd_value = sd(value, na.rm = TRUE),
+    cv = sd_value / mean_value  # Coefficient of Variation
+  ) %>%
+  ungroup()
+
+# get median value per cluster oevr 2018"2023
+df_cv_med <- df_cv_year %>%
+   dplyr::filter(year %in% 2018:2023, var %in% c("t2m", "tp")) %>% 
+  group_by(cluster, var) %>%
+  summarise(
+    cv = median(cv, na.rm = T)  # Coefficient of Variation
+  ) %>%
+  ungroup() %>% 
+  # Convert to wide format
+  pivot_wider(names_from = var, values_from = cv, names_prefix = "cv_")
+
+df_cv_year %>% 
+  dplyr::filter(var == 'tp') %>% 
+  ggplot(aes(x = year,
+             y = cv)) +
+  geom_point() + 
+  geom_smooth(method = 'lm')
+
+### anomalies per growth season ---------
+
 # Define growing season months
 growing_season_months <- 4:9
 
@@ -64,7 +97,7 @@ growing_season_months <- 4:9
 climate_growing_season <- climate_months_1980_2023[month %in% growing_season_months]
 
 # Step 1: Calculate reference period (1980-2015) mean and SD for each ID and variable
-reference_stats <- climate_growing_season[year %in% 1980:2015, 
+reference_stats_growing_season <- climate_growing_season[year %in% 1980:2015, 
                                           .(mean_value = mean(value, na.rm = TRUE), 
                                             sd_value = sd(value, na.rm = TRUE)), 
                                           by = .(cluster, var, month)
@@ -73,7 +106,7 @@ reference_stats <- climate_growing_season[year %in% 1980:2015,
 # Step 2: Merge reference statistics with 2016-2023 data
 climate_growing_season <- merge(
   climate_growing_season, 
-  reference_stats, 
+  reference_stats_growing_season, 
   by = c("cluster", "var", "month"),
   all.x = TRUE
 )
@@ -107,19 +140,6 @@ growth_anomalies_wide <- dcast(growth_anomalies_summary,
                                cluster ~ var, 
                                value.var = c("mean_grw_anm", "sd_grw_anm", 
                                              "median_grw_anm", "max_grw_anm", "min_grw_anm"))
-
-# Print summary
-View(growth_anomalies_wide)
-
-# Select only numerical columns (excluding 'cluster')
-numeric_data <- growth_anomalies_wide[, !("cluster"), with = FALSE]
-
-# Create scatter plot matrix
-pairs(numeric_data, 
-      main = "Scatter Plot Matrix of Growth Anomalies",
-      pch = 20, col = rgb(0.2, 0.4, 0.6, 0.5))  # Semi-transparent blue points
-
-
 
 
 ## Prepare veg data  -----------------------------------------------------------------
@@ -231,7 +251,7 @@ spei_subplot <- spei_wide %>%
 
 spei_subplot_drought <- spei_wide %>% 
   ungroup(.) %>% 
-  dplyr::filter(year %in% 2018:2019 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter(year %in% drought_period ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID) %>%
@@ -243,7 +263,7 @@ spei_subplot_drought <- spei_wide %>%
 
 climate_subplot_drought <- climate %>% 
   ungroup(.) %>% 
-  dplyr::filter(year %in% 2018 ) %>% # & month %in% 4:9# select just vegetation season
+  dplyr::filter(year %in% drought_period ) %>% # & month %in% 4:9# select just vegetation season
   dplyr::filter_all(all_vars(!is.infinite(.))) %>% # remove all infinite values
   #View()
   group_by(ID) %>%
@@ -303,7 +323,8 @@ df_predictors_plot <-
             slope            = median(slope, na.rm = T),
             aspect           = median(aspect, na.rm = T)
             ) %>% 
-  right_join(growth_anomalies_wide, by = join_by(cluster))
+  right_join(growth_anomalies_wide, by = join_by(cluster)) %>%  # join tm,p and prco anomalies over gropwth season
+  right_join(df_cv_med, by = join_by(cluster))                  # join seasonality indicator (CV, median)
 
 nrow(df_predictors_plot)
 
@@ -353,7 +374,7 @@ spei_de_18_23_avg <- spei_de %>%
   group_by(cluster) %>%
   summarize(spei = median(spei, na.rm  = T))
 
-(spei_de_18_23_avg)
+#(spei_de_18_23_avg)
 
 # join spei to tmp and spei data
 clim_spei_de_upd <- climate_de_anom_18_23_avg %>% 
