@@ -1873,6 +1873,52 @@ m_int_sev_edge_full_te_comb <- gam(
   data = df_stem_regeneration2
 )
 
+# add seasonality
+m_int_sev_edge_full_te_comb2 <- gam(
+  stem_regeneration ~  s(drought_prcp, k = 5) +
+    s(drought_tmp, k = 5) +
+    s(sd_grw_anm_tmp , k = 5) +
+    s(av.nitro, k = 5) +
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_int_sev_edge_full_te_comb3 <- gam(
+  stem_regeneration ~  s(drought_prcp, k = 5) +
+    s(drought_tmp, k = 5) +
+    s(sd_grw_anm_tmp , k = 5) +
+    s(av.nitro, k = 5) +
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp, tmp, k = 5 ) +
+    ti(drought_prcp,sd_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+p<- ggpredict(m_int_sev_edge_full_te_comb3, )
+
+AIC(m_int_sev_edge_full_te_comb2, m_int_sev_edge_full_te_comb, m_int_sev_edge_full_te_comb3)
+summary(m_int_sev_edge_full_te_comb3)
 
 m_int_spei1 <- gam(
   stem_regeneration ~ 
@@ -2033,6 +2079,108 @@ m3 <- gam(
   select = TRUE,
   data = df_stem_regeneration2
 )
+
+
+m4 <- gam(
+  stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
+    s(drought_prcp, k = 5) +
+    s(prcp, k = 5) + 
+    s(tmp, k = 5) +
+    s(av.nitro, k = 5) +
+    #s(cv_t2m, k = 5) + 
+    s(cv_tp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+   # ti(drought_prcp,sd_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m5 <- gam(
+  stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
+    s(drought_prcp, k = 5) +
+    #s(prcp, k = 5) + 
+   # s(tmp, k = 5) +
+    s(av.nitro, k = 5) +
+    #s(cv_t2m, k = 5) + 
+    s(cv_tp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    #te(prcp,tmp, k = 5 ) +
+    ti(drought_prcp,sd_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+summary(m5)
+
+# Interaction 1: Precipitation and Temperature
+p1 <- ggpredict(m_int_sev_edge_full_te_comb3, terms = c("drought_prcp"))
+plot(p1)
+
+p1 <- ggpredict(m_int_sev_edge_full_te_comb3, terms = c("sd_grw_anm_tmp"))
+plot(p1)
+
+
+p1 <- ggpredict(m_int_sev_edge_full_te_comb3, terms = c("drought_prcp", "sd_grw_anm_tmp[1,1.4]"))
+plot(p1)
+
+
+# Interaction 2: Distance to Edge and Disturbance Severity
+pred2 <- ggpredict(m, terms = c("distance_edge", "disturbance_severity [0.3,0.9]"))
+# Example: Convert disturbance_severity to percent
+pred2_df <- as.data.frame(pred2)
+pred2_df$group <- as.numeric(as.character(pred2_df$group)) * 100
+pred2_df$group <- factor(pred2_df$group)
+
+my_colors_interaction <- c( "#FDAE61", "#A50026")
+# Plot the first interaction
+p1 <- 
+  ggplot(pred1, aes(x = x, y = predicted/1000)) +
+  geom_point(data = filtered_df_plot99, 
+             aes( x = prcp, y = stem_regeneration/1000), 
+             size = 1, alpha = 0.2, color = 'grey') +
+  geom_line(linewidth = 1, aes(color = group) ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
+              alpha = 0.2, color = NA) +
+  scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
+  scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
+  theme_classic() +
+  labs(x = "Precipitation [mm]", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p<0.0001", 
+       # linetype =  "Temperature [°C]"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
+    axis.title = element_text(size = 8),                   # Axis title size
+    axis.text = element_text(size = 8),                    # Axis text size
+    legend.key.size = unit(0.5, "cm"),                     # Legend key size
+    legend.text = element_text(size = 8),                  # Legend text size
+    legend.title = element_text(size = 8),                 # Legend title size
+    legend.position = c(0.05, 0.9),
+    legend.justification = c(0.05, 0.9)
+  )
+
+
+
+
+
+
 # check VIF again
 selected_data <- df_fin %>% dplyr::select(stem_regeneration,  prcp,  sd_grw_anm_tmp, cv_t2m, cv_tp)# drought_spei1,tmp,
 lm_model <- lm(stem_regeneration ~ ., data = selected_data)
@@ -3043,6 +3191,12 @@ bayesian_results <- df_long_narrow %>%
     BF = extractBF(anovaBF(Value ~ adv_delayed, data = cur_data()))$bf[1]  # Extract Bayes Factor
   ) %>% 
   arrange(decs(BF))
+
+
+sjPlot::tab_df(bayesian_results,
+               show.rownames = FALSE,
+               file="outTable/bayesian_results_groups_diff.doc",
+               digits = 1) 
 
 
 # test if i got anova right --
