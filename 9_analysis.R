@@ -1664,17 +1664,24 @@ library(corrplot)
 
 # Select the relevant predictors from your data frame
 predictors <- df_stem_regeneration2 %>%
-  dplyr::select(where(is.numeric))
-  # dplyr::select(prcp, tmp, spei12, distance_edge, depth_extract, 
-  #               disturbance_severity, mature_dist_severity , 
-  #               #sum_stems_mature ,
-  #               depth_extract , clay_extract, av.nitro, management_intensity)
+ # dplyr::select(where(is.numeric))
+  dplyr::select(prcp, tmp, spei12,
+                drought_prcp, drought_tmp, drought_spei12,
+                sd_grw_anm_prcp,
+                sd_grw_anm_tmp,
+                tmp_z, prcp_z,
+                cv_t2m,
+                cv_tp,
+                distance_edge, depth_extract,
+                disturbance_severity, #mature_dist_severity ,
+                #sum_stems_mature ,
+                depth_extract , clay_extract, av.nitro, #management_intensity
+                )
 
 # Calculate the correlation matrix
 correlation_matrix <- cor(predictors, use = "complete.obs")
 
 # Display the correlation matrix
-print(correlation_matrix)
 library(corrplot)
 
 # Plot using corrplot
@@ -1733,15 +1740,6 @@ ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity 
   geom_boxplot()
 
 
-# Calculate correlation matrix
-correlation_matrix <- cor(predictors,  method = "spearman", use = "complete.obs")
-library(car)
-windows()
-# Plot the correlation matrix
-corrplot(correlation_matrix, method = "color", type = "upper",
-         tl.col = "black", tl.srt = 45, 
-         title = "Correlation Matrix of Predictors",
-         addCoef.col = "black", number.cex = 0.7)
 
 # Export as a PNG
 png("outFigs/correlation_matrix_plot.png", width = 800, height = 800, res = 300)
@@ -1933,7 +1931,7 @@ summary(m_int_sev_edge_full_te_comb)
 summary(m_int_sev_edge_full_te_comb_factors)
 
 
-# 20250228 add seasonality ------------------------------------------------
+### 20250228 add seasonality: CV/sd ------------------------------------------------
 
 m_sd_tmp <- gam(
   stem_regeneration ~  s(sd_grw_anm_tmp, k = 5) +
@@ -2955,20 +2953,23 @@ df_fin %>%
 df_long_narrow <- df_fin %>%
   na.omit() %>% 
   dplyr::select(tmp, 
-                prcp, 
+                prcp,
+                sd_grw_anm_prcp,
+                sd_grw_anm_tmp,
                 max_grw_anm_prcp,
                 max_grw_anm_tmp,
-                spei12,
-                spei1,
-                spei6,
+                
+                cv_t2m, 
+                cv_tp,
+                
+                #spei12,
+                #spei1,
+                #spei6,
                 drought_spei1,
                 drought_spei12,
-                drought_spei1,
-                drought_spei6,
+                drought_tmp,
+                drought_prcp,
                 disturbance_severity, 
-                #mature_dist_severity, 
-                #sum_stems_mature,  
-                #residual_mature_trees,
                 distance_edge, 
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
@@ -2978,6 +2979,24 @@ unique(df_long_narrow$Variable)
 
 # list groups to pairwise comparison
 comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
+
+
+# Compute Wilcoxon effect sizes for each variable
+library(rstatix)
+
+effect_sizes <- df_long_narrow %>%
+  group_by(Variable) %>%
+  wilcox_effsize(Value ~ adv_delayed, comparisons = comparisons)
+
+# most of my effect sizes (differences between two groups) are rather small, the highest effect has drought_prcp
+# boot strap analysis: 
+
+library(boot)
+boot_effsize <- boot(data = df_long_narrow, statistic = function(data, indices) {
+  sample_data <- data[indices, ]
+  wilcox_effsize(sample_data$Value ~ sample_data$adv_delayed)
+}, R = 1000)
+
 
 # Plot using ggboxplot
 p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Value", 
@@ -3005,9 +3024,32 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
     strip.background = element_blank(),    # Remove the box around facet names
     strip.placement = "outside",           # Optional: Move facet label outside the plot area
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
-  ) 
+  )  +
+#  p_boxplot_wilcox_narrow + 
+  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+                     label = "p.signif", 
+                     size = 2, label.x = 1.5) +
+  geom_text(data = effect_sizes, aes(x = 2, y = max(df_long_narrow$Value), 
+                                     label = paste0("r = ", round(effsize, 2))))
 
 p_boxplot_wilcox_narrow
+
+# use bayes statistics: more robust for uneven sample sizes
+library("BayesFactor")
+# Compute Bayesian ANOVA for each variable
+bayesian_results <- df_long_narrow %>%
+  group_by(Variable) %>%
+  summarise(
+    BF = extractBF(anovaBF(Value ~ adv_delayed, data = cur_data()))$bf[1]  # Extract Bayes Factor
+  ) %>% 
+  arrange(decs(BF))
+
+
+# test if i got anova right --
+df_sub <- df_long_narrow %>% 
+  dplyr::filter(Variable == 'drought_prcp')
+
+anovaBF(Value ~ adv_delayed, data = df_sub)
 
 
 # filter out outliers
