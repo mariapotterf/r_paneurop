@@ -4040,3 +4040,131 @@ sjPlot::tab_df(df_species_by_climate,
                show.rownames = FALSE,
                file="outTable/climate_suitable_species_plots.doc",
                digits = 1) 
+
+### Barplot of species suitability -------------
+# seems wrong ---
+df_species_presence <- df_compare_future_species %>%
+  pivot_longer(cols = c(current, rcp26, rcp45, rcp85), 
+               names_to = "scenario", 
+               values_to = "presence") %>%
+  filter(presence == 1) %>%  # Keep only species that are present
+  select(country_pooled, acc, scenario) %>%
+  distinct() %>%  # Remove duplicates
+  mutate(presence = acc) %>%  # Rename `acc` column for clarity
+  pivot_wider(names_from = scenario, values_from = presence, values_fill = "0") 
+
+# make sankey plot:
+# how often which species will transit into each climate change scenarios?
+library("ggalluvial")
+
+
+# df_species_summary 
+df_species_summary <- 
+  df_compare_future_species %>%
+  filter(current == 1) %>%  # Keep only species that exist in current conditions
+  pivot_longer(cols = c(current, rcp26, rcp45, rcp85), 
+               names_to = "scenario", 
+               values_to = "presence") %>%
+  filter(presence == 1) %>%  # Keep only species that persist
+  group_by(acc, scenario) %>%
+  summarise(n_sites = n(), .groups = "drop") %>%
+  pivot_wider(names_from = scenario, values_from = n_sites, values_fill = 0)  
+
+# example: 
+library(ggalluvial)
+
+df_sankey_test <- 
+  df_compare_future_species %>% 
+    dplyr::filter(current == 1) %>%
+  pivot_longer(c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>% 
+  mutate(scenario = factor(scenario),
+         presence = factor(presence)) %>% 
+  to_alluvia_form()
+    
+head(df_sankey_test)
+
+ggplot(df_sankey_test,
+       aes(x = scenario, stratum = presence, alluvium = acc,
+           fill = presence, label = presence)) +
+  scale_fill_brewer(type = "qual", palette = "Set2") +
+  geom_flow(stat = "alluvium", lode.guidance = "frontback",
+            color = "darkgray") +
+  geom_stratum() +
+  theme(legend.position = "bottom") +
+  ggtitle("student curricula across several semesters")
+
+
+
+
+
+
+
+data(majors)
+majors$curriculum <- as.factor(majors$curriculum)
+ggplot(majors,
+       aes(x = semester, stratum = curriculum, alluvium = student,
+           fill = curriculum, label = curriculum)) +
+  scale_fill_brewer(type = "qual", palette = "Set2") +
+  geom_flow(stat = "alluvium", lode.guidance = "frontback",
+            color = "darkgray") +
+  geom_stratum() +
+  theme(legend.position = "bottom") +
+  ggtitle("student curricula across several semesters")
+
+
+
+
+df_sankey <- df_species_summary %>%
+  pivot_longer(cols = c(rcp26, rcp45, rcp85), 
+               names_to = "scenario", 
+               values_to = "n_sites") %>%
+  filter(n_sites > 0)  # Remove zero values (no persistence)
+
+# Convert to a format suitable for ggalluvial (Sankey)
+df_sankey_alluvial <- df_sankey %>%
+  rename(source = current, target = scenario) %>%
+  group_by(acc, source, target) %>%
+  summarise(flow = sum(n_sites), .groups = "drop")  # Summarize species flow
+
+# Create Sankey plot using ggalluvial
+ggplot(df_sankey_alluvial, aes(axis1 = source, axis2 = target, y = flow)) +
+  geom_alluvium(aes(fill = acc)) +
+  geom_stratum() +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Current", "rcp26", "rcp45", "rcp85")) +
+  labs(title = "Species Persistence Sankey Diagram",
+       x = "Scenario",
+       y = "Number of Sites") +
+  theme_minimal()
+
+
+
+
+
+
+# calculate species richness per country and scanerio - cross link, get a barplot with categories of occurance
+# Count unique species in 'current' per country
+species_current <- df_compare_future_species %>%
+  dplyr::filter(current == 1) %>%  # Filter where species is present
+  group_by(country_pooled) %>%
+  dplyr::reframe(n_species_current = unique(acc))
+
+# Count unique species in each future scenario per country
+#species_scenarios <- 
+  df_compare_future_species %>%
+  dplyr::filter(rcp26 == 1 | rcp45 == 1 | rcp85 == 1) %>%  # Keep only species present in any scenario
+  group_by(country_pooled) %>%
+  dplyr::summarise(
+    n_species_rcp26 = unique(acc[rcp26 == 1]),
+    n_species_rcp45 = unique(acc[rcp45 == 1]),
+    n_species_rcp85 = unique(acc[rcp85 == 1])
+  )
+
+# Merge results
+species_counts <- species_current %>%
+  full_join(species_scenarios, by = "country_pooled") %>%
+  arrange(desc(n_species_current))  # Sort by most species currently
+
+# Display results
+print(species_counts)
+
