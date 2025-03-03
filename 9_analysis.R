@@ -161,6 +161,8 @@ print(df_fin_clim_clust_xy)
 
 prop.table(table(df_fin$disturbance_year))
 
+
+
 ## check for Czechia -------------
 df_fin_cz <- df_fin %>% 
   dplyr::filter(country == "CZ")
@@ -1512,7 +1514,7 @@ predictor_vars_sub <- c(
   "disturbance_severity", # from RS 
  
   # disturbance severity based on residual trees: 
-   "mature_dist_severity",  # cover of residual trees over subplots
+   #"mature_dist_severity",  # cover of residual trees over subplots
    "sum_stems_mature",       # stem density of mature trees
    #"sum_stems_mature_scaled" , # mature trees stems: scaled
    "residual_mature_trees",        
@@ -1523,6 +1525,8 @@ predictor_vars_sub <- c(
    
    # site info
   "av.nitro",
+  
+  "time_since_disturbance",
   
   # anomalies per growing season for tmp and prcp
   "mean_grw_anm_prcp" ,        
@@ -1585,6 +1589,12 @@ plot(df_fin$drought_spei1  , df_fin$prcp)
 cor(df_fin$drought_spei1  , df_fin$prcp, method = 'spearman')  # corr was small (0.12) between the spei12 and prcp
 # high correlation (0.7) for drought_spei1& drougt_spei12 and prcp
  
+sjPlot::tab_df(AIC_results_univariate,
+               show.rownames = FALSE,
+               file="outTable/univariate_AIC.doc",
+               digits = 1) 
+
+
 
 # correlation ;
 
