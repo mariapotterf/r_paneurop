@@ -510,8 +510,8 @@ df_plot_full <-
   df_plot_veg %>% 
   left_join(df_predictors_plot_upd_clim, join_by(cluster)) %>% #by = join_by(cluster)
   ungroup() %>% 
-  dplyr::select(-c(disturbance_year, 
-                   disturbance_agent,
+  dplyr::select(-c(#disturbance_year, 
+                  # disturbance_agent,
                    silt_extract #, #country,
                    #elevation,
                   # slope, aspect

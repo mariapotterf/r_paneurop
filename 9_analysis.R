@@ -95,7 +95,8 @@ df_mature_dist_severity$residual_mature_trees <- 1 - df_mature_dist_severity$mat
 
 
 df_fin <- df_fin %>% 
-  left_join(df_mature_dist_severity, by = c('site' = 'cluster'))
+  left_join(df_mature_dist_severity, by = c('site' = 'cluster')) %>% 
+  mutate(time_since_disturbance = 2023 - disturbance_year)
 
 ### get coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
@@ -158,6 +159,7 @@ print(df_fin_clim_clust_xy)
 
 #fwrite(df_fin, 'outTable/df_fin.csv')
 
+prop.table(table(df_fin$disturbance_year))
 
 ## check for Czechia -------------
 df_fin_cz <- df_fin %>% 
@@ -4070,17 +4072,102 @@ df_species_summary <-
   summarise(n_sites = n(), .groups = "drop") %>%
   pivot_wider(names_from = scenario, values_from = n_sites, values_fill = 0)  
 
-# example: 
-library(ggalluvial)
 
-df_sankey_test <- 
+#df_sankey_test <- 
   df_compare_future_species %>% 
     dplyr::filter(current == 1) %>%
   pivot_longer(c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>% 
   mutate(scenario = factor(scenario),
          presence = factor(presence)) %>% 
-  to_alluvia_form()
-    
+    head()
+     
+  
+  df_freq <- df_compare_future_species %>%
+    dplyr::filter(current == 1) %>%
+    pivot_longer(c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>%
+    mutate(scenario = factor(scenario),
+           presence = factor(presence)) %>%
+    group_by(acc, scenario, presence) %>%
+    summarise(freq = n(), .groups = "drop")  
+  
+  
+  # Calculate frequency of occurrence grouped by species, scenario, and presence
+  df_freq <- df_compare_future_species %>%
+    dplyr::filter(current == 1) %>%
+    pivot_longer(cols = c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>%
+    mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
+           presence = factor(presence)) %>%
+    group_by(acc, scenario, presence) %>%
+    summarise(freq = n(), .groups = "drop")
+  
+# try a simple test: still not working, needs further simlification ! 
+df_test <- data.frame(site = c(1,1,1,2,2,1,2,2,2,2),
+                      site_ch = c("a","a","a","b","b","a","b","b","b","b"),
+                      acc = c("piab",
+                              "abies",
+                              "fasy",
+                              "piab",
+                              "fasy",
+                              "frax",
+                              "piab",
+                              "fasy",
+                              "frax",
+                              "abies"
+                              ),
+                      scenario = rep(c("current", 'rcp25'), each = 5))  %>% 
+  mutate(acc = factor(acc),
+         site_ch = factor(site_ch),
+         scenario = factor(scenario))
+
+# Ensure each species appears across both scenarios per site
+df_alluvial <- df_test %>%
+  count(site, scenario, acc) %>%  # Count occurrences of each species per site per scenario
+  complete(site, scenario, acc, fill = list(n = 0)) %>%  # Ensure all combinations exist
+  rename(freq = n) %>%  # Rename count column for clarity
+  arrange(site, acc, scenario) %>% 
+  dplyr::filter(freq !=0)
+
+# Ensure scenario is a factor in correct order
+df_alluvial <- df_alluvial %>%
+  mutate(scenario = factor(scenario, levels = c("current", "rcp25")),
+         acc = factor(acc),
+         site = factor(site))
+
+# Create an alluvial plot
+ggplot(df_alluvial,
+       aes(x = scenario, stratum = acc, alluvium = site, y = freq, fill = acc)) +
+  geom_alluvium(alpha = 0.6, aes(fill = acc)) +  # Connects species across scenarios
+  geom_stratum() +  # Adds category blocks
+  theme_minimal() +
+  labs(title = "Species Presence Across Scenarios",
+       x = "Scenario",
+       y = "Frequency",
+       fill = "Species") +
+  scale_fill_brewer(palette = "Set2")
+
+
+
+
+
+  
+  # Ensure scenario is a factor in the correct order
+  df_freq <- df_freq %>%
+    mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
+           presence = factor(presence),
+           acc      = factor(acc)) %>% 
+    drop_na()
+  
+  # Create an alluvial plot with scenarios on the x-axis
+  ggplot(df_freq,
+         aes(x = scenario, stratum = presence, alluvium = acc, y = freq, fill = presence)) +
+    #geom_alluvium(aes(fill = presence), alpha = 0.6)# +  # Use geom_alluvium instead of geom_flow
+    geom_stratum()# +
+    theme_minimal() +
+    labs(title = "Species Presence Across Climate Scenarios",
+         x = "Scenario",
+         y = "Frequency",
+         fill = "Presence")
+  
 head(df_sankey_test)
 
 ggplot(df_sankey_test,
