@@ -2983,6 +2983,60 @@ ggplot(aes(x = adv_delayed,
            y = residual_mature_trees)) +
   geom_boxplot()
 
+
+
+
+
+
+
+
+df_fin %>% 
+  ggplot(aes(x = time_since_disturbance,
+             y = stem_regeneration)) +
+  #geom_point() + 
+  geom_smooth(methods = 'lm')
+
+table(df_fin$time_since_disturbance, df_fin$adv_delayed)
+
+
+# Chi squared: time since diosturbance  -----------------------
+# Create contingency table
+contingency_table <- table(df_fin$time_since_disturbance, df_fin$adv_delayed)
+
+# Perform Chi-Square Test
+chisq.test(contingency_table)  # p = 0.29
+
+# Fischer test
+fisher.test(contingency_table) # p = 0.28
+
+# logistic regression: ---------------
+df_fin$delayed <- ifelse(df_fin$adv_delayed == "Delayed", 1, 0)
+
+# Logistic Regression (Binary: Delayed vs. Other/Advanced)
+glm_model <- glm(delayed ~ time_since_disturbance, data = df_fin, family = binomial)
+summary(glm_model)            # p = 0.59
+#plot(glm_model)
+
+
+#Generate new data for predictions
+new_data <- data.frame(time_since_disturbance = seq(min(df_fin$time_since_disturbance),
+                                                    max(df_fin$time_since_disturbance), 
+                                                    length.out = 100))
+
+# Predict probabilities
+new_data$predicted_prob <- predict(glm_model, newdata = new_data, type = "response")
+
+ggplot(df_fin, aes(x = time_since_disturbance, y = delayed)) +
+  geom_jitter(size = 0.1, height = 0.02, alpha = 0.5) +  # Jittered points for visualization
+  geom_line(data = new_data, aes(x = time_since_disturbance, y = predicted_prob), color = "blue", size = 1) +
+  labs(title = "Probability of Delayed Regeneration Over Time",
+       x = "Time Since Disturbance (Years)",
+       y = "Probability of Delayed Regeneration") +
+  theme_minimal()
+
+
+
+
 plot(df_fin$disturbance_severity, df_fin$residual_mature_trees)
 
 table_data <- table(df_fin$adv_delayed, df_fin$sum_stems_mature_pres_abs )
@@ -3129,7 +3183,8 @@ df_long_narrow <- df_fin %>%
                 drought_spei12,
                 drought_tmp,
                 drought_prcp,
-                disturbance_severity, 
+                disturbance_severity,
+                time_since_disturbance,
                 distance_edge, 
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
@@ -3188,9 +3243,9 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
 #  p_boxplot_wilcox_narrow + 
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
                      label = "p.signif", 
-                     size = 2, label.x = 1.5) +
-  geom_text(data = effect_sizes, aes(x = 2, y = max(df_long_narrow$Value), 
-                                     label = paste0("r = ", round(effsize, 2))))
+                     size = 2, label.x = 1.5) #+
+ # geom_text(data = effect_sizes, aes(x = 2, y = max(df_long_narrow$Value), 
+    #                                 label = paste0("r = ", round(effsize, 2))))
 
 p_boxplot_wilcox_narrow
 
