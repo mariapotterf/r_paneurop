@@ -257,9 +257,59 @@ species_colors <- c(
   besp = "#DA362A",
   lade = "#A50026"
 )
+#Hiroshige
+species_colors <- c(
+  piab = "#2A5674",
+  fasy = "#4682B4",
+  quro = "#7EA6CE",
+  pisy = "#A7C6DD",
+  soau = "#C7DDE5",
+  acps = "#F4E8C8",
+  potr = "#E8C099",
+  abal = "#E28F60",
+  besp = "#D0593E",
+  lade = "#9C2E2E"
+)
 
+# archambeau
+species_colors <- c(
+  piab = "#1F2041",
+  fasy = "#4A2670",
+  quro = "#7C3688",
+  pisy = "#A64E97",
+  soau = "#C7749C",
+  acps = "#E39F9E",
+  potr = "#F3C8A7",
+  abal = "#F5E3B4",
+  besp = "#E7F0BC",
+  lade = "#C1D982"
+)
 
+# vanGogh3
+species_colors <- c(
+  piab = "#355F3A",
+  fasy = "#4A7B41",
+  quro = "#6E984B",
+  pisy = "#92B45B",
+  soau = "#B1CC69",
+  acps = "#CCE07B",
+  potr = "#E3EE91",
+  abal = "#F1F6A4",
+  besp = "#F8F9C3",
+  lade = "#FAFBE6"
+)
 
+library(MetBrewer)
+MetBrewer::colorblind_palettes
+
+MetBrewer::colorblind.friendly("Hiroshige")
+met.brewer(name="Hiroshige", n=10, type="discrete")
+met.brewer(name="VanGogh3", n=10, type="continuous")   # greens
+met.brewer(name="VanGogh1", n=10, type="continuous")
+my_cols <- met.brewer(name="Derain", n=10, type="continuous")
+
+met.brewer(name="Archambault", n=10, type="continuous")
+met.brewer(name="Demuth", n=10, type="discrete")
 
 ## Get summary tables ---------------------------------------------------------
 
@@ -715,28 +765,7 @@ species_composition_sapl_juv_summary %>%
             min_iqr = min(iqr),
             max_iqr = max(iqr))
 
-# Diverging bar chart with IQR
-ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fill = VegType)) +
-  geom_bar(stat = "identity", position = "identity", alpha = 0.8) + # Horizontal bars
-  geom_errorbarh(aes(xmin = iqr_low, xmax = iqr_high), height = 0.2, color = "black") + # Add IQR error bars
-  scale_x_continuous(
-    labels = abs, # Show positive labels
-    name = "Median Share (%)"
-  ) +
-  scale_fill_manual(values = species_colors) + # Apply custom color palette
-  labs(
-    x = "",
-    y = "Species",
-    title = "Diverging Bar Chart with IQR: Share of Saplings and Juveniles"
-  ) +
-  theme_classic(base_size = 12) +
-  theme(
-    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
-    axis.text.y = element_text(size = 10),
-    legend.title = element_text(size = 10),
-    legend.text = element_text(size = 10),
-    plot.title = element_text(size = 14, hjust = 0.5)
-  )
+
 
 
 ## adjust colors -----------------------------------------------------------------
@@ -844,7 +873,7 @@ print(combined_plot)
 
 # Save the combined plot as an image
 ggsave(
-  filename = "outFigs/combined_plot2.png",    # File name (change extension for different formats, e.g., .pdf)
+  filename = "outFigs/combined_plot2_greens.png",    # File name (change extension for different formats, e.g., .pdf)
   plot = combined_plot,             # Plot object to save
   width = 7,                       # Width of the saved plot in inches
   height = 3.5,                       # Height of the saved plot in inches
@@ -3184,8 +3213,8 @@ df_long_narrow <- df_fin %>%
                 drought_tmp,
                 drought_prcp,
                 disturbance_severity,
-                time_since_disturbance,
                 distance_edge, 
+                time_since_disturbance,
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
   gather(key = "Variable", value = "Value", -adv_delayed) %>% 
