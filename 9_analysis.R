@@ -1562,8 +1562,8 @@ predictor_vars_sub <- c(
   "mean_grw_anm_tmp"  ,        
   "sd_grw_anm_prcp",           
   "sd_grw_anm_tmp" ,           
-  "median_grw_anm_prcp"   ,   
-  "median_grw_anm_tmp" ,      
+  #"median_grw_anm_prcp"   ,   
+  #"median_grw_anm_tmp" ,      
   "max_grw_anm_prcp" ,        
   "max_grw_anm_tmp",
  # "min_grw_anm_prcp",
@@ -1625,7 +1625,7 @@ sjPlot::tab_df(AIC_results_univariate,
 
 
 
-# correlation ;
+# correlation with dependent variable
 
 # Initialize a data frame to store results
 cor_results <- data.frame(
@@ -1648,14 +1648,6 @@ cor_results <- cor_results[order(-abs(cor_results$Correlation)), ]
 
 # Display the results
 print(cor_results)
-
-# check new predictors
-# Subset the data with the variables of interest
-eda_data <- df_fin[, c("stem_regeneration", "sum_stems_mature", "sum_stems_mature_scaled", "sum_stems_mature_pres_abs", "mature_dist_severity",
-                       "disturbance_severity", "distance_edge")]
-
-# Generate a scatterplot matrix
-#pairs(eda_data, main = "")
 
 
 
@@ -3028,7 +3020,7 @@ df_fin %>%
 table(df_fin$time_since_disturbance, df_fin$adv_delayed)
 
 
-# Chi squared: time since diosturbance  -----------------------
+## Chi squared: time since diosturbance  -----------------------
 # Create contingency table
 contingency_table <- table(df_fin$time_since_disturbance, df_fin$adv_delayed)
 
@@ -3038,7 +3030,7 @@ chisq.test(contingency_table)  # p = 0.29
 # Fischer test
 fisher.test(contingency_table) # p = 0.28
 
-# logistic regression: ---------------
+### logistic regression: ---------------
 df_fin$delayed <- ifelse(df_fin$adv_delayed == "Delayed", 1, 0)
 
 # Logistic Regression (Binary: Delayed vs. Other/Advanced)
@@ -3195,30 +3187,38 @@ df_fin %>%
 # Step 1: Reshape the data to long format
 df_long_narrow <- df_fin %>%
   na.omit() %>% 
-  dplyr::select(tmp, 
+  dplyr::select(#tmp, 
                 prcp,
                 sd_grw_anm_prcp,
                 sd_grw_anm_tmp,
-                max_grw_anm_prcp,
-                max_grw_anm_tmp,
-                
-                cv_t2m, 
-                cv_tp,
+                #max_grw_anm_prcp,
+               # max_grw_anm_tmp,
+                #av.nitro, 
+               
+               #management_intensity,
+               salvage_intensity,
+               protection_intensity,
+               
+                #cv_t2m, 
+               # cv_tp,
                 
                 #spei12,
                 #spei1,
                 #spei6,
                 drought_spei1,
-                drought_spei12,
-                drought_tmp,
+                #drought_spei12,
+                #drought_tmp,
                 drought_prcp,
-                disturbance_severity,
-                distance_edge, 
-                time_since_disturbance,
+               # disturbance_severity,
+               # distance_edge, 
+               # time_since_disturbance,
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
   gather(key = "Variable", value = "Value", -adv_delayed) %>% 
-  droplevels()
+  droplevels() %>% 
+  mutate(Variable = factor(Variable, levels = unique(Variable))) # preserve teh order of factors
+
+
 unique(df_long_narrow$Variable)
 
 # list groups to pairwise comparison
@@ -3240,6 +3240,23 @@ boot_effsize <- boot(data = df_long_narrow, statistic = function(data, indices) 
   sample_data <- data[indices, ]
   wilcox_effsize(sample_data$Value ~ sample_data$adv_delayed)
 }, R = 1000)
+
+# Calculate mean ± SD and median ± IQR for each Variable per group
+summary_stats_adv_delayed <- df_long_narrow %>%
+  group_by(Variable, adv_delayed) %>%
+  summarise(
+    Mean = mean(Value, na.rm = TRUE),
+    SD = sd(Value, na.rm = TRUE),
+    Median = median(Value, na.rm = TRUE),
+    IQR = IQR(Value, na.rm = TRUE),
+    Min = min(Value, na.rm = TRUE),
+    Max = max(Value, na.rm = TRUE),
+    n = n()  # Number of observations per group
+  ) %>%
+  ungroup()
+
+
+
 
 
 # Plot using ggboxplot
@@ -3272,11 +3289,97 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
 #  p_boxplot_wilcox_narrow + 
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
                      label = "p.signif", 
-                     size = 2, label.x = 1.5) #+
- # geom_text(data = effect_sizes, aes(x = 2, y = max(df_long_narrow$Value), 
+                     size = 2, label.x = 1.5) +
+  # Add mean dots
+  geom_point(data = summary_stats_adv_delayed, 
+             aes(x = adv_delayed, y = Mean, group = Variable), 
+             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE)
+
+   # geom_text(data = effect_sizes, aes(x = 2, y = max(df_long_narrow$Value), 
     #                                 label = paste0("r = ", round(effsize, 2))))
 
 p_boxplot_wilcox_narrow
+
+# make a final plot: only prcp, sd_gw_anm_prcp, sd_gw_anm_tmp, drought_spei1, drought_prcp
+
+library(ggpubr)
+library(ggplot2)
+library(dplyr)
+
+# Function to create a boxplot for a single selected variable with a custom y-label
+plot_filtered_boxplot <- function(data, vars, ylab, comparisons) {
+  
+  # Filter dataset for the selected variable
+  data_filtered <- data %>% filter(Variable == vars)
+  
+  # Compute summary statistics for means
+  summary_stats <- data_filtered %>%
+    group_by(adv_delayed) %>%
+    summarise(
+      Mean = mean(Value, na.rm = TRUE),
+      SD = sd(Value, na.rm = TRUE),
+      Median = median(Value, na.rm = TRUE),
+      IQR = IQR(Value, na.rm = TRUE),
+      n = n(),  # Number of observations per group
+      .groups = "drop"
+    )
+  
+  # Generate boxplot for the selected variable
+  p <- ggboxplot(data_filtered, x = "adv_delayed", y = "Value", 
+                 fill = "adv_delayed", 
+                 palette = c("#A50026", "#FDAE61", "#006837"),
+                 ylab = ylab, xlab = "Regeneration Status",
+                 outlier.size = .2,
+                 size = 0.2) +
+    stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+                       label = "p.signif", 
+                       size = 2, label.x = 1.5) +  # Position labels between the groups
+    theme(
+      legend.position = 'none',
+      text = element_text(size = 8),         # Set all text to size 8
+      axis.text = element_text(size = 8),    # Axis tick labels
+      axis.title = element_text(size = 8),   # Axis titles
+      strip.text = element_text(size = 8),   # Facet labels
+      legend.text = element_text(size = 8),  # Legend text
+      plot.title = element_text(size = 8),   # Plot title
+      strip.background = element_blank(),    # Remove the box around facet names
+      strip.placement = "outside",           # Optional: Move facet label outside the plot area
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
+    ) +
+    # Add mean dots
+    geom_point(data = summary_stats, 
+               aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+               shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE)
+  
+  return(p)
+}
+
+# Example: Create individual plots
+p.prcp <- plot_filtered_boxplot(df_long_narrow, vars = 'prcp', 
+                                ylab = 'Precipitation [mm]', comparisons)
+
+p.tmp <- plot_filtered_boxplot(df_long_narrow, vars = 'tmp', 
+                               ylab = 'Temperature [°C]', comparisons)
+
+p.spei1 <- plot_filtered_boxplot(df_long_narrow, vars = 'drought_spei1', 
+                                 ylab = 'SPEI-1 Drought Index', comparisons)
+
+p.spei12 <- plot_filtered_boxplot(df_long_narrow, vars = 'drought_spei12', 
+                                  ylab = 'SPEI-12 Drought Index', comparisons)
+
+p.drought_prcp <- plot_filtered_boxplot(df_long_narrow, vars = 'drought_prcp', 
+                                        ylab = 'Drought Precipitation [mm]', comparisons)
+
+# Combine all plots into a single figure
+final_plot <- ggarrange(p.prcp, p.tmp, p.spei1, p.spei12, p.drought_prcp, 
+                        ncol = 2, nrow = 3)
+
+# Display the final merged plot
+print(final_plot)
+
+
+
+
 
 # use bayes statistics: more robust for uneven sample sizes
 library("BayesFactor")
