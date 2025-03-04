@@ -4413,49 +4413,94 @@ df_species_summary <-
     summarise(freq = n(), .groups = "drop")
   
 # try a simple test: still not working, needs further simlification ! 
-df_test <- data.frame(site = c(1,1,1,2,2,1,2,2,2,2),
-                      site_ch = c("a","a","a","b","b","a","b","b","b","b"),
-                      acc = c("piab",
-                              "abies",
-                              "fasy",
-                              "piab",
-                              "fasy",
-                              "frax",
-                              "piab",
-                              "fasy",
-                              "frax",
-                              "abies"
-                              ),
-                      scenario = rep(c("current", 'rcp25'), each = 5))  %>% 
-  mutate(acc = factor(acc),
-         site_ch = factor(site_ch),
-         scenario = factor(scenario))
+  # try a simple test: still not working, needs further simlification ! 
+  df_test <- data.frame(site = c(1,1,1,2,2,1,2,2,2,2),
+                        site_ch = c("a","a","a","b","b","a","b","b","b","b"),
+                        acc = c("piab",
+                                "abies",
+                                "fasy",
+                                "piab",
+                                "fasy",
+                                "frax",
+                                "piab",
+                                "fasy",
+                                "frax",
+                                "abies"
+                        ),
+                        scenario = rep(c("current", 'rcp25'), each = 5))  %>% 
+    mutate(acc = factor(acc),
+           site_ch = factor(site_ch),
+           scenario = factor(scenario))
+  
+  
+  
+  # Ensure each species appears across both scenarios per site
+  df_alluvial <- df_test %>%
+    count(site, scenario, acc) %>%  # Count occurrences of each species per site per scenario
+    complete(site, scenario, acc, fill = list(n = 0)) %>%  # Ensure all combinations exist
+    rename(freq = n) %>%  # Rename count column for clarity
+    arrange(site, acc, scenario) #%>% 
+  #dplyr::filter(freq !=0)
+  
+  # Ensure scenario is a factor in correct order
+  df_alluvial <- df_alluvial %>%
+    mutate(scenario = factor(scenario, levels = c("current", "rcp25")),
+           acc = factor(acc),
+           site = factor(site)) %>% 
+    group_by(scenario, acc) %>% 
+    dplyr::summarise(sum_n = sum(freq, na.rm = T))
 
-# Ensure each species appears across both scenarios per site
-df_alluvial <- df_test %>%
-  count(site, scenario, acc) %>%  # Count occurrences of each species per site per scenario
-  complete(site, scenario, acc, fill = list(n = 0)) %>%  # Ensure all combinations exist
-  rename(freq = n) %>%  # Rename count column for clarity
-  arrange(site, acc, scenario) %>% 
-  dplyr::filter(freq !=0)
 
-# Ensure scenario is a factor in correct order
-df_alluvial <- df_alluvial %>%
-  mutate(scenario = factor(scenario, levels = c("current", "rcp25")),
-         acc = factor(acc),
-         site = factor(site))
 
-# Create an alluvial plot
 ggplot(df_alluvial,
-       aes(x = scenario, stratum = acc, alluvium = site, y = freq, fill = acc)) +
-  geom_alluvium(alpha = 0.6, aes(fill = acc)) +  # Connects species across scenarios
-  geom_stratum() +  # Adds category blocks
+       aes(x = scenario, 
+           y = sum_n,
+           stratum = acc,
+           alluvium = acc,
+           fill = acc)) +  
+  geom_flow() +               
+  geom_stratum() +  
   theme_minimal() +
   labs(title = "Species Presence Across Scenarios",
        x = "Scenario",
        y = "Frequency",
        fill = "Species") +
   scale_fill_brewer(palette = "Set2")
+
+
+# working example ------------------
+
+ggplot(data = vaccinations,
+       aes(axis1 = survey, axis2 = response, y = freq)) +
+  geom_alluvium(aes(fill = response)) +
+  geom_stratum() +
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Survey", "Response"),
+                   expand = c(0.15, 0.05)) +
+  theme_void()
+
+
+# 
+df_test <- data.frame(
+  site = c(1, 1, 1, 2, 2, 1, 2, 2, 2, 2),
+  site_ch = c("a", "a", "a", "b", "b", "a", "b", "b", "b", "b"),
+  acc = c("piab", "abies", "fasy", "piab", "fasy", "frax", "piab", "fasy", "frax", "abies"),
+  scenario = rep(c("current", "rcp25"), each = 5)
+) %>%
+  mutate(across(c(acc, site_ch, scenario), as.factor))
+
+df_wide <- df_test %>%
+  dplyr::select(site, site_ch, acc, scenario) %>%
+  pivot_wider(names_from = scenario, values_from = acc, values_fill = list)
+
+
+
+
+df_alluvial <- df_test %>%
+  count(scenario, acc, name = "freq") %>%
+  complete(scenario, acc, fill = list(freq = 0))
+
 
 
 
