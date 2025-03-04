@@ -3302,11 +3302,7 @@ p_boxplot_wilcox_narrow
 
 # make a final plot: only prcp, sd_gw_anm_prcp, sd_gw_anm_tmp, drought_spei1, drought_prcp
 
-library(ggpubr)
-library(ggplot2)
-library(dplyr)
-
-# Function to create a boxplot for a single selected variable with a custom y-label
+# Function to create a boxplot with correctly placed p-values
 plot_filtered_boxplot <- function(data, vars, ylab, comparisons) {
   
   # Filter dataset for the selected variable
@@ -3324,6 +3320,30 @@ plot_filtered_boxplot <- function(data, vars, ylab, comparisons) {
       .groups = "drop"
     )
   
+  # Perform Wilcoxon test for each comparison and extract p-values
+  p_values <- data.frame()
+  max_y <- max(data_filtered$Value, na.rm = TRUE)  # Get max y-value for spacing
+  
+  for (i in seq_along(comparisons)) {
+    comp <- comparisons[[i]]
+    test_result <- wilcox.test(Value ~ adv_delayed, data = data_filtered %>% filter(adv_delayed %in% comp))
+    
+    # Determine x positions for p-values based on group names
+    x1 <- which(levels(data_filtered$adv_delayed) == comp[1])
+    x2 <- which(levels(data_filtered$adv_delayed) == comp[2])
+    
+    x_mid <- mean(c(x1, x2))  # Place label in the middle of the two groups
+    y_pos <- max_y + (i * (max_y * 0.15))  # Adjust Y to be ABOVE the bracket lines
+    
+    p_values <- rbind(p_values, data.frame(
+      group1 = comp[1],
+      group2 = comp[2],
+      p_value = paste0("p = ", formatC(test_result$p.value, format = "g", digits = 3)), # Ensure 'p =' is included
+      x_pos = x_mid,  
+      y_pos = y_pos  
+    ))
+  }
+  
   # Generate boxplot for the selected variable
   p <- ggboxplot(data_filtered, x = "adv_delayed", y = "Value", 
                  fill = "adv_delayed", 
@@ -3332,11 +3352,11 @@ plot_filtered_boxplot <- function(data, vars, ylab, comparisons) {
                  outlier.size = .2,
                  size = 0.2) +
     stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                       label = "p.signif", 
-                       size = 2, label.x = 1.5) +  # Position labels between the groups
+                       label = "p.signif",  
+                       size = 3) +  # Standard Wilcoxon test comparison lines
     theme(
       legend.position = 'none',
-      text = element_text(size = 8),         # Set all text to size 8
+      text = element_text(size = 8),         # Increase text size for readability
       axis.text = element_text(size = 8),    # Axis tick labels
       axis.title = element_text(size = 8),   # Axis titles
       strip.text = element_text(size = 8),   # Facet labels
@@ -3349,35 +3369,60 @@ plot_filtered_boxplot <- function(data, vars, ylab, comparisons) {
     # Add mean dots
     geom_point(data = summary_stats, 
                aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-               shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE)
+               shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+    # Add correctly placed p-values ABOVE the bracketed comparison bars
+    geom_text(data = p_values, 
+              aes(x = x_pos, y = y_pos, label = p_value), 
+              size = 4, color = "black", fontface = "italic")
   
   return(p)
 }
 
+# Function to remove outliers using IQR
+remove_outliers <- function(data) {
+  data %>%
+    group_by(Variable) %>%
+    mutate(
+      Q1 = quantile(Value, 0.25, na.rm = TRUE),
+      Q3 = quantile(Value, 0.75, na.rm = TRUE),
+      IQR = Q3 - Q1,
+      Lower_Bound = Q1 - 1.5 * IQR,
+      Upper_Bound = Q3 + 1.5 * IQR
+    ) %>%
+    filter(Value >= Lower_Bound & Value <= Upper_Bound) %>%
+    select(-Q1, -Q3, -IQR, -Lower_Bound, -Upper_Bound)  # Remove temporary columns
+}
+
+# Apply outlier filtering
+df_long_narrow_filtered <- remove_outliers(df_long_narrow)
+
 # Example: Create individual plots
-p.prcp <- plot_filtered_boxplot(df_long_narrow, vars = 'prcp', 
+p.prcp <- plot_filtered_boxplot(df_long_narrow_filtered, vars = 'prcp', 
                                 ylab = 'Precipitation [mm]', comparisons)
 
-p.tmp <- plot_filtered_boxplot(df_long_narrow, vars = 'tmp', 
-                               ylab = 'Temperature [°C]', comparisons)
+p.prcp
 
-p.spei1 <- plot_filtered_boxplot(df_long_narrow, vars = 'drought_spei1', 
+p.tmp <- plot_filtered_boxplot(df_long_narrow_filtered, vars = 'sd_grw_anm_tmp', 
+                               ylab = 'SD Seasonal temperature [dim.]', comparisons)
+
+p.spei1 <- plot_filtered_boxplot(df_long_narrow_filtered, vars = 'drought_spei1', 
                                  ylab = 'SPEI-1 Drought Index', comparisons)
 
-p.spei12 <- plot_filtered_boxplot(df_long_narrow, vars = 'drought_spei12', 
-                                  ylab = 'SPEI-12 Drought Index', comparisons)
 
-p.drought_prcp <- plot_filtered_boxplot(df_long_narrow, vars = 'drought_prcp', 
-                                        ylab = 'Drought Precipitation [mm]', comparisons)
 
 # Combine all plots into a single figure
-final_plot <- ggarrange(p.prcp, p.tmp, p.spei1, p.spei12, p.drought_prcp, 
-                        ncol = 2, nrow = 3)
+wilcox_plot_out <- ggarrange(p.prcp, p.tmp, p.spei1,
+                        ncol = 3, nrow = 1)
+
+
 
 # Display the final merged plot
-print(final_plot)
+print(wilcox_plot_out)
 
 
+# Save the plot as an SVG file
+ggsave(filename = "outFigs/wilcox_vars.svg", plot = wilcox_plot_out, 
+       device = "svg", width = 7, height = 3, dpi = 300, bg = 'white')
 
 
 
