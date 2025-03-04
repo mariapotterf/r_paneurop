@@ -3992,6 +3992,76 @@ df_compare_future_species <- df_compare_future_species %>%
   # Left join with unique_regions_per_country to get country indication
   left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
 
+df_compare_future_species <- df_compare_future_species %>%
+  mutate(
+    suitability_rcp26 = case_when(
+      current == 1 & rcp26 == 1 ~ "yes",
+      current == 1 & rcp26 == 0 ~ "no",
+      current == 0 & rcp26 == 1 ~ "new",
+      current == 0 & rcp26 == 0 ~ "0"
+    ),
+    suitability_rcp45 = case_when(
+      current == 1 & rcp45 == 1 ~ "yes",
+      current == 1 & rcp45 == 0 ~ "no",
+      current == 0 & rcp45 == 1 ~ "new",
+      current == 0 & rcp45 == 0 ~ "0"
+    ),
+    suitability_rcp85 = case_when(
+      current == 1 & rcp85 == 1 ~ "yes",
+      current == 1 & rcp85 == 0 ~ "no",
+      current == 0 & rcp85 == 1 ~ "new",
+      current == 0 & rcp85 == 0 ~ "0"
+    )
+  )
+
+# Convert to long format
+df_long_suitability <- df_compare_future_species %>%
+  pivot_longer(cols = starts_with("suitability_rcp"), 
+               names_to = "scenario", 
+               values_to = "suitability") %>%
+  mutate(scenario = dplyr::recode(scenario, 
+                           "suitability_rcp26" = "rcp26", 
+                           "suitability_rcp45" = "rcp45", 
+                           "suitability_rcp85" = "rcp85"))
+
+
+# Calculate frequency of occurrence per species, suitability, and scenario
+df_suitability_freq <- df_long_suitability %>%
+  group_by(acc, suitability, scenario) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(acc, scenario, desc(count)) %>% 
+  dplyr::filter(suitability != 0) %>% 
+  mutate(acc = factor(acc),
+         suitability = factor(suitability),
+         scenario    = factor(scenario   ))
+
+
+library(ggplot2)
+library(ggalluvial)
+library(dplyr)
+library(tidyr)
+
+# Ensure 'scenario' is treated as categorical for correct plotting
+df_suitability_freq <- df_suitability_freq %>%
+  mutate(scenario = factor(scenario, levels = c("rcp26", "rcp45", "rcp85")))
+
+# Create the alluvial plot
+ggplot(df_suitability_freq, aes(x = scenario, stratum = suitability, alluvium = acc, y = count, fill = suitability)) +
+  geom_alluvium(aes(stratum = suitability), width = 0.2, knot.pos = 0.3) + 
+  geom_stratum(width = 1/5, color = "black") +  # Display blocks for each suitability category
+  scale_fill_manual(values = c("new" = "#1b9e77", "no" = "#d95f02", "yes" = "#7570b3")) +
+  theme_minimal() +
+  labs(title = "Suitability Changes Across Climate Scenarios",
+       x = "Climate Scenario",
+       y = "Frequency of Occurrence",
+       fill = "Suitability") +
+  theme(axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10),
+        legend.position = "right")
+
+
+
+
 
 # how many plots per cpuountry does not contain any currently present species??? ---------------
 # evaluate species on plot level: Share of plots where none of the currently present species 
