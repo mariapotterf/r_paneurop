@@ -3932,7 +3932,7 @@ fwrite(df_delayed_advanced, 'outTable/df_delayed_advanced.csv')
 fwrite(df_stem_regeneration2, 'outTable/df_stem_regeneration2.csv')
 
 
-# 4. future developmenet -------------------------------------------
+# 5. Species climate suitability  -------------------------------------------
 
 # compare current species composition with future ones form wessely
 
@@ -4034,6 +4034,92 @@ df_suitability_freq <- df_long_suitability %>%
   mutate(acc = factor(acc),
          suitability = factor(suitability),
          scenario    = factor(scenario   ))
+
+
+### Sankey plot test: need to restructure data -----------------
+df_current <- df_compare_future_species %>% 
+  dplyr::filter(current == 1) %>% 
+  dplyr::select(site, acc) %>% 
+  mutate(scenario = 'current')
+
+df_rcp26 <- df_compare_future_species %>% 
+  dplyr::filter(rcp26 == 1) %>% 
+  dplyr::select(site, acc) %>% 
+  mutate(scenario = 'rcp26')
+
+df_rcp45 <- df_compare_future_species %>% 
+  dplyr::filter(rcp45 == 1) %>% 
+  dplyr::select(site, acc) %>% 
+  mutate(scenario = 'rcp45')
+
+df_rcp85 <- df_compare_future_species %>% 
+  dplyr::filter(rcp85 == 1) %>% 
+  dplyr::select(site, acc) %>% 
+  mutate(scenario = 'rcp85')
+
+df_rbind = rbind(df_current, df_rcp26, df_rcp45, df_rcp85)
+
+# each species needs to exist across all scenarios
+df_alluvial_complete <- df_rbind %>%
+  dplyr::filter(acc %in% top_species_site_share) %>% 
+  count(site, scenario, acc) %>%  # Count occurrences of each species per site per scenario
+  complete(site, scenario, acc, fill = list(n = 0)) %>%  # Ensure all combinations exist
+  rename(freq = n) %>%  # Rename count column for clarity
+  arrange(site, acc, scenario) #%>% 
+#dplyr::filter(freq !=0)
+
+# calculate frequency across species and scenarios
+df_alluvial_complete_freq <- df_alluvial_complete %>%
+  mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
+         acc = factor(acc),
+         site = factor(site)) %>% 
+  group_by(scenario, acc) %>% 
+  dplyr::summarise(sum_n = sum(freq, na.rm = T))
+
+# Define species order based on species_colors
+species_order <- names(species_colors)
+
+# Convert acc to a factor with the specified order
+df_alluvial_complete_freq$acc <- factor(df_alluvial_complete_freq$acc, levels = species_order)
+
+# Create the alluvial plot with ordered species and custom colors
+p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
+                                      aes(x = scenario, 
+                                          y = sum_n,
+                                          stratum = acc,
+                                          alluvium = acc,
+                                          fill = acc)) +  
+  geom_flow() +               
+  geom_stratum() +  
+  theme_classic2(base_size = 8) +
+  labs(title = "",
+       x = "Scenario",
+       y = "Overall Occurrence of Species [#]",
+       fill = "Species") +
+  scale_fill_manual(values = species_colors,
+                    labels = species_labels) +
+  #scale_fill_manual() +# Replace y-axis labels with full Latin names
+  theme(
+    legend.text = element_text(face = "italic", size = 8), # Italicize only legend items
+    axis.text.y = element_text(size = 8),  # Keep y-axis labels non-italic
+    axis.text.x = element_text(size = 8),  # Adjust x-axis label size
+    axis.title = element_text(size = 8)    # Adjust axis title size
+  )
+
+p.species.clim.suitability
+
+# Save the combined plot as an image
+ggsave(
+  filename = "outFigs/p.species.clim.suitability.png",    # File name (change extension for different formats, e.g., .pdf)
+  plot = p.species.clim.suitability,             # Plot object to save
+  width = 5,                       # Width of the saved plot in inches
+  height = 3.5,                       # Height of the saved plot in inches
+  dpi = 300,                        # Resolution (dots per inch)
+  units = "in"                      # Units for width and height
+)
+# 
+
+
 
 
 
@@ -4363,71 +4449,6 @@ df_species_presence <- df_compare_future_species %>%
     summarise(freq = n(), .groups = "drop")
   
   
-# sankey plot test: need to restructure data -----------------
-df_current <- df_compare_future_species %>% 
-    dplyr::filter(current == 1) %>% 
-    dplyr::select(site, acc) %>% 
-    mutate(scenario = 'current')
-  
-df_rcp26 <- df_compare_future_species %>% 
-    dplyr::filter(rcp26 == 1) %>% 
-    dplyr::select(site, acc) %>% 
-    mutate(scenario = 'rcp26')
-
-df_rcp45 <- df_compare_future_species %>% 
-  dplyr::filter(rcp45 == 1) %>% 
-  dplyr::select(site, acc) %>% 
-  mutate(scenario = 'rcp45')
-
-df_rcp85 <- df_compare_future_species %>% 
-  dplyr::filter(rcp85 == 1) %>% 
-  dplyr::select(site, acc) %>% 
-  mutate(scenario = 'rcp85')
-
-df_rbind = rbind(df_current, df_rcp26, df_rcp45, df_rcp85)
-
-# each species needs to exist across all scenarios
-df_alluvial_complete <- df_rbind %>%
-  dplyr::filter(acc %in% top_species_site_share) %>% 
-  count(site, scenario, acc) %>%  # Count occurrences of each species per site per scenario
-  complete(site, scenario, acc, fill = list(n = 0)) %>%  # Ensure all combinations exist
-  rename(freq = n) %>%  # Rename count column for clarity
-  arrange(site, acc, scenario) #%>% 
-#dplyr::filter(freq !=0)
-
-# calculate frequency across species and scenarios
-df_alluvial_complete_freq <- df_alluvial_complete %>%
-  mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
-         acc = factor(acc),
-         site = factor(site)) %>% 
-  group_by(scenario, acc) %>% 
-  dplyr::summarise(sum_n = sum(freq, na.rm = T))
-
-# Define species order based on species_colors
-species_order <- names(species_colors)
-
-# Convert acc to a factor with the specified order
-df_alluvial_complete_freq$acc <- factor(df_alluvial_complete_freq$acc, levels = species_order)
-
-# Create the alluvial plot with ordered species and custom colors
-ggplot(df_alluvial_complete_freq,
-       aes(x = scenario, 
-           y = sum_n,
-           stratum = acc,
-           alluvium = acc,
-           fill = acc)) +  
-  geom_flow() +               
-  geom_stratum() +  
-  theme_classic2() +
-  labs(title = "Species Presence Across Scenarios",
-       x = "Scenario",
-       y = "Frequency",
-       fill = "Species") +
-  scale_fill_manual(values = species_colors)
-
-
-# try a simple test: still not working, needs further simlification ! --------------------
-
 
 # calculate species richness per country and scanerio - cross link, get a barplot with categories of occurance
 # Count unique species in 'current' per country
