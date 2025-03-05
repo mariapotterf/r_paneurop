@@ -238,7 +238,7 @@ cat("Species Richness:", species_richness_cz, "\n")
 #  soil: 
 #    - more stem density at better soil conditions (higher depth, nutrient content)
 
-
+top_species_site_share <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
 # Assign colors to each species in the order of `top_species_site_share$Species`
 species_colors <- setNames(
   reversed_colors,
@@ -3962,7 +3962,7 @@ present_species <- present_species %>%
   dplyr::rename(site = cluster)
 
 # read table with Wessely species
-future_species <- fread('outTable/species_presence_clim_change.csv')
+future_species      <- fread('outTable/species_presence_clim_change.csv')
 future_species_full <- fread('outTable/species_presence_clim_change_full.csv')
 
 
@@ -4036,28 +4036,6 @@ df_suitability_freq <- df_long_suitability %>%
          scenario    = factor(scenario   ))
 
 
-library(ggplot2)
-library(ggalluvial)
-library(dplyr)
-library(tidyr)
-
-# Ensure 'scenario' is treated as categorical for correct plotting
-df_suitability_freq <- df_suitability_freq %>%
-  mutate(scenario = factor(scenario, levels = c("rcp26", "rcp45", "rcp85")))
-
-# Create the alluvial plot
-ggplot(df_suitability_freq, aes(x = scenario, stratum = suitability, alluvium = acc, y = count, fill = suitability)) +
-  geom_alluvium(aes(stratum = suitability), width = 0.2, knot.pos = 0.3) + 
-  geom_stratum(width = 1/5, color = "black") +  # Display blocks for each suitability category
-  scale_fill_manual(values = c("new" = "#1b9e77", "no" = "#d95f02", "yes" = "#7570b3")) +
-  theme_minimal() +
-  labs(title = "Suitability Changes Across Climate Scenarios",
-       x = "Climate Scenario",
-       y = "Frequency of Occurrence",
-       fill = "Suitability") +
-  theme(axis.text.x = element_text(size = 12, face = "bold"),
-        axis.text.y = element_text(size = 10),
-        legend.position = "right")
 
 
 
@@ -4369,38 +4347,10 @@ df_species_presence <- df_compare_future_species %>%
 
 # make sankey plot:
 # how often which species will transit into each climate change scenarios?
-library("ggalluvial")
 
 
-# df_species_summary 
-df_species_summary <- 
-  df_compare_future_species %>%
-  filter(current == 1) %>%  # Keep only species that exist in current conditions
-  pivot_longer(cols = c(current, rcp26, rcp45, rcp85), 
-               names_to = "scenario", 
-               values_to = "presence") %>%
-  filter(presence == 1) %>%  # Keep only species that persist
-  group_by(acc, scenario) %>%
-  summarise(n_sites = n(), .groups = "drop") %>%
-  pivot_wider(names_from = scenario, values_from = n_sites, values_fill = 0)  
 
-
-#df_sankey_test <- 
-  df_compare_future_species %>% 
-    dplyr::filter(current == 1) %>%
-  pivot_longer(c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>% 
-  mutate(scenario = factor(scenario),
-         presence = factor(presence)) %>% 
-    head()
-     
   
-  df_freq <- df_compare_future_species %>%
-    dplyr::filter(current == 1) %>%
-    pivot_longer(c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>%
-    mutate(scenario = factor(scenario),
-           presence = factor(presence)) %>%
-    group_by(acc, scenario, presence) %>%
-    summarise(freq = n(), .groups = "drop")  
   
   
   # Calculate frequency of occurrence grouped by species, scenario, and presence
@@ -4412,22 +4362,106 @@ df_species_summary <-
     group_by(acc, scenario, presence) %>%
     summarise(freq = n(), .groups = "drop")
   
-# try a simple test: still not working, needs further simlification ! 
+  
+# sankey plot test: need to restructure data -----------------
+df_current <- df_compare_future_species %>% 
+    dplyr::filter(current == 1) %>% 
+    dplyr::select(site, acc) %>% 
+    mutate(scenario = 'current')
+  
+df_rcp26 <- df_compare_future_species %>% 
+    dplyr::filter(rcp26 == 1) %>% 
+    dplyr::select(site, acc) %>% 
+    mutate(scenario = 'rcp26')
+
+df_rcp45 <- df_compare_future_species %>% 
+  dplyr::filter(rcp45 == 1) %>% 
+  dplyr::select(site, acc) %>% 
+  mutate(scenario = 'rcp45')
+
+df_rcp85 <- df_compare_future_species %>% 
+  dplyr::filter(rcp85 == 1) %>% 
+  dplyr::select(site, acc) %>% 
+  mutate(scenario = 'rcp85')
+
+df_rbind = rbind(df_current, df_rcp26, df_rcp45, df_rcp85)
+
+# each species needs to exist across all scenarios
+df_alluvial_complete <- df_rbind %>%
+  dplyr::filter(acc %in% top_species_site_share) %>% 
+  count(site, scenario, acc) %>%  # Count occurrences of each species per site per scenario
+  complete(site, scenario, acc, fill = list(n = 0)) %>%  # Ensure all combinations exist
+  rename(freq = n) %>%  # Rename count column for clarity
+  arrange(site, acc, scenario) #%>% 
+#dplyr::filter(freq !=0)
+
+# calculate frequency across species and scenarios
+df_alluvial_complete_freq <- df_alluvial_complete %>%
+  mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
+         acc = factor(acc),
+         site = factor(site)) %>% 
+  group_by(scenario, acc) %>% 
+  dplyr::summarise(sum_n = sum(freq, na.rm = T))
+
+# Define species order based on species_colors
+species_order <- names(species_colors)
+
+# Convert acc to a factor with the specified order
+df_alluvial_complete_freq$acc <- factor(df_alluvial_complete_freq$acc, levels = species_order)
+
+# Create the alluvial plot with ordered species and custom colors
+ggplot(df_alluvial_complete_freq,
+       aes(x = scenario, 
+           y = sum_n,
+           stratum = acc,
+           alluvium = acc,
+           fill = acc)) +  
+  geom_flow() +               
+  geom_stratum() +  
+  theme_classic2() +
+  labs(title = "Species Presence Across Scenarios",
+       x = "Scenario",
+       y = "Frequency",
+       fill = "Species") +
+  scale_fill_manual(values = species_colors)
+
+
+# try a simple test: still not working, needs further simlification ! --------------------
   # try a simple test: still not working, needs further simlification ! 
-  df_test <- data.frame(site = c(1,1,1,2,2,1,2,2,2,2),
-                        site_ch = c("a","a","a","b","b","a","b","b","b","b"),
+  df_test <- data.frame(site = c(1,1,1,2,#2,
+                                 1,2,2,2,2,
+                                 3,3,3),
+                        site_ch = c("a","a","a","b",#"b",
+                                    "a","b","b","b","b",
+                                    "c", "c", "c"),
                         acc = c("piab",
                                 "abies",
                                 "fasy",
                                 "piab",
-                                "fasy",
-                                "frax",
+                                #"fasy",
+                                0,
+                                #"frax",
                                 "piab",
                                 "fasy",
                                 "frax",
-                                "abies"
+                                "abies",
+                                "piab",
+                                "piab",
+                                "fasy"
+                                
                         ),
-                        scenario = rep(c("current", 'rcp25'), each = 5))  %>% 
+                        scenario = c("current",
+                                     "current",
+                                     "current",
+                                     "current",
+                                     'rcp25',
+                                     'rcp25',
+                                     'rcp25',
+                                     'rcp25',
+                                     'rcp25',
+                                     'current',
+                                     'rcp25',
+                                     'rcp25')) %>%  #rep(c("current", 'rcp25'), each = 5))  %>% 
     mutate(acc = factor(acc),
            site_ch = factor(site_ch),
            scenario = factor(scenario))
@@ -4443,7 +4477,7 @@ df_species_summary <-
   #dplyr::filter(freq !=0)
   
   # Ensure scenario is a factor in correct order
-  df_alluvial <- df_alluvial %>%
+  df_alluvial2 <- df_alluvial %>%
     mutate(scenario = factor(scenario, levels = c("current", "rcp25")),
            acc = factor(acc),
            site = factor(site)) %>% 
@@ -4452,7 +4486,7 @@ df_species_summary <-
 
 
 
-ggplot(df_alluvial,
+ggplot(df_alluvial2,
        aes(x = scenario, 
            y = sum_n,
            stratum = acc,
