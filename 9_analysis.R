@@ -1906,6 +1906,44 @@ m_int_sev_edge_full_te_comb <- gam(
   data = df_stem_regeneration2
 )
 
+# disturbance indicators separately
+m_int_sev_edge_full <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    #te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+# add the best predictors: 
+m_int_sev_edge_full_te_comb4 <- gam(
+  stem_regeneration ~ 
+    s(drought_prcp, k = 5) + s(sd_grw_anm_tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    #te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(drought_prcp,sd_grw_anm_tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+AIC(m_int_sev_edge_full_te_comb4, m_int_sev_edge_full_te_comb2,m_int_sev_edge_full_te_comb, m_int_sev_edge_full)
+
 # add seasonality
 m_int_sev_edge_full_te_comb2 <- gam(
   stem_regeneration ~  s(drought_prcp, k = 5) +
@@ -1948,7 +1986,7 @@ m_int_sev_edge_full_te_comb3 <- gam(
   select = TRUE,
   data = df_stem_regeneration2
 )
-p<- ggpredict(m_int_sev_edge_full_te_comb3, )
+
 
 AIC(m_int_sev_edge_full_te_comb2, m_int_sev_edge_full_te_comb, m_int_sev_edge_full_te_comb3)
 summary(m_int_sev_edge_full_te_comb3)
@@ -4036,11 +4074,13 @@ df_suitability_summary_plot <- df_suitability_long %>%
   mutate(mean = ifelse(suitability == "not_suitable", -mean, mean)) %>% # change values to neagative for not_suitable species
   ungroup(.)
 
+test <-  df_suitability_summary_plot[order(levels(df_suitability_summary_plot$suitability)),]
+
 #df_suitability_summary_plot <- df_suitability_summary_plot[order(levels(df_suitability_summary_plot$suitability)),]
 # make a barplot like this :
 
 # figure out teh error bars!!! 
-df_suitability_summary_plot <- df_suitability_summary_plot %>%
+df_suitability_summary_plot2 <- df_suitability_summary_plot %>%
   arrange(country_pooled, scenario) %>%
   group_by(country_pooled, scenario) %>%
   mutate(
@@ -4060,9 +4100,9 @@ df_suitability_summary_plot <- df_suitability_summary_plot %>%
   ) %>%
   ungroup()# with error bars: 
 
-p.species.suitability_country <- ggplot(df_suitability_summary_plot, aes(x = scenario, 
+p.species.suitability_country <- ggplot(df_suitability_summary_plot2, aes(x = scenario, 
                                         y = mean, 
-                                        fill = suitability)) +
+                                        fill =  factor(suitability, levels = c("not_suitable", "suitable", "novel")))) +
   geom_bar(stat = "identity", position = "stack") +  # Stacked bars
 #  geom_errorbar(aes(ymin = lower, ymax = upper), 
       #          width = 0.2, color = "grey10") +  # Add error bars at midpoints
@@ -4070,15 +4110,59 @@ p.species.suitability_country <- ggplot(df_suitability_summary_plot, aes(x = sce
   labs(title = "",
        x = "",
        y = "Number of species [#]",
-       fill = "Suitability") +
-  facet_grid(.~country_pooled) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
-  scale_fill_manual(values = c("not_suitable" = "#FDBE6E", "suitable" = "#006837", "novel" = "#FEEDA2"))  # Custom colors
+       fill = "Climate suitability") +
+  #facet_grid(.~country_pooled) + 
+  facet_wrap(.~country_pooled, strip.position = 'bottom',ncol = 8, nrow = 1) + 
+ # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
+  scale_fill_manual(values = c("not_suitable" = "#FDBE6E", "suitable" = "#006837", "novel" = "#FEEDA2")) + # Custom colors
+  theme(
+    legend.position = 'right',
+    legend.text = element_text(size = 8),  
+    legend.title = element_text(size = 8),  
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),  # Rotate x-axis labels
+    axis.text.y = element_text(size = 8),  # Keep y-axis labels non-italic
+    axis.title = element_text(size = 8),    # Adjust axis title size
+    strip.background = element_blank(),  # Removes the box around facet labels
+    strip.text = element_text(face = "bold"),  # Keeps facet text bold
+    strip.placement = "outside",  # Places facet labels outside the plot area
+    panel.spacing = unit(1, "lines")  # Adds space between facets and x-axis labels
+  ) 
+p.species.suitability_country
 
 
 
+p.species.suitability_country_simpl <- df_suitability_summary_plot2 %>% 
+  dplyr::filter(suitability != 'novel') %>% 
+  ggplot( aes(x = scenario, 
+                                                                          y = mean, 
+                                                                          fill =  factor(suitability, levels = c("not_suitable", "suitable", "novel")))) +
+  geom_bar(stat = "identity", position = "stack") +  # Stacked bars
+  #  geom_errorbar(aes(ymin = lower, ymax = upper), 
+  #          width = 0.2, color = "grey10") +  # Add error bars at midpoints
+  theme_classic2() +
+  labs(title = "",
+       x = "",
+       y = "Number of species [#]",
+       fill = "Climate suitability") +
+  #facet_grid(.~country_pooled) + 
+  facet_wrap(.~country_pooled, strip.position = 'bottom',ncol = 8, nrow = 1) + 
+  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
+  scale_fill_manual(values = c("not_suitable" = "#F67B49" , "suitable" ="#229C52", "novel" = "#FEEDA2")) + # Custom colors
+  theme(
+    legend.position = 'right',
+    legend.text = element_text(size = 8),  
+    legend.title = element_text(size = 8),  
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),  # Rotate x-axis labels
+    axis.text.y = element_text(size = 8),  # Keep y-axis labels non-italic
+    axis.title = element_text(size = 8),    # Adjust axis title size
+    strip.background = element_blank(),  # Removes the box around facet labels
+    strip.text = element_text(face = "bold"),  # Keeps facet text bold
+    strip.placement = "outside",  # Places facet labels outside the plot area
+    panel.spacing = unit(1, "lines")  # Adds space between facets and x-axis labels
+  ) 
+p.species.suitability_country_simpl
 
-
+"#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" "#DA362A" "#A50026" 
 ## Country level: identify species suitability on country level: calculate richness per country at current, at RCP45 and compare both ------
 
 df_suitab_sub45 <-df_compare_future_species %>% 
@@ -4292,7 +4376,7 @@ p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
   theme_classic2(base_size = 8) +
   labs(title = "",
        x = "Scenario",
-       y = "Overall Occurrence of Species [#]",
+       y = "Frequency of plots by tree species occurence [#]",
        fill = "Species") +
   scale_fill_manual(values = species_colors,
                     labels = species_labels) +
@@ -4304,20 +4388,32 @@ p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
     axis.title = element_text(size = 8)    # Adjust axis title size
   )
 
+
+
+
+
 p.species.clim.suitability
-ggarrange(p.species.clim.suitability, p.species.suitability_country,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
+#p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
+p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country_simpl,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
 
 # Save the combined plot as an image
 ggsave(
-  filename = "outFigs/p.species.clim.suitability.png",    # File name (change extension for different formats, e.g., .pdf)
-  plot = p.species.clim.suitability,             # Plot object to save
-  width = 5,                       # Width of the saved plot in inches
-  height = 3.5,                       # Height of the saved plot in inches
+  filename = "outFigs/p.clim.suitab.fin.png",    # File name (change extension for different formats, e.g., .pdf)
+  plot = p.clim.suitab.fin,             # Plot object to save
+  width = 6,                       # Width of the saved plot in inches
+  height = 7,                       # Height of the saved plot in inches
   dpi = 300,                        # Resolution (dots per inch)
   units = "in"                      # Units for width and height
 )
-# 
-
+# p.species.suitability_country_simpl
+ggsave(
+  filename = "outFigs/p.species.suitability_country_simpl.png",    # File name (change extension for different formats, e.g., .pdf)
+  plot = p.species.suitability_country_simpl,             # Plot object to save
+  width = 7,                       # Width of the saved plot in inches
+  height = 3,                       # Height of the saved plot in inches
+  dpi = 300,                        # Resolution (dots per inch)
+  units = "in"                      # Units for width and height
+)
 
 
 
