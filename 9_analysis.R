@@ -3995,24 +3995,200 @@ df_compare_future_species <- df_compare_future_species %>%
 df_compare_future_species <- df_compare_future_species %>%
   mutate(
     suitability_rcp26 = case_when(
-      current == 1 & rcp26 == 1 ~ "yes",
-      current == 1 & rcp26 == 0 ~ "no",
-      current == 0 & rcp26 == 1 ~ "new",
+      current == 1 & rcp26 == 1 ~ "suitable",
+      current == 1 & rcp26 == 0 ~ "not_suitable",
+      current == 0 & rcp26 == 1 ~ "novel",
       current == 0 & rcp26 == 0 ~ "0"
     ),
     suitability_rcp45 = case_when(
-      current == 1 & rcp45 == 1 ~ "yes",
-      current == 1 & rcp45 == 0 ~ "no",
-      current == 0 & rcp45 == 1 ~ "new",
+      current == 1 & rcp45 == 1 ~ "suitable",
+      current == 1 & rcp45 == 0 ~ "not_suitable",
+      current == 0 & rcp45 == 1 ~ "novel",
       current == 0 & rcp45 == 0 ~ "0"
     ),
     suitability_rcp85 = case_when(
-      current == 1 & rcp85 == 1 ~ "yes",
-      current == 1 & rcp85 == 0 ~ "no",
-      current == 0 & rcp85 == 1 ~ "new",
+      current == 1 & rcp85 == 1 ~ "suitable",
+      current == 1 & rcp85 == 0 ~ "not_suitable",
+      current == 0 & rcp85 == 1 ~ "novel",
       current == 0 & rcp85 == 0 ~ "0"
     )
   )
+
+## Plot level : Get only counts per country and plot, no need for specific species : ------------
+# Convert to long format
+df_suitability_long <- df_compare_future_species %>%
+  dplyr::select(site, country_pooled, suitability_rcp26, suitability_rcp45, suitability_rcp85) %>%
+  pivot_longer(cols = starts_with("suitability_rcp"), 
+               names_to = "scenario", 
+               values_to = "suitability") %>%
+  mutate(scenario = gsub("suitability_", "", scenario)) %>%  # Remove "suitability_" prefix
+  group_by(site, country_pooled, suitability, scenario) %>% 
+  summarize(freq = n()) %>% 
+  dplyr::filter(suitability != 0) %>% 
+  ungroup()
+
+df_suitability_summary_plot <- df_suitability_long %>% 
+  group_by( country_pooled, suitability, scenario) %>% 
+  dplyr::summarize(mean = mean(freq, na.rm = T),
+                   sd = sd(freq, na.rm = T)) %>% 
+  mutate(cv = (sd / mean) * 100) %>% 
+  mutate(suitability = factor(suitability, levels = c("not_suitable", "suitable", "novel"))) %>% 
+  mutate(mean = ifelse(suitability == "not_suitable", -mean, mean)) %>% # change values to neagative for not_suitable species
+  ungroup(.)
+
+#df_suitability_summary_plot <- df_suitability_summary_plot[order(levels(df_suitability_summary_plot$suitability)),]
+# make a barplot like this :
+
+# figure out teh error bars!!! 
+df_suitability_summary_plot <- df_suitability_summary_plot %>%
+  arrange(country_pooled, scenario) %>%
+  group_by(country_pooled, scenario) %>%
+  mutate(
+    # Compute cumulative positions only for suitable and novel
+    cumulative_mean = ifelse(suitability == "suitable", cumsum(mean), mean),
+    cumulative_mean = ifelse(suitability == "not_suitable", mean, -mean ),
+    cumulative_mean = ifelse(suitability == "novel", mean, mean ),
+    
+    # Adjust error bars: Flip for "not_suitable"
+    cumulative_upper = ifelse(suitability == "not_suitable", mean - sd, cumulative_mean + sd),
+    cumulative_lower = ifelse(suitability == "not_suitable", mean + sd, cumulative_mean - sd)
+  ) %>% 
+  mutate(
+    pos = cumsum(mean),
+    upper = pos + sd/2,
+    lower = pos - sd/2
+  ) %>%
+  ungroup()# with error bars: 
+
+p.species.suitability_country <- ggplot(df_suitability_summary_plot, aes(x = scenario, 
+                                        y = mean, 
+                                        fill = suitability)) +
+  geom_bar(stat = "identity", position = "stack") +  # Stacked bars
+#  geom_errorbar(aes(ymin = lower, ymax = upper), 
+      #          width = 0.2, color = "grey10") +  # Add error bars at midpoints
+  theme_classic2() +
+  labs(title = "",
+       x = "",
+       y = "Number of species [#]",
+       fill = "Suitability") +
+  facet_grid(.~country_pooled) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
+  scale_fill_manual(values = c("not_suitable" = "#FDBE6E", "suitable" = "#006837", "novel" = "#FEEDA2"))  # Custom colors
+
+
+
+
+
+## Country level: identify species suitability on country level: calculate richness per country at current, at RCP45 and compare both ------
+
+df_suitab_sub45 <-df_compare_future_species %>% 
+  dplyr::select(acc, suitability_rcp45, country_pooled)
+
+
+df_species_current <- df_compare_future_species %>%
+  #dplyr::filter(country_pooled == "AT") %>% 
+  dplyr::filter(current == 1) %>% 
+  dplyr::select(acc, country_pooled) %>% 
+  distinct() %>% 
+  mutate(current = 1)
+
+df_species_rcp45 <- df_compare_future_species %>%
+  #dplyr::filter(country_pooled == "AT") %>% 
+  dplyr::filter(rcp45 == 1) %>% 
+  dplyr::select(acc, country_pooled) %>% 
+  distinct() %>% 
+  mutate(rcp45 = 1)
+
+df_species_comparison <- full_join(df_species_current, df_species_rcp45, 
+                                   by = c("acc", "country_pooled")) %>%
+  mutate(
+    current = ifelse(is.na(current), 0, current),  # Fill NA with 0
+    rcp45 = ifelse(is.na(rcp45), 0, rcp45)        # Fill NA with 0
+  ) %>%
+  mutate(  suitability_rcp45 = case_when(
+    current == 1 & rcp45 == 1 ~ "suitable",
+    current == 1 & rcp45 == 0 ~ "not_suitable",
+    current == 0 & rcp45 == 1 ~ "novel",
+    current == 0 & rcp45 == 0 ~ "0"
+  ))
+
+# summarize information fo species on country level: species counts
+# Count occurrences of "suitable" and "not_suitable" per country
+df_suitability_summary <- df_species_comparison %>%
+  group_by(country_pooled, suitability_rcp45) %>%
+  summarise(species_count = n(), .groups = "drop") #%>%
+  #tidyr::pivot_wider(names_from = suitability_rcp45, values_from = species_count, values_fill = 0)
+
+
+df_richness_country_simpl <- df_richness_country %>% 
+  dplyr::select(-acc) %>% 
+  distinct() %>% 
+  rename(current_richness = richness)
+
+# Rename columns for clarity
+df_suitability_summary <- df_suitability_summary %>%
+  left_join(df_richness_country_simpl) #%>% 
+  #dplyr::filter(suitability_rcp45 != 'novel')
+
+
+# Display result
+print(df_suitability_summary)
+
+ggplot(df_suitability_summary, aes(x = country_pooled, y = species_count, fill = suitability_rcp45)) +
+  geom_bar(stat = "identity", position = 'fill') +  # Stacked bar plot
+  theme_classic2() +
+  labs(title = "Species Suitability per Country under RCP45",
+       x = "",
+       y = "Share of species [%]",
+       fill = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
+  scale_fill_manual(values = c("suitable" = "#006837", "not_suitable" = "#FDBE6E", "novel" = "#FEEDA2"))  # Custom colors
+
+
+# "#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" "#DA362A" "#A50026" 
+# get just list of unique species per country under scenarios ---------------
+
+df_species_current <- df_compare_future_species %>% 
+  dplyr::filter(current == 1) %>% 
+  dplyr::select
+
+
+
+
+
+# Step 1: Identify suitable species (current == 1 & rcp45 == 1)
+df_suitable <- df_suitab_sub45 %>%
+  dplyr::filter(suitability_rcp45 == "suitable") %>%
+  group_by(country_pooled) %>%
+  distinct() #%>% 
+  #mutate(suitable_species = n_distinct(acc))
+  
+# Step 2: Identify novel species (current == 0 & rcp45 == 1)
+df_novel <- df_suitab_sub45 %>%
+  dplyr::filter(suitability_rcp45 == "novel") %>%
+  group_by(country_pooled) %>%
+  distinct() #%>% 
+ # mutate(suitable_species = n_distinct(acc))
+
+# Step 3: Identify not suitable species (current == 1 & rcp45 == 0)
+df_not_suitable <- df_suitab_sub45 %>%
+  filter(suitability_rcp45 == "not_suitable") %>%
+  group_by(country_pooled) %>%
+  distinct() #%>% )
+
+# Step 4: Combine all results into one dataframe
+df_species_changes <- df_suitable %>%
+  full_join(df_novel, by = "country_pooled") %>%
+  full_join(df_not_suitable, by = "country_pooled") %>%
+  replace_na(list(suitable_species = 0, novel_species = 0, not_suitable_species = 0))
+
+# Step 5: Display results
+print(df_species_changes)
+
+
+
+
+
 
 # Convert to long format
 df_long_suitability <- df_compare_future_species %>%
@@ -4023,6 +4199,27 @@ df_long_suitability <- df_compare_future_species %>%
                            "suitability_rcp26" = "rcp26", 
                            "suitability_rcp45" = "rcp45", 
                            "suitability_rcp85" = "rcp85"))
+
+# get individual species and species richness per country: 
+df_richness_country_current <- df_compare_future_species %>% 
+  dplyr::filter(current == 1) %>% 
+  dplyr::select(acc, country_pooled) %>%
+  distinct() %>% 
+  group_by(country_pooled) %>% 
+  mutate(richness_current = n_distinct(acc)) #%>% 
+  #mutate(scenario == 'current')
+
+df_richness_country_rcp45 <- 
+  df_compare_future_species %>% 
+  dplyr::filter(rcp45 == 1) %>% 
+  dplyr::select(acc, country_pooled) %>%
+  distinct() %>% 
+  group_by(country_pooled) %>% 
+  mutate(richness_rcp45 = n_distinct(acc)) #%>% 
+ # mutate(scenario = 'rcp45')
+
+df_suitab_countries <- df_richness_country_current %>% 
+  full_join(df_richness_country_rcp45)
 
 
 # Calculate frequency of occurrence per species, suitability, and scenario
@@ -4037,6 +4234,7 @@ df_suitability_freq <- df_long_suitability %>%
 
 
 ### Sankey plot test: need to restructure data -----------------
+
 df_current <- df_compare_future_species %>% 
   dplyr::filter(current == 1) %>% 
   dplyr::select(site, acc) %>% 
@@ -4107,6 +4305,7 @@ p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
   )
 
 p.species.clim.suitability
+ggarrange(p.species.clim.suitability, p.species.suitability_country,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
 
 # Save the combined plot as an image
 ggsave(
