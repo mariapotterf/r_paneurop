@@ -2896,7 +2896,7 @@ p1 <-
   ggplot(pred1, aes(x = x, y = predicted/1000)) +
   geom_point(data = filtered_df_plot99, 
               aes( x = prcp, y = stem_regeneration/1000), 
-              size = 1, alpha = 0.2, color = 'grey') +
+              size = 1, alpha = 0.2, color = 'grey', pch = 16) +
   geom_line(linewidth = 1, aes(color = group) ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
               alpha = 0.2, color = NA) +
@@ -2925,7 +2925,7 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
               aes( x = distance_edge, y = stem_regeneration/1000), 
               size = 1, alpha = 0.2, color = 'grey',
               width = 7,
-              height = 1) +
+              height = 1, pch = 16) +
   geom_line(linewidth = 1, aes(color = group) ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
   scale_color_manual(values = my_colors_interaction, 
@@ -3303,7 +3303,8 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
                               palette = c("lightblue", "red", "green"),
                               facet.by = "Variable", scales = "free_y", 
                               ylab = "Values", xlab = "Regeneration Status",
-                              outlier.size = .2,
+                              #outlier.size = .2,
+                              outlier.shape = NA,
                               size = 0.2) +
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
                      label = "p.signif", 
@@ -3326,137 +3327,132 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
   )  +
 #  p_boxplot_wilcox_narrow + 
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.signif", 
+                     label = "p.format", #"p.signif", 
                      size = 2, label.x = 1.5) +
   # Add mean dots
   geom_point(data = summary_stats_adv_delayed, 
              aes(x = adv_delayed, y = Mean, group = Variable), 
              shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE)
 
-   # geom_text(data = effect_sizes, aes(x = 2, y = max(df_long_narrow$Value), 
-    #                                 label = paste0("r = ", round(effsize, 2))))
 
 p_boxplot_wilcox_narrow
 
+# Define a reusable theme function
+my_theme <- function() {
+  theme(
+    legend.position = 'none',
+    text = element_text(size = 8),         # Increase text size for readability
+    axis.text = element_text(size = 8),    # Axis tick labels
+    axis.title = element_text(size = 8),   # Axis titles
+    strip.text = element_text(size = 8),   # Facet labels
+    legend.text = element_text(size = 8),  # Legend text
+    plot.title = element_text(size = 8),   # Plot title
+    strip.background = element_blank(),    # Remove the box around facet names
+    strip.placement = "outside",           # Move facet labels outside the plot area
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
+  )
+}
+
+
 # make a final plot: only prcp, sd_gw_anm_prcp, sd_gw_anm_tmp, drought_spei1, drought_prcp
-
-# Function to create a boxplot with correctly placed p-values
-plot_filtered_boxplot <- function(data, vars, ylab, comparisons) {
-  
-  # Filter dataset for the selected variable
-  data_filtered <- data %>% filter(Variable == vars)
-  
-  # Compute summary statistics for means
-  summary_stats <- data_filtered %>%
-    group_by(adv_delayed) %>%
-    summarise(
-      Mean = mean(Value, na.rm = TRUE),
-      SD = sd(Value, na.rm = TRUE),
-      Median = median(Value, na.rm = TRUE),
-      IQR = IQR(Value, na.rm = TRUE),
-      n = n(),  # Number of observations per group
-      .groups = "drop"
-    )
-  
-  # Perform Wilcoxon test for each comparison and extract p-values
-  p_values <- data.frame()
-  max_y <- max(data_filtered$Value, na.rm = TRUE)  # Get max y-value for spacing
-  
-  for (i in seq_along(comparisons)) {
-    comp <- comparisons[[i]]
-    test_result <- wilcox.test(Value ~ adv_delayed, data = data_filtered %>% filter(adv_delayed %in% comp))
-    
-    # Determine x positions for p-values based on group names
-    x1 <- which(levels(data_filtered$adv_delayed) == comp[1])
-    x2 <- which(levels(data_filtered$adv_delayed) == comp[2])
-    
-    x_mid <- mean(c(x1, x2))  # Place label in the middle of the two groups
-    y_pos <- max_y + (i * (max_y * 0.15))  # Adjust Y to be ABOVE the bracket lines
-    
-    p_values <- rbind(p_values, data.frame(
-      group1 = comp[1],
-      group2 = comp[2],
-      p_value = paste0("p = ", formatC(test_result$p.value, format = "g", digits = 3)), # Ensure 'p =' is included
-      x_pos = x_mid,  
-      y_pos = y_pos  
-    ))
-  }
-  
-  # Generate boxplot for the selected variable
-  p <- ggboxplot(data_filtered, x = "adv_delayed", y = "Value", 
-                 fill = "adv_delayed", 
-                 palette = c("#A50026", "#FDAE61", "#006837"),
-                 ylab = ylab, xlab = "Regeneration Status",
-                 outlier.size = .2,
-                 size = 0.2) +
-    stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                       label = "p.signif",  
-                       size = 3) +  # Standard Wilcoxon test comparison lines
-    theme(
-      legend.position = 'none',
-      text = element_text(size = 8),         # Increase text size for readability
-      axis.text = element_text(size = 8),    # Axis tick labels
-      axis.title = element_text(size = 8),   # Axis titles
-      strip.text = element_text(size = 8),   # Facet labels
-      legend.text = element_text(size = 8),  # Legend text
-      plot.title = element_text(size = 8),   # Plot title
-      strip.background = element_blank(),    # Remove the box around facet names
-      strip.placement = "outside",           # Optional: Move facet label outside the plot area
-      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
-    ) +
-    # Add mean dots
-    geom_point(data = summary_stats, 
-               aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-               shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
-    # Add correctly placed p-values ABOVE the bracketed comparison bars
-    geom_text(data = p_values, 
-              aes(x = x_pos, y = y_pos, label = p_value), 
-              size = 4, color = "black", fontface = "italic")
-  
-  return(p)
-}
-
-# Function to remove outliers using IQR
-remove_outliers <- function(data) {
-  data %>%
-    group_by(Variable) %>%
-    mutate(
-      Q1 = quantile(Value, 0.25, na.rm = TRUE),
-      Q3 = quantile(Value, 0.75, na.rm = TRUE),
-      IQR = Q3 - Q1,
-      Lower_Bound = Q1 - 1.5 * IQR,
-      Upper_Bound = Q3 + 1.5 * IQR
-    ) %>%
-    filter(Value >= Lower_Bound & Value <= Upper_Bound) %>%
-    select(-Q1, -Q3, -IQR, -Lower_Bound, -Upper_Bound)  # Remove temporary columns
-}
-
-# Apply outlier filtering
-df_long_narrow_filtered <- remove_outliers(df_long_narrow)
+# manually 
 
 # Example: Create individual plots
-p.prcp <- plot_filtered_boxplot(df_long_narrow_filtered, vars = 'prcp', 
-                                ylab = 'Precipitation [mm]', comparisons)
+p.prcp <-   df_long_narrow %>% 
+  dplyr::filter(Variable == "prcp") %>% 
+  ggboxplot(x = "adv_delayed", 
+            y = "Value", 
+            fill = "adv_delayed", 
+            palette = c("#A50026", "#FDAE61", "#006837"),
+            ylab = "Precipitation [mm]", 
+            xlab = "Regeneration Status",
+            outlier.shape = NA,
+            #outlier.size = .2,
+            size = 0.2) +
+  stat_compare_means(comparisons = comparisons, 
+                     method = "wilcox.test", 
+                     label =  'p.format', #"p.signif",  
+                     size = 3,
+                     label.y = c(1500, 
+                                 1400, 
+                                 1300)) +  # Standard Wilcoxon test comparison lines
+  my_theme() +
+  # Add mean dots
+  geom_point(data =  subset(summary_stats_adv_delayed, Variable == "prcp"), 
+             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+  coord_cartesian(ylim = c(300,1600))  #
 
 p.prcp
 
-p.tmp <- plot_filtered_boxplot(df_long_narrow_filtered, vars = 'sd_grw_anm_tmp', 
-                               ylab = 'SD Seasonal temperature [dim.]', comparisons)
 
-p.spei1 <- plot_filtered_boxplot(df_long_narrow_filtered, vars = 'drought_spei1', 
-                                 ylab = 'SPEI-1 Drought Index', comparisons)
+p.tmp <- 
+  df_long_narrow %>% 
+  dplyr::filter(Variable == "sd_grw_anm_tmp") %>% 
+    ggboxplot(x = "adv_delayed", 
+              y = "Value", 
+                   fill = "adv_delayed", 
+                   palette = c("#A50026", "#FDAE61", "#006837"),
+                   ylab = "Seasonal temperature [SD]", 
+                   xlab = "Regeneration Status",
+                   outlier.shape = NA,
+                   #outlier.size = .2,
+                   size = 0.2) +
+      stat_compare_means(comparisons = comparisons, 
+                         method = "wilcox.test", 
+                         label =  'p.format', #"p.signif",  
+                         size = 3,
+                         label.y = c(1.48, 
+                                     1.44, 
+                                     1.40)) + 
+  my_theme() +
+      # Add mean dots
+      geom_point(data =  subset(summary_stats_adv_delayed, Variable == "sd_grw_anm_tmp"), 
+                 aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+                 shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+    coord_cartesian(ylim = c(1.06,1.52)) 
+    
 
+p.spei1 <-
+  df_long_narrow %>% 
+  dplyr::filter(Variable == "drought_spei1") %>% 
+  ggboxplot(x = "adv_delayed", 
+            y = "Value", 
+            fill = "adv_delayed", 
+            palette = c("#A50026", "#FDAE61", "#006837"),
+            ylab = "SPEI-1 Drought Index [dim.]", 
+            xlab = "Regeneration Status",
+            outlier.shape = NA,
+            #outlier.size = .2,
+            size = 0.2) +
+  stat_compare_means(comparisons = comparisons, 
+                     method = "wilcox.test", 
+                     label =  'p.format', #"p.signif",  
+                     size = 3,
+                     label.y = c(-0.7, 
+                                 -0.75, 
+                                 -0.8)) +  # Standard Wilcoxon test comparison lines
+  my_theme() +
+  # Add mean dots
+  geom_point(data =  subset(summary_stats_adv_delayed, Variable == "drought_spei1"), 
+             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
 
+  coord_cartesian(ylim = c(-1.15,-0.65)) 
+
+p.spei1
 
 # Combine all plots into a single figure
 wilcox_plot_out <- ggarrange(p.prcp, p.tmp, p.spei1,
                         ncol = 3, nrow = 1)
 
-
-
 # Display the final merged plot
-print(wilcox_plot_out)
+wilcox_plot_out
 
+
+# Save the plot as an SVG file
+ggsave(filename = "outFigs/wilcox_vars.png", plot = wilcox_plot_out, 
+       device = "png", width = 7, height = 3, dpi = 300, bg = 'white')
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_vars.svg", plot = wilcox_plot_out, 
@@ -3957,6 +3953,30 @@ dunnTest
 ggarrange(p.country.density, p.country.richness)
 
 
+# Get partial R2: define teh most important variable --------------------
+# Perform an ANOVA to assess each term's contribution to the model
+
+# Run ANOVA on GAM model
+anova_results <- anova(fin.m.reg.density)
+
+# Convert the ANOVA results into a dataframe
+anova_df <- as.data.frame(anova_results)
+
+# Add term names for better readability
+anova_df <- tibble::rownames_to_column(anova_df, "Predictor")
+
+# Rename columns for better interpretation
+colnames(anova_df) <- c("Predictor", "EDF", "Ref. DF", "F-Value", "p-Value")
+
+# Export as an APA-styled table using sjPlot
+sjPlot::tab_df(anova_results,
+               title = "outTable/ANOVA Results for GAM Model",
+               #col.header = c(as.character(qntils), 'mean'),
+               show.rownames = FALSE,
+               file="outTable/anova_GAM.doc",
+               digits = 3) 
+
+
 # Save models --------------------------------------------------
 
 # Save the model object and input data
@@ -4100,54 +4120,43 @@ df_suitability_summary_plot2 <- df_suitability_summary_plot %>%
   ) %>%
   ungroup()# with error bars: 
 
-p.species.suitability_country <- ggplot(df_suitability_summary_plot2, aes(x = scenario, 
-                                        y = mean, 
-                                        fill =  factor(suitability, levels = c("not_suitable", "suitable", "novel")))) +
-  geom_bar(stat = "identity", position = "stack") +  # Stacked bars
-#  geom_errorbar(aes(ymin = lower, ymax = upper), 
-      #          width = 0.2, color = "grey10") +  # Add error bars at midpoints
-  theme_classic2() +
-  labs(title = "",
-       x = "",
-       y = "Number of species [#]",
-       fill = "Climate suitability") +
-  #facet_grid(.~country_pooled) + 
-  facet_wrap(.~country_pooled, strip.position = 'bottom',ncol = 8, nrow = 1) + 
- # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
-  scale_fill_manual(values = c("not_suitable" = "#FDBE6E", "suitable" = "#006837", "novel" = "#FEEDA2")) + # Custom colors
-  theme(
-    legend.position = 'right',
-    legend.text = element_text(size = 8),  
-    legend.title = element_text(size = 8),  
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),  # Rotate x-axis labels
-    axis.text.y = element_text(size = 8),  # Keep y-axis labels non-italic
-    axis.title = element_text(size = 8),    # Adjust axis title size
-    strip.background = element_blank(),  # Removes the box around facet labels
-    strip.text = element_text(face = "bold"),  # Keeps facet text bold
-    strip.placement = "outside",  # Places facet labels outside the plot area
-    panel.spacing = unit(1, "lines")  # Adds space between facets and x-axis labels
-  ) 
-p.species.suitability_country
+# add specific factor for x:
+df_suitability_summary_plot2 <- df_suitability_summary_plot2 %>% 
+  dplyr::filter(suitability !='novel') %>% 
+  mutate(x_comb = factor(paste(country_pooled, scenario )))
 
 
+# Test start -----!!!
 
-p.species.suitability_country_simpl <- df_suitability_summary_plot2 %>% 
-  dplyr::filter(suitability != 'novel') %>% 
-  ggplot( aes(x = scenario, 
-                                                                          y = mean, 
-                                                                          fill =  factor(suitability, levels = c("not_suitable", "suitable", "novel")))) +
+# Create scenario labels for x-axis (only show for unique scenario values)
+scenario_labels <- df_suitability_summary_plot2 %>%
+  group_by(x_comb) %>%
+  summarize(label = first(scenario)) %>%
+  pull(label)
+
+p.species.suitability_country <- 
+  ggplot(df_suitability_summary_plot2, aes(x = scenario, 
+                                           y = mean, 
+                                           fill =  factor(suitability, 
+                                           levels = c("not_suitable", "suitable", "novel")))) +
   geom_bar(stat = "identity", position = "stack") +  # Stacked bars
   #  geom_errorbar(aes(ymin = lower, ymax = upper), 
   #          width = 0.2, color = "grey10") +  # Add error bars at midpoints
   theme_classic2() +
+    scale_x_discrete(labels = scenario_labels) +
+    facet_grid(. ~ country_pooled) +  # Facet by country, labels below
   labs(title = "",
        x = "",
        y = "Number of species [#]",
        fill = "Climate suitability") +
-  #facet_grid(.~country_pooled) + 
-  facet_wrap(.~country_pooled, strip.position = 'bottom',ncol = 8, nrow = 1) + 
-  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
-  scale_fill_manual(values = c("not_suitable" = "#F67B49" , "suitable" ="#229C52", "novel" = "#FEEDA2")) + # Custom colors
+    scale_fill_manual(
+      values = c("not_suitable" = "#FDBE6E", 
+                 "suitable" = "#006837", 
+                 "novel" = "#FEEDA2"),  # Custom colors
+      labels = c("not_suitable" = "Not suitable", 
+                 "suitable" = "Suitable", 
+                 "novel" = "Novel")  # Custom legend labels
+    )+
   theme(
     legend.position = 'right',
     legend.text = element_text(size = 8),  
@@ -4158,11 +4167,11 @@ p.species.suitability_country_simpl <- df_suitability_summary_plot2 %>%
     strip.background = element_blank(),  # Removes the box around facet labels
     strip.text = element_text(face = "bold"),  # Keeps facet text bold
     strip.placement = "outside",  # Places facet labels outside the plot area
-    panel.spacing = unit(1, "lines")  # Adds space between facets and x-axis labels
-  ) 
-p.species.suitability_country_simpl
+    panel.spacing = unit(0.3, "lines")  # Increases space between facet panels (countries)
+  )  
+p.species.suitability_country
 
-"#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" "#DA362A" "#A50026" 
+#"#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" "#DA362A" "#A50026" 
 ## Country level: identify species suitability on country level: calculate richness per country at current, at RCP45 and compare both ------
 
 df_suitab_sub45 <-df_compare_future_species %>% 
@@ -4325,17 +4334,17 @@ df_current <- df_compare_future_species %>%
   mutate(scenario = 'current')
 
 df_rcp26 <- df_compare_future_species %>% 
-  dplyr::filter(rcp26 == 1) %>% 
+  dplyr::filter(current == 1 & rcp26 == 1) %>% 
   dplyr::select(site, acc) %>% 
   mutate(scenario = 'rcp26')
 
 df_rcp45 <- df_compare_future_species %>% 
-  dplyr::filter(rcp45 == 1) %>% 
+  dplyr::filter(current == 1& rcp45 == 1) %>% 
   dplyr::select(site, acc) %>% 
   mutate(scenario = 'rcp45')
 
 df_rcp85 <- df_compare_future_species %>% 
-  dplyr::filter(rcp85 == 1) %>% 
+  dplyr::filter(current == 1& rcp85 == 1) %>% 
   dplyr::select(site, acc) %>% 
   mutate(scenario = 'rcp85')
 
@@ -4376,44 +4385,32 @@ p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
   theme_classic2(base_size = 8) +
   labs(title = "",
        x = "Scenario",
-       y = "Frequency of plots by tree species occurence [#]",
+       y = "Counts of plots with respective species [#]",
        fill = "Species") +
   scale_fill_manual(values = species_colors,
                     labels = species_labels) +
   #scale_fill_manual() +# Replace y-axis labels with full Latin names
-  theme(
+  theme(legend.position = "right", #c(0.75,0.7),
     legend.text = element_text(face = "italic", size = 8), # Italicize only legend items
     axis.text.y = element_text(size = 8),  # Keep y-axis labels non-italic
     axis.text.x = element_text(size = 8),  # Adjust x-axis label size
     axis.title = element_text(size = 8)    # Adjust axis title size
   )
 
-
-
-
-
 p.species.clim.suitability
-#p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
-p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country_simpl,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
+
+p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
 
 # Save the combined plot as an image
 ggsave(
   filename = "outFigs/p.clim.suitab.fin.png",    # File name (change extension for different formats, e.g., .pdf)
   plot = p.clim.suitab.fin,             # Plot object to save
-  width = 6,                       # Width of the saved plot in inches
+  width = 5,                       # Width of the saved plot in inches
   height = 7,                       # Height of the saved plot in inches
   dpi = 300,                        # Resolution (dots per inch)
   units = "in"                      # Units for width and height
 )
 # p.species.suitability_country_simpl
-ggsave(
-  filename = "outFigs/p.species.suitability_country_simpl.png",    # File name (change extension for different formats, e.g., .pdf)
-  plot = p.species.suitability_country_simpl,             # Plot object to save
-  width = 7,                       # Width of the saved plot in inches
-  height = 3,                       # Height of the saved plot in inches
-  dpi = 300,                        # Resolution (dots per inch)
-  units = "in"                      # Units for width and height
-)
 
 
 
