@@ -1822,73 +1822,7 @@ m_med_int <- gam(stem_regeneration ~
              ,
              family = tw(), method = "REML", data = df_median)
 
-
-### the most meaningful: use disturbance severity, distance to edge ----------------------
-m_int_sev_edge <- gam(
-  stem_regeneration ~ 
-    s(prcp, k = 5) + s(tmp, k = 5) +
-    s(residual_mature_trees  , k = 5) + 
-    #s(sum_stems_mature  , k = 5) + 
-    s(distance_edge, k = 5) +
-    s(disturbance_severity, k = 5) +
-    ti(disturbance_severity,distance_edge, k = 5 ) +
-    s(management_intensity,by = country_pooled, k = 4) + 
-    #s(country_pooled, bs = "re") +
-    #s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
-    s(x, y),                                 # Spatial autocorrelation
-  family = tw(),
-  method = 'REML',
-  data = df_stem_regeneration2
-)
-
-cor(df_stem_regeneration2$disturbance_severity, df_stem_regeneration2$residual_mature_trees) # high correlation, keep only one of them!
-
-
-
-# only interaction modelling: for climate and disturbance chars 
-m_int_res_edge_full_te <- gam(
-  stem_regeneration ~ 
-    #s(prcp, k = 5) + s(tmp, k = 5) +
-    #s(residual_mature_trees  , k = 5) + 
-    #s(sum_stems_mature  , k = 5) + 
-    #s(distance_edge, k = 5) +
-    #s(disturbance_severity, k = 5) +
-    te(residual_mature_trees, distance_edge, k = 5 ) +
-    te(prcp,tmp, k = 5 ) +
-    s(management_intensity,by = country_pooled, k = 4) + 
-    s(country_pooled, bs = "re") +
-    #s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
-    s(x, y),                                 # Spatial autocorrelation
-  family = tw(),
-  method = 'REML',
-  select = TRUE,
-  data = df_stem_regeneration2
-)
-
-
-# interaction and single effects for climate
-# just interaction modelling
-m_int_res_edge_full_te_comb <- gam(
-  stem_regeneration ~ 
-    s(prcp, k = 5) + s(tmp, k = 5) +
-    #s(residual_mature_trees  , k = 5) + 
-    #s(sum_stems_mature  , k = 5) + 
-    #s(distance_edge, k = 5) +
-    #s(disturbance_severity, k = 5) +
-    te(residual_mature_trees, distance_edge, k = 5 ) +
-    ti(prcp,tmp, k = 5 ) +
-    s(management_intensity,by = country_pooled, k = 4) + 
-    s(country_pooled, bs = "re") +
-    #s(clim_grid, bs = "re", k = 5) +                # Macro-scale random effect
-    s(x, y),                                 # Spatial autocorrelation
-  family = tw(),
-  method = 'REML',
-  select = TRUE,
-  data = df_stem_regeneration2
-)
-
-
-
+### keep only teh most meaningful model: -----------
 m_int_sev_edge_full_te_comb <- gam(
   stem_regeneration ~ 
     s(prcp, k = 5) + s(tmp, k = 5) +
