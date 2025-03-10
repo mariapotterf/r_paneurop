@@ -1869,6 +1869,27 @@ m_int_sev_edge_full_te_comb <- gam(
   data = df_stem_regeneration2
 )
 
+## understand explained variance: fiexed vs random ---------------------
+m_fixed_only <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp, tmp, k = 5) +
+    s(management_intensity, by = country_pooled, k = 4) + 
+    s(x, y),                                # Excluding random effects
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+summary(m_fixed_only)
+summary(m_int_sev_edge_full_te_comb)
+AIC(m_int_sev_edge_full_te_comb, m_fixed_only)
+
+
+
+
 m_int_sev_edge_full_te_comb_salvage <- gam(
   stem_regeneration ~ 
     s(prcp, k = 5) + s(tmp, k = 5) +
@@ -2072,7 +2093,6 @@ ggplot(df_stem_regeneration2, aes(x = salvage_intensity)) +
   facet_wrap(~ country_pooled, scales = "free_y") +
   labs(
     title = "Distribution of Salvage Intensity by Country",
-    x = "Management Intensity",
     y = "Count"
   ) +
   theme_minimal()
@@ -2083,7 +2103,6 @@ ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
   facet_wrap(~ country_pooled, scales = "free_y") +
   labs(
     title = "Distribution of Protection Intensity by Country",
-    x = "Management Intensity",
     y = "Count"
   ) +
   theme_minimal()
