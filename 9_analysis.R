@@ -2899,6 +2899,8 @@ ggplot(aes(x = adv_delayed,
   geom_boxplot()
 
 
+table(df_fin$adv_delayed, df_fin$country_pooled )
+round(prop.table(table(df_fin$adv_delayed, df_fin$country_pooled ))*100,1)
 
 
 
