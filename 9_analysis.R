@@ -1822,6 +1822,35 @@ m_med_int <- gam(stem_regeneration ~
              ,
              family = tw(), method = "REML", data = df_median)
 
+
+# categorize teh disturbance severity to understand teh relationship ---------
+df_stem_regeneration2 <- df_stem_regeneration2 %>% 
+  mutate(disturb_sev_cl2 = case_when(
+    disturbance_severity >= 0 & disturbance_severity < 0.8 ~ "Low",
+    disturbance_severity >= 0.8 ~ "High"
+  )) %>% 
+  mutate(disturb_sev_cl3 = case_when(
+    disturbance_severity >= 0 & disturbance_severity < 0.5 ~ "Low",
+    disturbance_severity >= 0.5 & disturbance_severity <= 0.8 ~ "Medium",
+    disturbance_severity > 0.8 ~ "High"
+  )) %>% 
+  mutate(distance_edge_cl = case_when(
+    distance_edge >= 0 & distance_edge < 100 ~ "Near",
+    distance_edge >= 100 & distance_edge <= 200 ~ "Medium",
+    distance_edge > 200 ~ "Far"
+  )) %>% 
+  mutate(disturb_sev_cl2 = factor(disturb_sev_cl2),
+         disturb_sev_cl3 = factor(disturb_sev_cl3),
+         distance_edge_cl = factor(distance_edge_cl))
+
+
+
+
+
+
+
+
+
 ### keep only teh most meaningful model: -----------
 m_int_sev_edge_full_te_comb <- gam(
   stem_regeneration ~ 
@@ -1840,7 +1869,224 @@ m_int_sev_edge_full_te_comb <- gam(
   data = df_stem_regeneration2
 )
 
+m_int_sev_edge_full_te_comb_salvage <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(salvage_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
 
+m_int_sev_edge_full_te_comb_protection <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(protection_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+AIC(m_int_sev_edge_full_te_comb_protection, m_int_sev_edge_full_te_comb_salvage, m_int_sev_edge_full_te_comb, m_int_sev_edge_full_te_comb_no_manag)
+
+m_int_sev_edge_full_te_comb_no_manag <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+  #  s(protection_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+# add disturbance severity as a factor? 
+m_int_sev_edge_full_te_comb_f <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(disturb_sev_cl2, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# add disturbance severity as a factor - does nto imporv emodel fit
+m_int_sev_edge_full_te_comb_f <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(disturb_sev_cl2, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# add disturbance severity as a factor - does nto imporv emodel fit
+m_int_sev_edge_full_te_comb_f2 <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, by = disturb_sev_cl2) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(disturb_sev_cl2, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+AIC(m_int_sev_edge_full_te_comb_f2, m_int_sev_edge_full_te_comb_f, m_int_sev_edge_full_te_comb)
+
+summary(m_int_sev_edge_full_te_comb_f2)
+summary(m_int_sev_edge_full_te_comb)
+summary(m_int_sev_edge_full_te_comb_f)
+
+
+p1 <- ggpredict(m_int_sev_edge_full_te_comb, terms = c("distance_edge", "disturbance_severity[0.3,1]"))
+p1 <- ggpredict(m_int_sev_edge_full_te_comb_f2, terms = c("distance_edge", "disturb_sev_cl2"))
+
+plot(p1)
+
+AIC(m_int_sev_edge_full_te_comb_f,
+    m_int_sev_edge_full_te_comb, 
+    m_int_sev_edge_full_te_comb_f3,
+    m_int_sev_edge_full_te_comb_f4,
+    m_int_sev_edge_full_te_comb_f5)
+
+
+# Disturbance severity: balanced design: --------------------------------
+hist(df_stem_regeneration2$disturbance_severity)
+hist(df_stem_regeneration2$distance_edge)
+
+table(df_stem_regeneration2$disturb_sev_cl_simpl)[2]
+table(df_stem_regeneration2$disturb_sev_cl3)
+# min number of points in low category is 31
+min_n = 175
+
+# Randomly sample equal-sized subsets for each severity level
+df_balanced2 <- df_stem_regeneration2 %>%
+  group_by(disturb_sev_cl2) %>%
+  sample_n(175) %>%   # from only 2 categories: low and high, low = 175
+  ungroup()
+# run for 3 caterories: low, medium, high
+df_balanced3 <- df_stem_regeneration2 %>%
+  group_by(disturb_sev_cl3) %>%
+  sample_n(31) %>% # low category = 31
+  ungroup()
+
+# Fit the GAM model again on the balanced dataset
+# Fit the GAM model again on the balanced dataset
+m_balanced3 <- gam(
+  stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5) +
+    ti(prcp, tmp, k = 5) +
+    s(management_intensity, by = country_pooled, k = 4) +
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +
+    s(x, y),
+  family = tw(),
+  method = "REML",
+  data = df_balanced3
+)
+
+
+
+m_balanced2 <- gam(
+  stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5) +
+    ti(prcp, tmp, k = 5) +
+    s(management_intensity, by = country_pooled, k = 4) +
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +
+    s(x, y),
+  family = tw(),
+  method = "REML",
+  data = df_balanced2
+)
+
+# Compare the original and balanced models
+summary(m_balanced3)
+summary(m_balanced2)
+summary(m_int_sev_edge_full_te_comb)  # Original model
+
+hist(df_stem_regeneration2$management_intensity)
+
+# Histogram for management intensity by country
+ggplot(df_stem_regeneration2, aes(x = management_intensity)) +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  facet_wrap(~ country_pooled, scales = "free_y") +
+  labs(
+    title = "Distribution of Management Intensity by Country",
+    x = "Management Intensity",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+ggplot(df_stem_regeneration2, aes(x = salvage_intensity)) +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  facet_wrap(~ country_pooled, scales = "free_y") +
+  labs(
+    title = "Distribution of Salvage Intensity by Country",
+    x = "Management Intensity",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+
+ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  facet_wrap(~ country_pooled, scales = "free_y") +
+  labs(
+    title = "Distribution of Protection Intensity by Country",
+    x = "Management Intensity",
+    y = "Count"
+  ) +
+  theme_minimal()
 
 
 # check VIF again
