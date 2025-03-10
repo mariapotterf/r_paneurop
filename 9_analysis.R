@@ -2905,6 +2905,8 @@ ggplot(aes(x = adv_delayed,
 
 
 
+
+
 df_fin %>% 
   ggplot(aes(x = time_since_disturbance,
              y = stem_regeneration)) +
@@ -2912,6 +2914,7 @@ df_fin %>%
   geom_smooth(methods = 'lm')
 
 table(df_fin$time_since_disturbance, df_fin$adv_delayed)
+prop.table(table(df_fin$adv_delayed))
 
 
 ## Chi squared: time since diosturbance  -----------------------
