@@ -31,7 +31,7 @@ library(terra)
 library(tidyr)
 
 
-dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
+dat_raw <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
 
 # check: has 4 mature trees? in ID 12_17_112_3
 
@@ -39,7 +39,7 @@ dat <- fread('rawData/working_directory/rapid_assessment_mdf.csv')
  # dplyr::filter(ID == "12_17_112_3") %>% View()
 
 # remove Italy and Vaia - windthrow
-dat <- dat %>% 
+dat <- dat_raw %>% 
   dplyr::filter( country != 17) #   ~ "IT",  # Italy)
 
 # create management based on Christians scrips;
@@ -61,6 +61,16 @@ dat <- dat %>%
     protection_intensity = planting + anti_browsing  # get were trees plantedor even fenced? rate on cluster cluster level
 )
 
+dat_manag_type <- dat %>% 
+  filter(dist == TRUE) %>% # remove the plot if not disturbed
+  mutate(cluster = paste(region, group, sep = '_')) %>% 
+  mutate(
+    logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
+    clear         = ifelse(!is.na(clear) & clear == TRUE, 1, 0),
+    grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
+    planting      = ifelse(!is.na(planting) & planting != 2, 1, 0),
+    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing != 2, 1, 0)
+  )
 
 
 #View(dat_test)
