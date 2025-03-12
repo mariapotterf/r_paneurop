@@ -278,8 +278,8 @@ df_predictors <-
   left_join(dplyr::select(distance_to_edge, c(-country, -dist_ID ))) %>% 
   left_join(dplyr::select(disturbance_chars, c(-region, -country ))) %>% 
   left_join(soil) %>%
-  left_join(spei_subplot) %>%          # clim values are medians from 2018-2023
-  left_join(spei_subplot_drought) %>%  # clim values are medians from 2018-2020
+  left_join(spei_subplot) %>%          # clim values are medians from 2018-2023, during summer months
+  left_join(spei_subplot_drought) %>%  # clim values are medians from 2018-2020, during drought
   left_join(dplyr::select(terrain, c(-country, region, -cluster.x, -cluster.y))) #%>% 
   #mutate(cluster = str_sub(ID, 4, -3)) 
 
@@ -360,11 +360,12 @@ climate_de_anom_18_23_avg <- climate_de_anom %>%
 
 head(spei_de)
 
-
-spei_de_18_23_avg <- spei_de %>% 
+# Get SPEI from germany for study area, for drought - 2025/03/12 - SPEI from DWD seems a bit weird, go one with SPEI from ERA
+spei_de_18_23_avg <-
+  spei_de %>% 
   dplyr::filter(year %in% study_period) %>% 
   ungroup(.) %>% 
-  group_by(cluster,scale) %>% # scale 1,3,12
+  group_by( cluster,scale) %>% # scale 1,3,12
   summarize(spei = median(spei, na.rm  = T)) %>% 
   pivot_wider(names_from = scale, values_from = spei, names_prefix = 'spei')
 
@@ -406,19 +407,44 @@ print(identical_clusters_ERA)
 df_ERA_de <- df_predictors_plot %>% 
   dplyr::filter(country == '11')   %>% 
   mutate(source = 'ERA') %>% 
-  dplyr::select(cluster, tmp, prcp, spei12) %>% 
+  dplyr::select(cluster, tmp, prcp, spei12, drought_spei1) %>% 
   rename(tmp_ERA = tmp,
-         prcp_ERA = prcp)
+         prcp_ERA = prcp,
+         spei12_ERA = spei12,
+         drought_spei1_ERA = drought_spei1)
 
 df_de <- clim_spei_de_upd %>% 
-  dplyr::select(cluster, tmp, prcp, spei12) %>% 
+  dplyr::select(cluster, tmp, prcp, spei12, drought_spei1) %>% 
   rename(tmp_DWD = tmp,
-         prcp_DWD = prcp) %>% 
+         prcp_DWD = prcp,
+         spei12_DWD = spei12,
+         drought_spei1_DWD = drought_spei1) %>% 
   left_join(df_ERA_de) %>% 
   drop_na()
 # merge updated data (date with higher climate resolution with original ones): 
 
 ### Corr plot DWD vs ERA ---------------
+
+#### Sample scatter plot: TMP 
+par(mfrow = c(1, 2))
+plot(df_de$drought_spei1_ERA, df_de$drought_spei1_DWD, 
+     main = "Scatter Plot with Correlation",
+     xlab = "drought_spei1_ERA", ylab = "drought_spei1_DWD",
+     pch = 19, col = "blue")
+
+
+
+
+#### Sample scatter plot: TMP 
+par(mfrow = c(1, 2))
+plot(df_de$spei12_ERA, df_de$spei12_DWD, 
+     main = "Scatter Plot with Correlation",
+     xlab = "spei12_ERA", ylab = "spei12_DWD",
+     pch = 19, col = "blue")
+
+
+
+
 #### Sample scatter plot: TMP 
 par(mfrow = c(1, 2))
 plot(df_de$tmp_DWD, df_de$tmp_ERA, 
@@ -462,7 +488,7 @@ text(x = min(df_de$prcp_DWD), y = max(df_de$prcp_ERA),
 # select only germny from old dataset, remove teh ERA columns to replace by DWD
 df_predictors_plot_de_extra_cols <- df_predictors_plot %>% 
   dplyr::filter(country == '11') %>% 
-  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z, -spei1, -spei3, -spei12, -drought_spei1, -drought_spei3, -drought_spei12 )
+  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z) #  -spei1, -spei3, -spei12, -drought_spei1, -drought_spei3, -drought_spei12 do not rep[lace spei values, somehow do not correlated with ERA data]
 
 # keep other countryies unchanged
 df_predictors_plot_no_de <- df_predictors_plot %>% 
@@ -470,7 +496,7 @@ df_predictors_plot_no_de <- df_predictors_plot %>%
 
 head(clim_spei_de_upd) # updated data, update to merge with additional columns
 
-clim_spei_de_upd_add_cols <- clim_spei_de_upd %>% 
+clim_spei_de_upd_add_cols <- climate_de_anom_18_23_avg %>% #clim_spei_de_upd %>%  # do not update SPEI values from DWD, as they sees higher tehn 
   #rename(spei12 = spei) %>% 
   full_join(df_predictors_plot_de_extra_cols, by = join_by(cluster)) %>%
   dplyr::select(all_of(names(df_predictors_plot_no_de))) #%>%   # change order to fit old data
