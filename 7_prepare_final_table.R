@@ -368,7 +368,7 @@ spei_de_18_23_avg <- spei_de %>%
   summarize(spei = median(spei, na.rm  = T)) %>% 
   pivot_wider(names_from = scale, values_from = spei, names_prefix = 'spei')
 
-spei_de_18_20_avg <- spei_de %>% 
+spei_de_drought_avg <- spei_de %>% 
   dplyr::filter(year %in% drought_period) %>% 
   ungroup(.) %>% 
   group_by(cluster,scale) %>%
@@ -379,9 +379,9 @@ spei_de_18_20_avg <- spei_de %>%
 #(spei_de_18_23_avg)
 
 # join spei to tmp and spei data
-clim_spei_de_upd <- climate_de_anom_18_23_avg %>% 
-  full_join(spei_de_18_23_avg) %>%
-  full_join(spei_de_18_20_avg) # add SPEI12 during drought
+clim_spei_de_upd <- climate_de_anom_18_23_avg %>% # prcp, tmp
+  full_join(spei_de_18_23_avg) %>%     # SPEIs over season
+  full_join(spei_de_drought_avg) # add SPEIs during drought
   #mutate(source = "DWD")
 
 
@@ -406,12 +406,12 @@ print(identical_clusters_ERA)
 df_ERA_de <- df_predictors_plot %>% 
   dplyr::filter(country == '11')   %>% 
   mutate(source = 'ERA') %>% 
-  dplyr::select(cluster, tmp, prcp) %>% 
+  dplyr::select(cluster, tmp, prcp, spei12) %>% 
   rename(tmp_ERA = tmp,
          prcp_ERA = prcp)
 
 df_de <- clim_spei_de_upd %>% 
-  dplyr::select(cluster, tmp, prcp) %>% 
+  dplyr::select(cluster, tmp, prcp, spei12) %>% 
   rename(tmp_DWD = tmp,
          prcp_DWD = prcp) %>% 
   left_join(df_ERA_de) %>% 
