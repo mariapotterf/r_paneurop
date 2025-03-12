@@ -330,7 +330,7 @@ nrow(df_predictors_plot)
 
 ### Improve climate resolution for Germany: ------------
 # - get clim anomalies
-# - get SPEI
+# - get SPEI:1,3,12
 # - calculate medians over 2018-2023
 
 
@@ -356,14 +356,7 @@ climate_de_anom_18_23_avg <- climate_de_anom %>%
   dplyr::select(cluster, tmp, prcp_sum, tmp_z, prcp_z) %>% 
   rename(prcp = prcp_sum)
 
-ggplot(climate_de_anom_18_23_avg, aes(x = prcp, y = tmp)) +
-  geom_point() + 
-  #geom_jitter() + 
-  geom_smooth()
-  
-# check how many clusters have identical prcp
-#table(climate_de$prcp)
-  
+
 
 head(spei_de)
 
@@ -371,14 +364,16 @@ head(spei_de)
 spei_de_18_23_avg <- spei_de %>% 
   dplyr::filter(year %in% study_period) %>% 
   ungroup(.) %>% 
-  group_by(cluster) %>%
-  summarize(spei = median(spei, na.rm  = T))
+  group_by(cluster,scale) %>% # scale 1,3,12
+  summarize(spei = median(spei, na.rm  = T)) %>% 
+  pivot_wider(names_from = scale, values_from = spei, names_prefix = 'spei')
 
 spei_de_18_20_avg <- spei_de %>% 
   dplyr::filter(year %in% drought_period) %>% 
   ungroup(.) %>% 
-  group_by(cluster) %>%
-  summarize(drought_spei12 = median(spei, na.rm  = T))
+  group_by(cluster,scale) %>%
+  summarize(spei = median(spei, na.rm  = T)) %>% 
+  pivot_wider(names_from = scale, values_from = spei, names_prefix = 'drought_spei')
 
 
 #(spei_de_18_23_avg)
@@ -390,19 +385,22 @@ clim_spei_de_upd <- climate_de_anom_18_23_avg %>%
   #mutate(source = "DWD")
 
 
-# Check how often i have clusters with teh same climate values? 
+# Check how often i have clusters with teh same climate values? -------------------
 # Count unique clusters where tmp and prcp are identical
 identical_clusters_DWD_de <- clim_spei_de_upd %>%
   group_by(tmp, prcp) %>%
   summarise(count = n(), .groups = "drop") %>%  # Count occurrences of each (tmp, prcp) pair
   filter(count > 1)  # Keep only those that appear more than once
 
+print(identical_clusters_DWD_de)
 
 identical_clusters_ERA <- df_predictors_plot %>% 
   dplyr::filter(country == '11') %>% 
   group_by(tmp, prcp) %>%
   summarise(count = n(), .groups = "drop") %>%  # Count occurrences of each (tmp, prcp) pair
   filter(count > 1)  # Keep only those that appear more than once
+
+print(identical_clusters_ERA)
 
 ### calculate correlation between tmp and prcp for DWD (grmany) and ERA to make sure that i can replace values; -
 df_ERA_de <- df_predictors_plot %>% 
@@ -461,10 +459,10 @@ text(x = min(df_de$prcp_DWD), y = max(df_de$prcp_ERA),
 ### Merge new clim resolution data to ERA dataset ----
 
 
-# select only germny from old dataset, remove teh columns to replace
+# select only germny from old dataset, remove teh ERA columns to replace by DWD
 df_predictors_plot_de_extra_cols <- df_predictors_plot %>% 
   dplyr::filter(country == '11') %>% 
-  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z, -spei12, -drought_spei12 )
+  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z, -spei1, -spei3, -spei12, -drought_spei1, -drought_spei3, -drought_spei12 )
 
 # keep other countryies unchanged
 df_predictors_plot_no_de <- df_predictors_plot %>% 
@@ -473,7 +471,7 @@ df_predictors_plot_no_de <- df_predictors_plot %>%
 head(clim_spei_de_upd) # updated data, update to merge with additional columns
 
 clim_spei_de_upd_add_cols <- clim_spei_de_upd %>% 
-  rename(spei12 = spei) %>% 
+  #rename(spei12 = spei) %>% 
   full_join(df_predictors_plot_de_extra_cols, by = join_by(cluster)) %>%
   dplyr::select(all_of(names(df_predictors_plot_no_de))) #%>%   # change order to fit old data
 
@@ -581,7 +579,7 @@ df_fin <- df_fin %>%
 
 # Export tables --------------------------------------------------
 
-fwrite(df_predictors_plot,          'outData/all_predictors_plot.csv')               # predictors from ERA (10 km res)
+#fwrite(df_predictors_plot,          'outData/all_predictors_plot.csv')               # predictors from ERA (10 km res)
 fwrite(df_predictors_plot_upd_clim, 'outData/all_predictors_plot_upd_clim.csv')      # contains all predictors: ERA & DWD
 fwrite(df_fin,                      'outData/indicators_for_cluster_analysis.csv')   # contains all veg data (stem, regeneration) and all predictors 
 
