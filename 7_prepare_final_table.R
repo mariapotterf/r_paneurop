@@ -374,11 +374,19 @@ spei_de_18_23_avg <- spei_de %>%
   group_by(cluster) %>%
   summarize(spei = median(spei, na.rm  = T))
 
+spei_de_18_20_avg <- spei_de %>% 
+  dplyr::filter(year %in% drought_period) %>% 
+  ungroup(.) %>% 
+  group_by(cluster) %>%
+  summarize(drought_spei12 = median(spei, na.rm  = T))
+
+
 #(spei_de_18_23_avg)
 
 # join spei to tmp and spei data
 clim_spei_de_upd <- climate_de_anom_18_23_avg %>% 
-  full_join(spei_de_18_23_avg) #%>% 
+  full_join(spei_de_18_23_avg) %>%
+  full_join(spei_de_18_20_avg) # add SPEI12 during drought
   #mutate(source = "DWD")
 
 
@@ -456,7 +464,7 @@ text(x = min(df_de$prcp_DWD), y = max(df_de$prcp_ERA),
 # select only germny from old dataset, remove teh columns to replace
 df_predictors_plot_de_extra_cols <- df_predictors_plot %>% 
   dplyr::filter(country == '11') %>% 
-  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z, -spei12 )
+  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z, -spei12, -drought_spei12 )
 
 # keep other countryies unchanged
 df_predictors_plot_no_de <- df_predictors_plot %>% 
@@ -530,10 +538,6 @@ df_fin <- as.data.frame(df_plot_full) %>%
 
 
 plot_n <- length(unique(df_plot_full$cluster))
-
-#length(unique(df_plot$cluster))
-length(unique(df_plot_full$cluster)) # 849!   - final clusters, 4-5 plots
-length(unique(df_predictors_plot_upd_clim$cluster))  # 957 - all clusters, from even with less plots
 
 
 
