@@ -53,7 +53,7 @@ library(stringr)
 library(terra)
 
 # SPEI scales:
-my_spei_scales = c(12) #c(3,12) # 3,6,121, 6, 
+my_spei_scales = c(1,3,12) #c(3,12) # 3,6,121, 6, 
 # filter through years: >1980 ------------------------
 # 
 pattern_years = "^19(8[0-9]|9[0-9])|^20(0[0-9]|1[0-9]|2[0-3]).*\\.gz$"
