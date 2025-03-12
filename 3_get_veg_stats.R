@@ -87,18 +87,6 @@ dat2 <- dat %>%
     protection_intensity = planting + anti_browsing  # get were trees plantedor even fenced? rate on cluster cluster level
 )
 
-#! complete
-dat_manag_individual <- dat2 %>% 
-  filter(dist == TRUE) %>% # remove the plot if not disturbed
-  mutate(cluster = paste(region, group, sep = '_')) %>% 
-  mutate(
-    logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
-    clear         = ifelse(!is.na(clear) & clear == TRUE, 1, 0),
-    grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
-    planting      = ifelse(!is.na(planting) & planting == TRUE, 1, 0),
-    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing == TRUE, 1, 0)
-  )
-
 
 #View(dat_test)
 dat2 <- dat2 %>% 
@@ -167,8 +155,6 @@ remove_sub_plots <- c('18_22_110_7' ,
 # "17_107" - ID: 12_17_107_4 - out of +
 #   "17_143" - ID: 12_17_143_5 - out of +
 
-
-
 dat2 <- dat2 %>% 
   dplyr::filter(!ID %in% remove_sub_plots )
   
@@ -213,8 +199,122 @@ dat2 <- dat2 %>%
 
 length(unique(dat2$cluster)) # 849
 
+## get individual management types ---------------------------
+df_individual_management <- dat2 %>% 
+  filter(dist == TRUE) %>% # remove the plot if not disturbed
+  mutate(cluster = paste(region, group, sep = '_')) %>% 
+  mutate(
+    logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
+    clear         = ifelse(!is.na(clear) & clear == TRUE, 1, 0),
+    grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
+    planting      = ifelse(!is.na(planting) & planting == TRUE, 1, 0),
+    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing == TRUE, 1, 0),
+    windthrow = ifelse(!is.na(windthrow) & windthrow == TRUE, 1, 0),
+    deadwood = ifelse(!is.na(deadwood) & deadwood == TRUE, 1, 0)
+  ) %>% 
+  dplyr::select(cluster, country, logging_trail, clear, grndwrk, planting, 
+                anti_browsing, windthrow, deadwood) # remove unnecessary cols
 
-# Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
+
+## get shares : overall --------------------
+df_management_shares_01 <- df_individual_management %>%
+  mutate(cluster = factor(cluster)) %>%
+  pivot_longer(cols = -cluster, 
+               names_to = 'management_type', values_to = 'presence') %>%
+  group_by(management_type) %>%
+  mutate(total = n()) %>%     # Total records per management_type
+  group_by(presence, management_type) %>%
+  summarise(
+    n = n(),
+    pct = round((n / first(total)) * 100,1)  # Calculate percentage
+  ) %>%
+  ungroup()
+
+
+# Create bar plot
+p_manag_types_overall <-
+  ggplot(df_management_shares_01, aes(x = management_type, y = pct, fill = factor(presence))) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = c("0" = "#1f77b4", "1" = "#ff7f0e")) +
+  geom_text(aes(label = pct), 
+            position = position_stack(vjust = 0.5), 
+            size = 3, color = "white") +
+  labs(
+    title = "Management Types (0 vs 1)",
+    x = "Management Type",
+    y = "%",
+    fill = ""
+  ) +
+  theme_classic2() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+
+# Get management shares per country ----------
+## get shares : overall --------------------
+df_management_shares_01_country <- df_individual_management %>%
+  mutate(cluster = factor(cluster)) %>%
+  pivot_longer(cols = c(-cluster, -country), 
+               names_to = 'management_type', values_to = 'presence') %>%
+  group_by(management_type, country) %>%
+  mutate(total = n()) %>%     # Total records per management_type
+  group_by(presence, management_type, country) %>%
+  summarise(
+    n = n(),
+    pct = round((n / first(total)) * 100,1)  # Calculate percentage
+  ) %>%
+  ungroup()
+
+# Define the order of countries from west to east
+west_to_east_order <- c("FR", "CH", "DE", "AT",  "SI", "CZ", "SK","PL")
+
+# Reorder the country column
+df_management_shares_01_country <- df_management_shares_01_country %>%
+  mutate(country = factor(country, levels = west_to_east_order))
+
+# Plot
+p_manag_types_countries <- df_management_shares_01_country %>%
+  ggplot(aes(x = management_type, y = pct, fill = factor(presence))) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(.~ country) +
+  scale_fill_manual(values = c("0" = "#1f77b4", "1" = "#ff7f0e")) +
+  geom_text(aes(label = pct), 
+            position = position_stack(vjust = 0.5), 
+            size = 3, color = "white") +
+  labs(
+    title = "Presence of Management Types (0 vs 1)",
+    x = "Management Type",
+    y = "%",
+    fill = ""
+  ) +
+  theme_classic2() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display the plot
+p_manag_types_countries
+
+df_management_shares_01_country %>% 
+  # dplyr::filter(country == 'CZ') %>% 
+  ggplot(aes(x = country, y = pct, fill = factor(presence))) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(.~ management_type) +
+  scale_fill_manual(values = c("0" = "#1f77b4", "1" = "#ff7f0e")) +
+  geom_text(aes(label = pct), 
+            position = position_stack(vjust = 0.5), 
+            size = 3, color = "white") +
+  labs(
+    title = "Presence of Management Types (0 vs 1)",
+    x = "Management Type",
+    y = "%",
+    fill = ""
+  ) +
+  theme_classic2() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+
+## Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25) ------
 dat_manag_intensity_cl <- 
   dat2 %>% 
   dplyr::select(ID, cluster, manag_intensity, salvage_intensity, protection_intensity,n_plots ) %>% 
@@ -237,6 +337,7 @@ dat_manag_intensity_cl <-
   dplyr::select(cluster, management_intensity, salvage_intensity, protection_intensity, n_plots)  #%>% 
     #View()
 
+hist(dat_manag_intensity_cl$protection_intensity)
 
 
 
@@ -301,7 +402,7 @@ table(dat2$ID, dat2$Species)# YES - 7 records per plot, for each species
 
 # do analyses on teh cluster evel, but considering the all vertical layers:
 # are there any clusters without any regeneration?
-dat %>% 
+dat2 %>% 
   group_by(cluster) %>% 
   dplyr::filter(Variable == 'n') %>% # counts, not other variables
   dplyr::filter(n==1)# %>% 
@@ -534,7 +635,7 @@ df_richness %>%
 rel_density <- 
   stem_dens_ha %>% 
   ungroup(.) %>% 
-  dplyr::select(-n_subplots , -scaling_factor, -VegType, -total_stems_all_species  ) %>% 
+  dplyr::select( -scaling_factor, -VegType, -total_stems_all_species  ) %>%  # -n_subplots ,
   pivot_longer(piab:pist, 
                names_to = 'Species', 
                values_to = 'stem_dens') %>% 
@@ -545,9 +646,6 @@ rel_density <-
   mutate(sum_all = sum(sum_sp_dens, na.rm = T)) %>% # sum across all species
   mutate(rel_dens = sum_sp_dens/sum_all )
 
-
-head(dat)
-unique(dat$Variable)
 
 # dbh table: use mean values:
 # regeneration - no value, as DBH is measured at breast height
@@ -652,7 +750,7 @@ df_IVI <-
   rel_density %>% 
   full_join(df_BA, by = join_by(cluster, Species, country)) %>% # manag 
   mutate(rIVI = ( rel_dens +rel_BA)/2) %>%  # relative IVI
-  replace_na(., list(rIVI = 0, rel_BA   = 0)) 
+  tidyr::replace_na(., list(rIVI = 0, rel_BA   = 0)) 
 
 
 
@@ -664,7 +762,7 @@ df_vert <-
   dplyr::select(cluster, country,   VegType) %>%
   group_by(cluster) %>% # , manag
   distinct(.) %>% 
-  summarize(n_layers = n()) #%>% 
+  dplyr::summarize(n_layers = n()) #%>% 
 
 # amke sure that all clusters are present, add 0s oif there is no stems found
 df_vert <- merge(df_stems, df_vert, by = c("cluster"), all.x = TRUE) # 
@@ -674,7 +772,8 @@ df_vert$n_layers[is.na(df_vert$n_layers)] <- 0
 
 
 # export data: -----------------------------------------------------------------
-save(dat_manag_intensity_cl, # get the management intensity value per cluster
+save(df_individual_management,   # individual management types (0,1) per subplot 
+     dat_manag_intensity_cl, # get the management intensity value per cluster
      df_IVI,  # species importance value
      df_richness, 
      df_vert,   # number of vertical layers
