@@ -1432,17 +1432,17 @@ library(car)
 selected_data <- df_fin %>%
   dplyr::select(stem_regeneration, 
                 drought_spei12,
-                spei12,
+                #spei12,
                 tmp,  
                 prcp,
-                spei1,
+                #spei1,
                 cv_t2m,
                 cv_tp,
                 sd_grw_anm_tmp
   )
 
 # Step 2: Fit a linear model predicting stem_density
-lm_model <- lm(stem_density ~ ., data = selected_data)
+lm_model <- lm(stem_regeneration ~ ., data = selected_data)
 
 # Step 3: Run VIF to check multicollinearity
 vif_values <- vif(lm_model)
@@ -1466,6 +1466,8 @@ m1 <- gam(stem_density ~ s(spei12, k = 15),  # Factors included without s() for 
 # TW has a better fit, also can handle zero!
 # select main variables as predictors 
 predictor_vars_sub <- c(
+  "spei1",
+  "spei3",
   "spei12",
   "tmp", 
   "prcp", 
@@ -1478,6 +1480,7 @@ predictor_vars_sub <- c(
   
   # get drorught indiced : spei in 2018-2019
   "drought_spei1",
+  "drought_spei3",
   "drought_spei12",
   
   # 
@@ -1572,30 +1575,6 @@ sjPlot::tab_df(AIC_results_univariate,
 
 
 
-# correlation with dependent variable
-
-# Initialize a data frame to store results
-cor_results <- data.frame(
-  Predictor = character(),
-  Correlation = numeric(),
-  stringsAsFactors = FALSE
-)
-
-# Loop through each predictor variable
-for (predictor in predictor_vars) {
-  # Calculate correlation, handling NA values
-  cor_value <- cor(df_fin[[response_var]], df_fin[[predictor]], use = "complete.obs", method = "spearman")
-  
-  # Store the results
-  cor_results <- rbind(cor_results, data.frame(Predictor = predictor, Correlation = cor_value))
-}
-
-# Sort results by absolute correlation
-cor_results <- cor_results[order(-abs(cor_results$Correlation)), ]
-
-# Display the results
-print(cor_results)
-
 
 
 ## Models: simplify table just for stem_regeneration  ---------------------------------------------------------------------------------
@@ -1617,7 +1596,7 @@ df_stem_regeneration2 <- df_stem_regeneration2 %>%
     spei12_c = spei12 - mean(spei12, na.rm = TRUE),
     distance_edge_c = distance_edge - mean(distance_edge, na.rm = TRUE),
     disturbance_severity_c = disturbance_severity - mean(disturbance_severity, na.rm = TRUE),
-    mature_dist_severity_c = mature_dist_severity - mean(mature_dist_severity, na.rm = TRUE),
+    #mature_dist_severity_c = mature_dist_severity - mean(mature_dist_severity, na.rm = TRUE),
     clay_extract_c = clay_extract - mean(clay_extract, na.rm = TRUE),
    # av.nitro_c = av.nitro - mean(av.nitro, na.rm = TRUE),
     depth_extract_c = depth_extract - mean(depth_extract, na.rm = TRUE)#,
@@ -1646,7 +1625,9 @@ library(corrplot)
 predictors <- df_stem_regeneration2 %>%
  # dplyr::select(where(is.numeric))
   dplyr::select(prcp, tmp, spei12,
-                drought_prcp, drought_tmp, drought_spei12,
+                drought_prcp, drought_tmp, drought_spei12, 
+                drought_spei1,
+                drought_spei3,
                 sd_grw_anm_prcp,
                 sd_grw_anm_tmp,
                 tmp_z, prcp_z,
@@ -1718,6 +1699,20 @@ ggplot(df_stem_regeneration2, aes(x = country_pooled , y = disturbance_severity 
 # get stats: distnace to edge and severity typesper country
 ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity     )) +
   geom_boxplot()
+
+
+# get stats: distnace to edge and severity typesper country
+ggplot(df_stem_regeneration2, aes(x = salvage_intensity , y = stem_regeneration     )) +
+  #geom_point() +
+  geom_smooth(method = "lm", color = "blue")
+
+ggplot(df_stem_regeneration2, aes(x = management_intensity , y = stem_regeneration     )) +
+  #geom_point() +
+  geom_smooth(method = "lm", color = "blue")
+
+ggplot(df_stem_regeneration2, aes(x = protection_intensity , y = stem_regeneration     )) +
+  #geom_point() +
+  geom_smooth(method = "lm", color = "blue")
 
 
 
@@ -1871,7 +1866,25 @@ m_int_sev_edge_full_te_comb_protection <- gam(
   data = df_stem_regeneration2
 )
 
-AIC(m_int_sev_edge_full_te_comb_protection, m_int_sev_edge_full_te_comb_salvage, m_int_sev_edge_full_te_comb, m_int_sev_edge_full_te_comb_no_manag)
+
+m_protection_fixed_only <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+AIC(m_protection_fixed_only, m_fixed_only, m_int_sev_edge_full_te_comb_protection, m_int_sev_edge_full_te_comb_salvage, m_int_sev_edge_full_te_comb, m_int_sev_edge_full_te_comb_no_manag)
 
 m_int_sev_edge_full_te_comb_no_manag <- gam(
   stem_regeneration ~ 
@@ -1965,6 +1978,48 @@ AIC(m_int_sev_edge_full_te_comb_f,
     m_int_sev_edge_full_te_comb_f3,
     m_int_sev_edge_full_te_comb_f4,
     m_int_sev_edge_full_te_comb_f5)
+
+# show trends only for specific countries: SK, DE
+# Generate predicted data for all countries
+pred_data <- ggpredict(m_fixed_only, 
+                       terms = c("management_intensity [all]", "country_pooled"))
+
+# Extract significance levels from model summary
+# sig_levels <- data.frame(
+#   country = c("AT", "CH", "CZ", "DE", "FR", "PL", "SI", "SK"),
+#   p_value = c(0.764, 0.287, 0.620, 0.01059, 0.487, 0.859, 0.476, 0.0817)
+# )
+
+# Join significance information with predicted data
+# pred_data2 <- pred_data %>%
+#   left_join(sig_levels, by = c("group" = "country")) %>%
+#   as.data.frame()# %>%
+
+# pred_data2 <- pred_data2 %>% 
+#   mutate(significance = ifelse(p_value < 0.1, "solid", "dashed"))# %>% 
+
+
+# Plotting
+ggplot(pred_data, aes(x = x, y = predicted, fill = group, 
+                       color = group)) +
+  geom_line() +
+ # geom_line(aes( linetype = significance), size = 1.2) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  scale_linetype_manual(values = c("solid" = "solid", "dashed" = "dashed")) +
+  facet_wrap(.~ group)
+  labs(
+    title = "Predicted Stem Regeneration by Protection Intensity",
+    x = "Protection Intensity",
+    y = "Predicted Stem Regeneration",
+    color = "Country",
+    linetype = "Significance"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+
+
+
 
 
 # Disturbance severity: balanced design: --------------------------------
@@ -3041,7 +3096,7 @@ df_long_narrow <- df_fin %>%
                # max_grw_anm_tmp,
                 #av.nitro, 
                
-               #management_intensity,
+               management_intensity,
                salvage_intensity,
                protection_intensity,
                
@@ -3052,12 +3107,13 @@ df_long_narrow <- df_fin %>%
                 #spei1,
                 #spei6,
                 drought_spei1,
-                #drought_spei12,
+               drought_spei3,
+                drought_spei12,
                 #drought_tmp,
                 drought_prcp,
-               # disturbance_severity,
-               # distance_edge, 
-               # time_since_disturbance,
+                disturbance_severity,
+                distance_edge, 
+              #  time_since_disturbance,
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
   gather(key = "Variable", value = "Value", -adv_delayed) %>% 
@@ -3114,11 +3170,11 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
                               #outlier.size = .2,
                               outlier.shape = NA,
                               size = 0.2) +
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.signif", 
-                     #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
-                     size = 2,
-                     label.x = 1.5) +  # Position labels between the groups+
+  # stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+  #                    label = "p.format", # "p.signif", 
+  #                    #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
+  #                    size = 2,
+  #                    label.x = 1.5) +  # Position labels between the groups+
   labs(title = "",
        x = "Reg. Status", y = "Vals")+
   theme(
@@ -3135,7 +3191,7 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
   )  +
 #  p_boxplot_wilcox_narrow + 
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.format", #"p.signif", 
+                     label = "p.signif", #"p.format",  
                      size = 2, label.x = 1.5) +
   # Add mean dots
   geom_point(data = summary_stats_adv_delayed, 
