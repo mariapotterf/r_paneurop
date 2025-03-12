@@ -1857,9 +1857,9 @@ m_int_sev_edge_full_te_comb_protection <- gam(
     te(disturbance_severity, distance_edge, k = 5 ) +
     ti(prcp,tmp, k = 5 ) +
     s(protection_intensity,by = country_pooled, k = 4) + 
-    s(country_pooled, bs = "re") +
-    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
-    s(x, y),                                 # Spatial autocorrelation
+    #s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5),# +                # Macro-scale random effect
+    #s(x, y),                                 # Spatial autocorrelation
   family = tw(),
   method = 'REML',
   select = TRUE,
@@ -2129,11 +2129,14 @@ AIC(final_model, m_sd_tmp, m_int_sev_edge_full_te_comb, m2, m3)
 # store the best model for regeneration density
 #fin.m.reg.density <- m_int_sev_edge_full_te_comb     
 
-fin.m.reg.density <- m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
+fin.m.reg.density <- m_int_sev_edge_full_te_comb_protection #m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
 
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
         zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
+
+
+
 
 
 cor_matrix <- cor(df_fin %>% dplyr::select(drought_spei1, drought_spei12, tmp, prcp), use = "pairwise.complete.obs", method = "pearson")
@@ -3127,21 +3130,21 @@ unique(df_long_narrow$Variable)
 comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
 
 
-# Compute Wilcoxon effect sizes for each variable
-library(rstatix)
-
-effect_sizes <- df_long_narrow %>%
-  group_by(Variable) %>%
-  wilcox_effsize(Value ~ adv_delayed, comparisons = comparisons)
-
-# most of my effect sizes (differences between two groups) are rather small, the highest effect has drought_prcp
-# boot strap analysis: 
-
-library(boot)
-boot_effsize <- boot(data = df_long_narrow, statistic = function(data, indices) {
-  sample_data <- data[indices, ]
-  wilcox_effsize(sample_data$Value ~ sample_data$adv_delayed)
-}, R = 1000)
+# # Compute Wilcoxon effect sizes for each variable
+# library(rstatix)
+# 
+# effect_sizes <- df_long_narrow %>%
+#   group_by(Variable) %>%
+#   wilcox_effsize(Value ~ adv_delayed, comparisons = comparisons)
+# 
+# # most of my effect sizes (differences between two groups) are rather small, the highest effect has drought_prcp
+# # boot strap analysis: 
+# 
+# library(boot)
+# boot_effsize <- boot(data = df_long_narrow, statistic = function(data, indices) {
+#   sample_data <- data[indices, ]
+#   wilcox_effsize(sample_data$Value ~ sample_data$adv_delayed)
+# }, R = 1000)
 
 # Calculate mean ± SD and median ± IQR for each Variable per group
 summary_stats_adv_delayed <- df_long_narrow %>%
@@ -3229,7 +3232,7 @@ p.prcp <-   df_long_narrow %>%
             fill = "adv_delayed", 
             palette = c("#A50026", "#FDAE61", "#006837"),
             ylab = "Precipitation [mm]", 
-            xlab = "Regeneration Status",
+            xlab = "",
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
@@ -3258,7 +3261,7 @@ p.tmp <-
                    fill = "adv_delayed", 
                    palette = c("#A50026", "#FDAE61", "#006837"),
                    ylab = "Seasonal temperature [SD]", 
-                   xlab = "Regeneration Status",
+                   xlab = "",
                    outlier.shape = NA,
                    #outlier.size = .2,
                    size = 0.2) +
@@ -3285,7 +3288,7 @@ p.spei1 <-
             fill = "adv_delayed", 
             palette = c("#A50026", "#FDAE61", "#006837"),
             ylab = "SPEI-1 Drought Index [dim.]", 
-            xlab = "Regeneration Status",
+            xlab = "",
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
@@ -3306,9 +3309,42 @@ p.spei1 <-
 
 p.spei1
 
+
+
+# Example: Create individual plots
+p.manag <-   df_long_narrow %>% 
+  dplyr::filter(Variable == "management_intensity") %>% 
+  ggboxplot(x = "adv_delayed", 
+            y = "Value", 
+            fill = "adv_delayed", 
+            palette = c("#A50026", "#FDAE61", "#006837"),
+            ylab = "Management intensity [dim.]", 
+            xlab = "",
+            outlier.shape = NA,
+            #outlier.size = .2,
+            size = 0.2) +
+  stat_compare_means(comparisons = comparisons, 
+                     method = "wilcox.test", 
+                     label =  'p.format', #"p.signif",  
+                     size = 3,
+                     label.y = c(1.2, 
+                                 1.1, 
+                                 1)) +  # Standard Wilcoxon test comparison lines
+  my_theme() +
+  # Add mean dots
+  geom_point(data =  subset(summary_stats_adv_delayed, Variable == "management_intensity"), 
+             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+  coord_cartesian(ylim = c(0,1.3))  #
+
+p.manag
+
+
+
+
 # Combine all plots into a single figure
-wilcox_plot_out <- ggarrange(p.prcp, p.tmp, p.spei1,
-                        ncol = 3, nrow = 1)
+wilcox_plot_out <- ggarrange(p.prcp, p.tmp, p.spei1,p.manag,
+                        ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
 
 # Display the final merged plot
 wilcox_plot_out
@@ -3316,11 +3352,11 @@ wilcox_plot_out
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_vars.png", plot = wilcox_plot_out, 
-       device = "png", width = 7, height = 3, dpi = 300, bg = 'white')
+       device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_vars.svg", plot = wilcox_plot_out, 
-       device = "svg", width = 7, height = 3, dpi = 300, bg = 'white')
+       device = "svg", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
 
 
