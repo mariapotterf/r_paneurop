@@ -44,37 +44,50 @@ dat <- dat_raw %>%
 
 # create management based on Christians scrips;
 # get management intensity; for each plot and for each cluster: per plot, max intensity is 5, per cluster it is 25 (5*5)
-dat <- dat %>% 
-  filter(dist == TRUE) %>% # remove the plot if not disturbed
+dat2 <- dat %>% 
+  dplyr::filter(dist == TRUE) %>% # remove the plot if not disturbed
   mutate(cluster = paste(region, group, sep = '_')) %>% 
-  mutate(
+  # recode teh variables as tehy have numbers 1:3, not truie/false
+  mutate(planting = case_when(
+    planting == 1 ~ NA,       # Recode 1 to NA
+    planting == 2 ~ TRUE,     # Recode 2 to TRUE
+    planting == 3 ~ FALSE,    # Recode 3 to FALSE
+    is.na(planting) ~ NA,     # Preserve existing NA values - converrt to 0 later
+    TRUE ~ planting            # Keep other values as they are
+  )) %>% 
+  mutate(anti_browsing = case_when(
+    anti_browsing == 1 ~ NA,       # Recode 1 to NA
+    anti_browsing == 2 ~ TRUE,     # Recode 2 to TRUE
+    anti_browsing == 3 ~ FALSE,    # Recode 3 to FALSE
+    is.na(anti_browsing) ~ NA,     # Preserve existing NA values
+    TRUE ~ anti_browsing            # Keep other values as they are
+   )) %>%
+   mutate(
     logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
     clear         = ifelse(!is.na(clear) & clear == TRUE, 1, 0),
     grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
-    planting      = ifelse(!is.na(planting) & planting != 2, 1, 0),
-    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing != 2, 1, 0),
-    #manag    = case_when(
-    #  logging_trail == 1 | clear == 1 | grndwrk == 1 | planting == 1 | anti_browsing == 1 ~ 'Managed', # 'or conditions'  - if one of the management type is present, then it is managed
-    #  TRUE ~ 'Unmanaged'),  # Default case
-    manag_intensity      = logging_trail + clear + grndwrk + planting + anti_browsing,  # get management intensity: rate on cluster cluster level
+    planting      = ifelse(!is.na(planting) & planting == TRUE, 1, 0),
+    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing == TRUE, 1, 0),
+       manag_intensity      = logging_trail + clear + grndwrk + planting + anti_browsing,  # get management intensity: rate on cluster cluster level
     salvage_intensity    = logging_trail + clear + grndwrk,  # get salvage intensity: how much the site was altered by harvest?rate on cluster cluster level
     protection_intensity = planting + anti_browsing  # get were trees plantedor even fenced? rate on cluster cluster level
 )
 
-dat_manag_type <- dat %>% 
+#! complete
+dat_manag_type <- dat2 %>% 
   filter(dist == TRUE) %>% # remove the plot if not disturbed
   mutate(cluster = paste(region, group, sep = '_')) %>% 
   mutate(
     logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
     clear         = ifelse(!is.na(clear) & clear == TRUE, 1, 0),
     grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
-    planting      = ifelse(!is.na(planting) & planting != 2, 1, 0),
-    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing != 2, 1, 0)
+    planting      = ifelse(!is.na(planting) & planting == TRUE, 1, 0),
+    anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing == TRUE, 1, 0)
   )
 
 
 #View(dat_test)
-dat <- dat %>% 
+dat2 <- dat2 %>% 
   mutate(country = case_when(
     country == 11 ~ "DE",  # Germany
     country == 12 ~ "PL",  # Poland
