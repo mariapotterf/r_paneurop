@@ -62,19 +62,33 @@ dat2 <- dat %>%
     is.na(anti_browsing) ~ NA,     # Preserve existing NA values
     TRUE ~ anti_browsing            # Keep other values as they are
    )) %>%
+  mutate(windthrow = case_when(
+    windthrow == 1 ~ NA,       # Recode 1 to NA
+    windthrow == 2 ~ TRUE,     # Recode 2 to TRUE
+    windthrow == 3 ~ FALSE,    # Recode 3 to FALSE
+    is.na(windthrow) ~ NA,     # Preserve existing NA values - converrt to 0 later
+    TRUE ~ windthrow            # Keep other values as they are
+  )) %>% 
+  mutate(deadwood = case_when(
+    deadwood == 1 ~ NA,       # Recode 1 to NA
+    deadwood == 2 ~ TRUE,     # Recode 2 to TRUE
+    deadwood == 3 ~ FALSE,    # Recode 3 to FALSE
+    is.na(deadwood) ~ NA,     # Preserve existing NA values - converrt to 0 later
+    TRUE ~ deadwood            # Keep other values as they are
+  )) %>% 
    mutate(
     logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
     clear         = ifelse(!is.na(clear) & clear == TRUE, 1, 0),
     grndwrk       = ifelse(!is.na(grndwrk) & grndwrk == TRUE, 1, 0),
     planting      = ifelse(!is.na(planting) & planting == TRUE, 1, 0),
     anti_browsing = ifelse(!is.na(anti_browsing) & anti_browsing == TRUE, 1, 0),
-       manag_intensity      = logging_trail + clear + grndwrk + planting + anti_browsing,  # get management intensity: rate on cluster cluster level
+    manag_intensity      = logging_trail + clear + grndwrk + planting + anti_browsing,  # get management intensity: rate on cluster cluster level
     salvage_intensity    = logging_trail + clear + grndwrk,  # get salvage intensity: how much the site was altered by harvest?rate on cluster cluster level
     protection_intensity = planting + anti_browsing  # get were trees plantedor even fenced? rate on cluster cluster level
 )
 
 #! complete
-dat_manag_type <- dat2 %>% 
+dat_manag_individual <- dat2 %>% 
   filter(dist == TRUE) %>% # remove the plot if not disturbed
   mutate(cluster = paste(region, group, sep = '_')) %>% 
   mutate(
@@ -546,7 +560,7 @@ unique(dat$Variable)
 
 # add dbh based on teh vertical layer (colum Variable == 'dbh'), as advRegen and Regen do not have this value
 # complete teh dbh info by vertical class
-dbh_mature <- dat %>%
+dbh_mature <- dat2 %>%
   filter(VegType == 'Mature') %>% 
   filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
@@ -560,7 +574,7 @@ dbh_mature <- dat %>%
   )) %>% 
   dplyr::select(-value)
 
-dbh_mature_value <- dat %>%
+dbh_mature_value <- dat2 %>%
   filter(VegType == 'Mature') %>% 
   filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
@@ -576,7 +590,7 @@ dbh_mature_value <- dat %>%
 
   
 dbh_advanced <- 
-  dat %>%
+  dat2 %>%
   filter(VegType == 'Juveniles') %>% 
   filter(Variable == 'n') %>% 
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
@@ -587,7 +601,7 @@ dbh_advanced <-
 
 # account for the regeneration as basal area: use value of 1 mm
 dbh_regen <- 
-  dat %>%
+  dat2 %>%
   filter(VegType == 'Saplings') %>% 
   filter(Variable == 'n') %>% 
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
