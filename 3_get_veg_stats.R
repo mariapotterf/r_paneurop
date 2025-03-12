@@ -113,7 +113,7 @@ dat2 <- dat2 %>%
 
 
 #change names of veg classes
-dat <- dat %>% 
+dat2 <- dat2 %>% 
   mutate(VegType = case_when(
     VegType == "Regeneration" ~ "Saplings",  
     VegType == "advRegeneration" ~ "Juveniles",
@@ -121,7 +121,7 @@ dat <- dat %>%
     TRUE ~ NA_character_      # Fallback in case of unidentified country_id
   ))  
 
-dat <- dat %>% 
+dat2 <- dat2 %>% 
   mutate(VegType  = factor(VegType, levels = c("Mature",
                                                "Juveniles",
                                                "Saplings"
@@ -155,7 +155,7 @@ remove_sub_plots <- c('18_22_110_7' ,
 
 
 
-dat <- dat %>% 
+dat2 <- dat2 %>% 
   dplyr::filter(!ID %in% remove_sub_plots )
   
 # check n_plots per cluster
@@ -164,7 +164,7 @@ dat <- dat %>%
 
 # Create master df with empty plots - eg no trees found on them
 df_master <- 
-  dat %>% 
+  dat2 %>% 
   dplyr::select(country,region, group, cluster, point, ID) %>%  #  region, group, 
   unique() %>%  # remove duplicated rows
   group_by(country, region, group, cluster) %>%  # region, group,
@@ -192,17 +192,17 @@ cluster_6_plots
 
 # keep clusters with 4, as some disturbace plots were very small
 # remove if there is less records
-dat <- dat %>% 
+dat2 <- dat2 %>% 
   right_join(df_master, by = join_by(country, region, group, cluster)) %>%
   filter(n_plots > 3)
 
 
-length(unique(dat$cluster)) # 849
+length(unique(dat2$cluster)) # 849
 
 
 # Get management intensity on cluster level : rescaled between 0-1 (25 is 100%, eg I divide everything by 25)
 dat_manag_intensity_cl <- 
-  dat %>% 
+  dat2 %>% 
   dplyr::select(ID, cluster, manag_intensity, salvage_intensity, protection_intensity,n_plots ) %>% 
   distinct() %>% 
   group_by(cluster) %>% 
@@ -268,9 +268,9 @@ dat_manag_intensity_cl <-
 # "Species" - tree species      
 # "n"        - count by species, by vertical layer
 
-dat <- ungroup(dat)
+dat2 <- ungroup(dat2)
 # does every point has all species?
-table(dat$ID, dat$Species)# YES - 7 records per plot, for each species
+table(dat2$ID, dat2$Species)# YES - 7 records per plot, for each species
 
 
 
@@ -297,7 +297,7 @@ dat %>%
 # get data for iLand: counts, species, vertical class, dbh (for Mature trees) -----
 # sub_plot plot speces count VegType dbh
 
-dat_counts <- dat %>% 
+dat_counts <- dat2 %>% 
   dplyr::filter(Variable == 'n',
                 dist == 'TRUE') %>%
   dplyr::select(ID, VegType, Species, cluster, country, n) %>% #, manag, manag_intensity,
@@ -306,7 +306,7 @@ dat_counts <- dat %>%
 
 
 
-dat_dbh_mature <- dat %>%
+dat_dbh_mature <- dat2 %>%
   filter(VegType == 'Mature') %>% 
   filter(Variable == 'dbh' ) %>%  # & VegType == 'Survivor'
   dplyr::select(ID, VegType, Species,   cluster,  country, value) %>% 
@@ -359,7 +359,7 @@ fwrite(df_mature_dist_severity, 'outData/disturb_severity_mature.csv')
 
 # Get stem density - from vegetation matrix ------------------------------------
 veg_matrix_counts <- 
-  dat %>% 
+  dat2 %>% 
   dplyr::filter(Variable == 'n',
                 dist == 'TRUE') %>%
   dplyr::select(ID, VegType, Species, cluster, country, n) %>% #, manag, manag_intensity,
@@ -422,21 +422,6 @@ stem_dens_species_long_cluster<-
                values_to = "stem_density") #%>%  #, manag, manag_intensity
  
 
-
-
-# cluster 14_114 has less records??
-#   17_107 has many record?
-
-dat %>% 
-  filter(Variable == "n") %>% 
-  nrow()
-
-table(stem_dens_species_long_cluster$cluster, stem_dens_species_long_cluster$Species      )
-
-
-  
-
- 
 # stem density sum per vertical layer and species!
 stem_dens_ha_cluster_sum <- stem_dens_ha %>% 
   group_by(cluster,  country, VegType) %>%  #
@@ -501,7 +486,7 @@ p_dens <-plot_density %>%
 # from the original table
 
 df_richness <- 
-  dat %>%
+  dat2 %>%
   dplyr::filter(Variable == 'n') %>% # counts, not other variables
   group_by(cluster,   country, Species) %>%
   summarise(sum_counts = sum(n, na.rm = T)) %>% # sum up species accros vertical groups
