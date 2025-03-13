@@ -2137,28 +2137,13 @@ vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
 
 
 # interpret the results:  - average increase in stem density per tmp, prcp and tehir interaction -
-# Identify min and max precipitation values
-min_prcp <- 550
-max_prcp <- 1700
-mean_prcp <- mean(c(min_prcp, max_prcp))  # Average of min & max
+# Predict stem density at mean precipitation for different temperatures
+pred_mean_prcp_9 <- ggpredict(fin.m.reg.density, terms = c("prcp [mean_prcp]", "tmp [9]"))
+pred_mean_prcp_10 <- ggpredict(fin.m.reg.density, terms = c("prcp [mean_prcp]", "tmp [10]"))
 
-# Predict stem density at min & max precipitation for each temperature level
-pred_8 <- ggpredict(fin.m.reg.density, terms = c("prcp [500,1700]", "tmp [8]"))
-pred_10 <- ggpredict(fin.m.reg.density, terms = c("prcp [500,1700]", "tmp [10]"))
-
-# Extract predicted values for tmp = 8°C
-pred_8_low <- pred_8$predicted[1]   # Value at 500 mm precipitation
-pred_8_high <- pred_8$predicted[2]  # Value at 1700 mm precipitation
-
-# Extract predicted values for tmp = 10°C
-pred_10_low <- pred_10$predicted[1]   # Value at 500 mm precipitation
-pred_10_high <- pred_10$predicted[2]  # Value at 1700 mm precipitation
-
-# Calculate % increase for each temperature level
-effect_8 <- ((pred_8_high / pred_8_low) - 1) * 100
-effect_10 <- ((pred_10_high / pred_10_low) - 1) * 100
-
-
+# Calculate % increase in stem density for a 2°C increase in temperature
+temp_effect <- ((pred_mean_prcp_10$predicted[1] / pred_mean_prcp_9$predicted[1]) - 1) * 100
+temp_effect
 
 # correlation matrix
 cor_matrix <- cor(df_fin %>% dplyr::select(drought_spei1, drought_spei12, tmp, prcp), use = "pairwise.complete.obs", method = "pearson")
