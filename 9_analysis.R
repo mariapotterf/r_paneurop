@@ -2127,18 +2127,40 @@ final_model <- gam(stem_density ~ s(drought_spei1, k = 5) +
 AIC(final_model, m_sd_tmp, m_int_sev_edge_full_te_comb, m2, m3)
 
 # store the best model for regeneration density
-#fin.m.reg.density <- m_int_sev_edge_full_te_comb     
+fin.m.reg.density <- m_int_sev_edge_full_te_comb     
 
-fin.m.reg.density <- m_int_sev_edge_full_te_comb_protection #m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
+#fin.m.reg.density <- m_int_sev_edge_full_te_comb_protection #m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
 
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
         zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
 
 
+# interpret the results:  - average increase in stem density per tmp, prcp and tehir interaction -
+# Identify min and max precipitation values
+min_prcp <- 550
+max_prcp <- 1700
+mean_prcp <- mean(c(min_prcp, max_prcp))  # Average of min & max
+
+# Predict stem density at min & max precipitation for each temperature level
+pred_8 <- ggpredict(fin.m.reg.density, terms = c("prcp [500,1700]", "tmp [8]"))
+pred_10 <- ggpredict(fin.m.reg.density, terms = c("prcp [500,1700]", "tmp [10]"))
+
+# Extract predicted values for tmp = 8°C
+pred_8_low <- pred_8$predicted[1]   # Value at 500 mm precipitation
+pred_8_high <- pred_8$predicted[2]  # Value at 1700 mm precipitation
+
+# Extract predicted values for tmp = 10°C
+pred_10_low <- pred_10$predicted[1]   # Value at 500 mm precipitation
+pred_10_high <- pred_10$predicted[2]  # Value at 1700 mm precipitation
+
+# Calculate % increase for each temperature level
+effect_8 <- ((pred_8_high / pred_8_low) - 1) * 100
+effect_10 <- ((pred_10_high / pred_10_low) - 1) * 100
 
 
 
+# correlation matrix
 cor_matrix <- cor(df_fin %>% dplyr::select(drought_spei1, drought_spei12, tmp, prcp), use = "pairwise.complete.obs", method = "pearson")
 (cor_matrix)
  
@@ -2720,7 +2742,7 @@ create_dynamic_plot_title <- function(variable, formatted_p_values, model_p_valu
 # Make titles with names
 
 title_disturbance_severity  = create_dynamic_plot_title("s(disturbance_severity)", formatted_p_values, p_values)
-title_residual_mature_trees = create_dynamic_plot_title("s(residual_mature_trees)", formatted_p_values, p_values)
+#title_residual_mature_trees = create_dynamic_plot_title("s(residual_mature_trees)", formatted_p_values, p_values)
 title_distance_edge         = create_dynamic_plot_title("s(distance_edge)", formatted_p_values, p_values)
 title_interaction1          = create_dynamic_plot_title("ti(prcp,tmp)", formatted_p_values, p_values)
 
