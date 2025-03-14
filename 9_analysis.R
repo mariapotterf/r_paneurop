@@ -2129,23 +2129,109 @@ AIC(final_model, m_sd_tmp, m_int_sev_edge_full_te_comb, m2, m3)
 # store the best model for regeneration density
 fin.m.reg.density <- m_int_sev_edge_full_te_comb     
 
+summary(fin.m.reg.density)
+
 #fin.m.reg.density <- m_int_sev_edge_full_te_comb_protection #m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
 
 vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
         main = "Interaction between Precipitation and Temperature",
         zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
 
-
+plot.gam(fin.m.reg.density, page = 1)
 # interpret the results:  - average increase in stem density per tmp, prcp and tehir interaction -
 # Predict stem density at mean precipitation for different temperatures
-pred_mean_prcp_9 <- ggpredict(fin.m.reg.density, terms = c("prcp [mean_prcp]", "tmp [9]"))
-pred_mean_prcp_10 <- ggpredict(fin.m.reg.density, terms = c("prcp [mean_prcp]", "tmp [10]"))
 
-# Calculate % increase in stem density for a 2°C increase in temperature
-temp_effect <- ((pred_mean_prcp_10$predicted[1] / pred_mean_prcp_9$predicted[1]) - 1) * 100
-temp_effect
 
-# correlation matrix
+# Predict effect of temperature (per 1°C increase)
+temp_pred <- ggpredict(m_int_sev_edge_full_te_comb, terms = "tmp [7:12]")
+temp_diff <- diff(temp_pred$predicted)
+
+#Predict increase bfor TMP 
+(avg_tmp_increase <- mean(temp_diff))
+(avg_tmp <- mean(temp_pred$predicted))
+(ci_tmp_low  <- mean(temp_pred$conf.low))
+(ci_tmp_high <- mean(temp_pred$conf.high))
+(avg_percent_increase <- (avg_tmp_increase / avg_tmp) * 100)
+
+# Predict effect of precipitation (per 100mm increase)
+prcp_pred <- ggpredict(m_int_sev_edge_full_te_comb, terms = "prcp [500:1700 by=100]")
+prcp_diff <- diff(precip_pred$predicted)
+
+(avg_prcp_increase <- mean(prcp_diff))
+(avg_prcp          <- mean(prcp_pred$predicted))
+(ci_prcp_low       <- mean(prcp_pred$conf.low))
+(ci_prcp_high      <- mean(prcp_pred$conf.high))
+(avg_percent_increase <- (avg_prcp_increase / avg_prcp) * 100)
+
+# Predict interaction effect of temperature and precipitation
+interaction_pred <- ggpredict(m_int_sev_edge_full_te_comb, 
+                              terms = c("prcp [500:1700 by=100]", "tmp [8,10]"))
+
+# Separate predictions for each temperature
+pred_8 <- interaction_pred %>% filter(group == "8")
+pred_10 <- interaction_pred %>% filter(group == "10")
+
+# Calculate the slope (change in density per 100mm increase in precipitation)
+slope_8 <- diff(pred_8$predicted) / diff(pred_8$x)
+slope_10 <- diff(pred_10$predicted) / diff(pred_10$x)
+
+# Calculate the average slope for each temperature
+avg_slope_8 <- mean(slope_8)
+avg_slope_10 <- mean(slope_10)
+
+# Mean stem density values for 8°C and 10°C
+avg_stem_density_8 <- mean(pred_8$predicted)
+avg_stem_density_10 <- mean(pred_10$predicted)
+
+# Calculate the average percentage increase per 1°C
+avg_interaction_percent_change <- ((avg_slope_10 - avg_slope_8) / avg_slope_8) * 100
+
+# Display result
+cat(sprintf(
+  "On average, at 10°C, stem density increases %.2f%% faster with increasing precipitation compared to 8°C. ",
+  avg_interaction_percent_change
+))
+
+cat(sprintf(
+  "Mean stem density increased from %.0f stems/ha at 8°C to %.0f stems/ha at 10°C.\n",
+  avg_stem_density_8, avg_stem_density_10
+))
+
+
+# distrubanec severity and disturbance edge -------------------------------------
+
+# Predict interaction effect of disturbance severity and distance to edge
+disturbance_pred <- ggpredict(m_int_sev_edge_full_te_comb, 
+                              terms = c("distance_edge [50:250 by=50]", "disturbance_severity [0.3, 0.9]"))
+
+# Separate predictions for each disturbance severity value
+pred_03 <- disturbance_pred %>% filter(group == "0.3")
+pred_09 <- disturbance_pred %>% filter(group == "0.9")
+
+# Calculate the slope (change in stem density per 50m increase in distance to edge)
+slope_03 <- diff(pred_03$predicted) / diff(pred_03$x)
+slope_09 <- diff(pred_09$predicted) / diff(pred_09$x)
+
+# Mean stem density values for disturbance severity = 0.3 and 0.9
+(avg_stem_density_03 <- mean(pred_03$predicted))
+
+# Confidence intervals for average densities
+(ci_03_low  <- mean(pred_03$conf.low))
+(ci_03_high <- mean(pred_03$conf.high))
+
+(avg_stem_density_09 <- mean(pred_09$predicted))
+
+(ci_09_low  <- mean(pred_09$conf.low))
+(ci_09_high <- mean(pred_09$conf.high))
+
+
+
+
+
+
+
+
+# correlation matrix --------------------------------
 cor_matrix <- cor(df_fin %>% dplyr::select(drought_spei1, drought_spei12, tmp, prcp), use = "pairwise.complete.obs", method = "pearson")
 (cor_matrix)
  
