@@ -2142,7 +2142,7 @@ plot.gam(fin.m.reg.density, page = 1)
 # Predict stem density at mean precipitation for different temperatures
 
 
-# Predict effect of temperature (per 1°C increase)
+### Predict effect of temperature (per 1°C increase)
 temp_pred <- ggpredict(m_int_sev_edge_full_te_comb, terms = "tmp [7:12]")
 temp_diff <- diff(temp_pred$predicted)
 
@@ -2198,7 +2198,7 @@ cat(sprintf(
 ))
 
 
-# distrubanec severity and disturbance edge -------------------------------------
+### distrubanec severity and disturbance edge -------------------------------------
 
 # Predict interaction effect of disturbance severity and distance to edge
 disturbance_pred <- ggpredict(m_int_sev_edge_full_te_comb, 
@@ -2740,7 +2740,7 @@ print(moran_test)
 
 
 # Plot: Drivers  ---------------------------------------------------------------------------
-y_lab = 'Stem density [#/ha]'
+y_lab = 'Regeneration stem density\n[#/ha]'
 
 summary(fin.m.reg.density)
 
@@ -2767,56 +2767,6 @@ filtered_df_plot90 <- df_stem_regeneration2 %>%
 # Display the filtered data
 #filtered_df_plot99
 #summary(filtered_df_plot99$stem_regeneration)
-
-
-###  dynamic plot title: ad significance level---------------------------------------------
-
-# Function to extract p-values for smooth terms
-extract_p_values <- function(model) {
-  summary_table <- summary(model)$s.table
-  p_values <- summary_table[, "p-value"]
-  names(p_values) <- rownames(summary_table) # Assign variable names
-  return(p_values)
-}
-
-# Function to format p-values into significance levels or as numerical values
-format_p_value <- function(p_value) {
-  if (p_value < 0.001) {
-    return("***")
-  } else if (p_value < 0.01) {
-    return("**")
-  } else if (p_value < 0.05) {
-    return("*")
-  } else {
-    return("ns")
-  }
-}
-
-# Extract and format p-values from the model
-p_values <- extract_p_values(fin.m.reg.density)
-formatted_p_values <- sapply(p_values, format_p_value)
-
-# Function to dynamically create plot titles (without s() prefix)
-create_dynamic_plot_title <- function(variable, formatted_p_values, model_p_values) {
-  # Remove the s() prefix if present
-  clean_variable <- gsub("^s\\((.*)\\)$", "\\1", variable)
-  
-  # Check if the variable exists in formatted_p_values
-  if (!is.na(formatted_p_values[variable])) {
-    return(paste0(clean_variable, " ", formatted_p_values[variable], 
-                   round(model_p_values[variable], 3) ))
-  } else {
-    return(clean_variable)
-  }
-}
-
-# Make titles with names
-
-title_disturbance_severity  = create_dynamic_plot_title("s(disturbance_severity)", formatted_p_values, p_values)
-#title_residual_mature_trees = create_dynamic_plot_title("s(residual_mature_trees)", formatted_p_values, p_values)
-title_distance_edge         = create_dynamic_plot_title("s(distance_edge)", formatted_p_values, p_values)
-title_interaction1          = create_dynamic_plot_title("ti(prcp,tmp)", formatted_p_values, p_values)
-
 
 
 
@@ -2858,7 +2808,7 @@ p1 <-
   scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
   theme_classic() +
   labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "p<0.0001", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p=0.008", 
       # linetype =  "Temperature [°C]"
        ) +
   theme(
@@ -2890,7 +2840,7 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
                     labels = c("Low", "High")) +
   theme_classic() +
   #ylim(0,20) +
-  labs(x = "Distance to edge [m]", y = "", title = "p=0.001") +
+  labs(x = "Distance to edge [m]", y = "", title = "p=0.010") +
   theme(
     axis.title = element_text(size = 8),
     plot.title = element_text(hjust = 0.5, size = 8),       # Title size
