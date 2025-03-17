@@ -3053,7 +3053,6 @@ sjPlot::tab_model(fin.m.reg.density,
 
 
 
-
 ## Wilcox: Boxplot sites differences: delayed vs advaced ----------------------------
 
 # two categories: count how many plots i have?
@@ -3063,53 +3062,7 @@ prop.table(table(df_fin$adv_delayed))
 table(df_fin$adv_delayed)
 
 
-# Select relevant columns including 'RegenerationStatus' and the desired variables
-variables_to_plot <- c(
-  "tmp",
-  "prcp",  
-  "spei12",
-  "drought_spei12",
-  "distance_edge" , 
-  "disturbance_severity"                       
-  )
 
-# differentiate classes:
-
-# Step 2: Calculate median and IQR for each variable by regeneration status
-summary_stats_narrow <- 
-  df_fin %>%
-  na.omit() %>% 
-    dplyr::select(all_of(c(variables_to_plot, 'adv_delayed'))) %>% 
-  gather(key = "Variable", value = "Value", -adv_delayed) %>%
-  group_by(adv_delayed, Variable) %>%
-  summarise(
-    Median = median(Value, na.rm = TRUE),
-    IQR = IQR(Value, na.rm = TRUE)) %>% 
-  arrange(adv_delayed)
-print(summary_stats_narrow, n=20)
-
-  df_fin %>%
-  na.omit() %>% 
-  dplyr::select(all_of(c(variables_to_plot, 'adv_delayed'))) %>% 
-  gather(key = "Variable", value = "Value", -adv_delayed) %>%
-  group_by(Variable) %>%
-  summarise(
-    Median = median(Value, na.rm = TRUE),
-    IQR = IQR(Value, na.rm = TRUE)) 
-
-# Step 3: Create the median and IQR plot using ggplot2
-  ggplot(summary_stats_narrow, aes(x = Variable, y = Median, color = adv_delayed)) +
-    geom_point(position = position_dodge(width = 0.5), size = 3) +  # Points for median
-    geom_errorbar(aes(ymin = Median - IQR / 2, ymax = Median + IQR / 2), 
-                  width = 0.2, position = position_dodge(width = 0.5)) +  # Error bars for IQR
-    labs(title = "Median and IQR Plot for Delayed vs Advanced Regeneration",
-         x = "Variables", y = "Median and IQR") +
-    theme_classic() +
-    scale_y_continuous(labels = scales::comma) +  # Optional: Make y-axis readable
-    facet_wrap(. ~ Variable, scales = 'free') +   # Free scales for different variables
-    theme(axis.text.x = element_blank(),          # Hide x-axis text to avoid clutter
-          axis.ticks.x = element_blank(),
-          legend.title = element_blank())        # Remove legend title
 
 # get indicators for delayed/advanced: ------------------------------------------
 df_delayed_advanced <- df_fin %>% 
@@ -3153,7 +3106,7 @@ df_long_narrow <- df_fin %>%
                 #spei1,
                 #spei6,
                 drought_spei1,
-               drought_spei3,
+                drought_spei3,
                 drought_spei12,
                 #drought_tmp,
                 drought_prcp,
@@ -3167,7 +3120,33 @@ df_long_narrow <- df_fin %>%
   mutate(Variable = factor(Variable, levels = unique(Variable))) # preserve teh order of factors
 
 
-unique(df_long_narrow$Variable)
+df_long_narrow_sub <- df_fin %>%
+  na.omit() %>% 
+  dplyr::select( 
+    prcp,
+    sd_grw_anm_tmp,
+    management_intensity,
+    drought_spei1,
+    adv_delayed) %>% 
+  #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
+  gather(key = "Variable", value = "Value", -adv_delayed) %>% 
+  droplevels() %>% 
+  mutate(Variable = factor(Variable, levels = unique(Variable))) # preserve teh order of factors
+
+# Step 2: Calculate median and IQR for each variable by regeneration status
+summary_stats_narrow_sub <- df_long_narrow_sub %>%
+  na.omit() %>%
+  group_by(adv_delayed, Variable) %>%
+  summarise(
+    Mean = round(mean(Value, na.rm = TRUE), 2),
+    SD = round(sd(Value, na.rm = TRUE), 2),
+    Median = round(median(Value, na.rm = TRUE), 2),
+    IQR = round(IQR(Value, na.rm = TRUE), 2)
+  ) %>%
+  arrange(adv_delayed, Variable)
+
+print(summary_stats_narrow_sub)
+
 
 # list groups to pairwise comparison
 comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
@@ -3189,22 +3168,22 @@ comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", 
 #   wilcox_effsize(sample_data$Value ~ sample_data$adv_delayed)
 # }, R = 1000)
 
-# Calculate mean ± SD and median ± IQR for each Variable per group
+# Calculate mean ± SD and median ± IQR for each Variable per group - all variables
 summary_stats_adv_delayed <- df_long_narrow %>%
   group_by(Variable, adv_delayed) %>%
   summarise(
     Mean = mean(Value, na.rm = TRUE),
     SD = sd(Value, na.rm = TRUE),
     Median = median(Value, na.rm = TRUE),
-    IQR = IQR(Value, na.rm = TRUE),
-    Min = min(Value, na.rm = TRUE),
-    Max = max(Value, na.rm = TRUE),
-    n = n()  # Number of observations per group
+    IQR = IQR(Value, na.rm = TRUE)#,
+    #Min = min(Value, na.rm = TRUE),
+    #Max = max(Value, na.rm = TRUE),
+    #n = n()  # Number of observations per group
   ) %>%
   ungroup()
 
 
-
+summary_stats_adv_delayed
 
 
 # Plot using ggboxplot
@@ -3216,11 +3195,6 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
                               #outlier.size = .2,
                               outlier.shape = NA,
                               size = 0.2) +
-  # stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-  #                    label = "p.format", # "p.signif", 
-  #                    #label.y = label_y_positions[as.character(df_long$Variable)], # Use the calculated y positions
-  #                    size = 2,
-  #                    label.x = 1.5) +  # Position labels between the groups+
   labs(title = "",
        x = "Reg. Status", y = "Vals")+
   theme(
@@ -3264,11 +3238,11 @@ my_theme <- function() {
 }
 
 
-# make a final plot: only prcp, sd_gw_anm_prcp, sd_gw_anm_tmp, drought_spei1, drought_prcp
+## Final Wicox: ---make a final plot: only prcp, sd_gw_anm_prcp, sd_gw_anm_tmp, drought_spei1, drought_prcp
 # manually 
 
 # Example: Create individual plots
-p.prcp <-   df_long_narrow %>% 
+p.prcp <-   df_long_narrow_sub %>% 
   dplyr::filter(Variable == "prcp") %>% 
   ggboxplot(x = "adv_delayed", 
             y = "Value", 
@@ -3288,16 +3262,16 @@ p.prcp <-   df_long_narrow %>%
                                  1300)) +  # Standard Wilcoxon test comparison lines
   my_theme() +
   # Add mean dots
-  geom_point(data =  subset(summary_stats_adv_delayed, Variable == "prcp"), 
+  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "prcp"), 
              aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
   coord_cartesian(ylim = c(300,1600))  #
 
 p.prcp
 
 
 p.tmp <- 
-  df_long_narrow %>% 
+  df_long_narrow_sub %>% 
   dplyr::filter(Variable == "sd_grw_anm_tmp") %>% 
     ggboxplot(x = "adv_delayed", 
               y = "Value", 
@@ -3317,14 +3291,14 @@ p.tmp <-
                                      1.40)) + 
   my_theme() +
       # Add mean dots
-      geom_point(data =  subset(summary_stats_adv_delayed, Variable == "sd_grw_anm_tmp"), 
+      geom_point(data =  subset(summary_stats_narrow_sub, Variable == "sd_grw_anm_tmp"), 
                  aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-                 shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+                 shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
     coord_cartesian(ylim = c(1.06,1.52)) 
     
 
 p.spei1 <-
-  df_long_narrow %>% 
+  df_long_narrow_sub %>% 
   dplyr::filter(Variable == "drought_spei1") %>% 
   ggboxplot(x = "adv_delayed", 
             y = "Value", 
@@ -3344,9 +3318,9 @@ p.spei1 <-
                                  -0.8)) +  # Standard Wilcoxon test comparison lines
   my_theme() +
   # Add mean dots
-  geom_point(data =  subset(summary_stats_adv_delayed, Variable == "drought_spei1"), 
+  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "drought_spei1"), 
              aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
 
   coord_cartesian(ylim = c(-1.15,-0.65)) 
 
@@ -3355,7 +3329,7 @@ p.spei1
 
 
 # Example: Create individual plots
-p.manag <-   df_long_narrow %>% 
+p.manag <-   df_long_narrow_sub %>% 
   dplyr::filter(Variable == "management_intensity") %>% 
   ggboxplot(x = "adv_delayed", 
             y = "Value", 
@@ -3375,9 +3349,9 @@ p.manag <-   df_long_narrow %>%
                                  1)) +  # Standard Wilcoxon test comparison lines
   my_theme() +
   # Add mean dots
-  geom_point(data =  subset(summary_stats_adv_delayed, Variable == "management_intensity"), 
+  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "management_intensity"), 
              aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
+             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
   coord_cartesian(ylim = c(0,1.3))  #
 
 p.manag
