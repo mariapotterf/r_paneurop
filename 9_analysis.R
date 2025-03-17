@@ -330,7 +330,8 @@ richness_summary <- df_fin %>%
 
 # Create a stacked bar plot
 p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fill = richness_category)) +
-  geom_bar(stat = "identity", color = "black") +
+  geom_bar(stat = "identity", color = 
+             ) +
   geom_text(aes(label = paste0(round(proportion, 1), "%", '(', site_count, ')')), 
             position = position_stack(vjust = 0.5), size = 2) +  # Add percentage labels
   scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
@@ -347,6 +348,40 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
     axis.title.y = element_text(size = 8, face = "plain"),
     plot.title = element_text(size = 8, face = "plain", hjust = 0.5)
   )
+
+
+# individual managementy types: subplot level  -----------------------
+
+total_subplots <- nrow(df_individual_management)
+
+# Calculate counts and shares
+#management_types_summary <- 
+  df_individual_management %>%
+  #group_by(cluster) %>% 
+  summarise(
+    logging_trail_sites = sum(logging_trail) ,
+    planting_sites = sum(planting),
+    clear_sites = sum(clear),
+    grndwrk_sites = sum(grndwrk),
+    anti_browsing_sites = sum(anti_browsing),
+    windthrow_sites = sum(windthrow),
+    deadwood_sites = sum(deadwood)
+  ) %>%
+  mutate(
+    #total_sites = n_distinct(cluster),  # Total number of unique sites
+    logging_trail_share = logging_trail_sites / total_subplots * 100,
+    planting_share = planting_sites / total_subplots * 100,
+    clear_share = clear_sites / total_subplots * 100,
+    grndwrk_share = grndwrk_sites / total_subplots * 100,
+    anti_browsing_share = anti_browsing_sites / total_subplots * 100,
+    windthrow_share = windthrow_sites / total_subplots * 100,
+    deadwood_share = deadwood_sites / total_subplots * 100
+  )
+
+# Display results
+print(management_types_summary)
+
+
 
 
 ## vertical classes share -----------------------------------
@@ -370,7 +405,8 @@ vert_str_summary <- df_fin %>%
 # Create a stacked bar plot
 p_bar_vertical_groups <- ggplot(vert_str_summary, aes(x = 1, y = proportion, 
                                                       fill = vert_category)) +
-  geom_bar(stat = "identity", color = "black") +
+  geom_bar(stat = "identity", color = 
+             ) +
   geom_text(aes(label = paste0(round(proportion, 1), "%", '(', site_count, ')')), 
             position = position_stack(vjust = 0.5), size = 2) +  # Add percentage labels
   scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
@@ -534,7 +570,8 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
     geom = "pointrange", 
-    color = "black",  # Black outline for points
+    color = 
+      ,  # Black outline for points
     shape = 21,  # Shape 21 is a circle with a fill and border
     size = 0.5,
     linewidth = 0.2,
@@ -610,7 +647,8 @@ p_stem_density_species_cz <- df_stem_sp_sum_ordered %>%
     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
     geom = "pointrange", 
-    color = "black",  # Black outline for points
+    color = 
+      ,  # Black outline for points
     shape = 21,  # Shape 21 is a circle with a fill and border
     size = 0.5,
     linewidth = 0.2,
@@ -742,7 +780,8 @@ p_share_vertical_species <- ggplot(species_composition_sapl_juv_summary, aes(x =
   geom_bar(stat = "identity", position = "identity", alpha = 1) + # Horizontal bars
   geom_errorbarh(aes(xmin = iqr_low, xmax = iqr_high), 
                  height = 0.1, 
-                 color = "black",
+                 color = 
+                   ,
                  linewidth = 0.2) + # Add IQR error bars
   scale_x_continuous(
     labels = abs, # Show positive labels
@@ -754,7 +793,8 @@ p_share_vertical_species <- ggplot(species_composition_sapl_juv_summary, aes(x =
     y = "",
     title = ""
   ) +
-  geom_vline(xintercept = 0, linetype = "solid", color = "black", linewidth = 0.2) + #
+  geom_vline(xintercept = 0, linetype = "solid", color = 
+               , linewidth = 0.2) + #
   theme_classic(base_size = 8) +
   annotate("text", x = -60, 
            #y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
@@ -903,7 +943,8 @@ p_bar_IRQ_shaded <- stem_dens_species_long_cluster %>%
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
     geom = "bar", 
     position = position_dodge2(width = 0.2, padding = 0.2),  # Dodge for horizontal bars
-    color = "black",
+    color = 
+      ,
     orientation = "y" ,
     linewidth = 0
     #width = 0.7
@@ -915,7 +956,8 @@ p_bar_IRQ_shaded <- stem_dens_species_long_cluster %>%
     geom = "pointrange", 
     position = position_dodge2(width = 0.2, padding = 0.2),
     orientation = "y",
-  #   color = "black",  # Black outline for points
+  #   color = 
+  ,  # Black outline for points
      shape = 21,  # Shape 21 is a circle with a fill and border
      size = 0.2,
     linewidth = 0.1,
@@ -935,8 +977,10 @@ p_bar_IRQ_shaded <- stem_dens_species_long_cluster %>%
     plot.margin = margin(t = 7, r = 5, b = 5, l = 3),  # Adjust plot margins
     panel.border = element_blank(),
     panel.grid = element_blank(),
-    axis.line.x = element_line(color = "black"),
-    axis.line.y = element_line(color = "black")
+    axis.line.x = element_line(color = 
+                                 ),
+    axis.line.y = element_line(color = 
+                                 )
   ) +
   
   # Labels and formatting
@@ -961,7 +1005,8 @@ p_bar_IRQ_color_sp <- stem_dens_species_long_cluster %>%
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
     geom = "bar", 
     position = position_dodge2(padding = 0.2),  # Dodge for horizontal bars
-    color = "black",
+    color = 
+      ,
     orientation = "y" #,
     #width = 0.7
   ) +
@@ -972,7 +1017,8 @@ p_bar_IRQ_color_sp <- stem_dens_species_long_cluster %>%
     geom = "pointrange", 
     position = position_dodge2(padding = 0.2),
     orientation = "y",
-    color = "black",  # Black outline for points
+    color = 
+      ,  # Black outline for points
     shape = 21,  # Shape 21 is a circle with a fill and border
     size = 0.2,
     linewidth = 0.1,
@@ -993,8 +1039,10 @@ p_bar_IRQ_color_sp <- stem_dens_species_long_cluster %>%
     plot.margin = margin(t = 7, r = 5, b = 5, l = 7),  # Adjust plot margins
     panel.border = element_blank(),
     panel.grid = element_blank(),
-    axis.line.x = element_line(color = "black"),
-    axis.line.y = element_line(color = "black")
+    axis.line.x = element_line(color = 
+                                 ),
+    axis.line.y = element_line(color = 
+                                 )
   ) +
   
   # Labels and formatting
@@ -1115,8 +1163,10 @@ p_stem_density_error <- stem_dens_species_long_cluster %>%
     # Ensure xy lines appear only on axes
     panel.border = element_blank(),
     panel.grid = element_blank(),
-    axis.line.x = element_line(color = "black"),
-    axis.line.y = element_line(color = "black")
+    axis.line.x = element_line(color = 
+                                 ),
+    axis.line.y = element_line(color = 
+                                 )
   ) +
   labs(x = "", y = "")
 
@@ -1230,7 +1280,8 @@ p_species_distribution_country <- species_composition %>%
   geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
   geom_text(aes(label = ifelse(share >= 5, paste0(round(share, 1), ""), "")),
             position = position_stack(vjust = 0.5),  # Labels inside the bars
-            size = 3, color = "black") +  # Adjust text size and color
+            size = 3, color = 
+              ) +  # Adjust text size and color
   labs(x = "", y = "Share [%]", 
        fill = "",
        title = "") +
@@ -1648,8 +1699,10 @@ library(corrplot)
 # Plot using corrplot
 corrplot(correlation_matrix, method = "color", type = "upper",
          col = colorRampPalette(c("blue", "white", "red"))(200),
-         #addCoef.col = "black", 
-         tl.col = "black", tl.srt = 45)
+         #addCoef.col = 
+         , 
+         tl.col = 
+           , tl.srt = 45)
 
 par(mfrow = c(1, 2))
 plot(df_fin$prcp, df_fin$clim_grid)
@@ -1720,9 +1773,11 @@ ggplot(df_stem_regeneration2, aes(x = protection_intensity , y = stem_regenerati
 png("outFigs/correlation_matrix_plot.png", width = 800, height = 800, res = 300)
 plot.new()
 corrplot(correlation_matrix, method = "color", type = "upper",
-         tl.col = "black", tl.srt = 45, 
+         tl.col = 
+           , tl.srt = 45, 
          title = "Correlation Matrix of Predictors",
-         addCoef.col = "black", number.cex = 0.7)
+         addCoef.col = 
+           , number.cex = 0.7)
 dev.off()#summary(interaction_model_4)
 
 
@@ -2081,7 +2136,8 @@ hist(df_stem_regeneration2$management_intensity)
 
 # Histogram for management intensity by country
 ggplot(df_stem_regeneration2, aes(x = management_intensity)) +
-  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = 
+                   ) +
   facet_wrap(~ country_pooled, scales = "free_y") +
   labs(
     title = "Distribution of Management Intensity by Country",
@@ -2091,7 +2147,8 @@ ggplot(df_stem_regeneration2, aes(x = management_intensity)) +
   theme_minimal()
 
 ggplot(df_stem_regeneration2, aes(x = salvage_intensity)) +
-  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = 
+                   ) +
   facet_wrap(~ country_pooled, scales = "free_y") +
   labs(
     title = "Distribution of Salvage Intensity by Country",
@@ -2101,7 +2158,8 @@ ggplot(df_stem_regeneration2, aes(x = salvage_intensity)) +
 
 
 ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
-  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = 
+                   ) +
   facet_wrap(~ country_pooled, scales = "free_y") +
   labs(
     title = "Distribution of Protection Intensity by Country",
@@ -3207,7 +3265,8 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
     plot.title = element_text(size = 5),   # Plot title
     strip.background = element_blank(),    # Remove the box around facet names
     strip.placement = "outside",           # Optional: Move facet label outside the plot area
-    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
+    panel.border = element_rect(colour = 
+                                  , fill = NA, linewidth = 0.5)  # Add a square border around the plots
   )  +
 #  p_boxplot_wilcox_narrow + 
   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
@@ -3216,7 +3275,9 @@ p_boxplot_wilcox_narrow <- ggboxplot(df_long_narrow, x = "adv_delayed", y = "Val
   # Add mean dots
   geom_point(data = summary_stats_adv_delayed, 
              aes(x = adv_delayed, y = Mean, group = Variable), 
-             shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE)
+             shape = 21, fill = 
+               , color = 
+               , size = 1.5, inherit.aes = FALSE)
 
 
 p_boxplot_wilcox_narrow
@@ -3233,7 +3294,8 @@ my_theme <- function() {
     plot.title = element_text(size = 8),   # Plot title
     strip.background = element_blank(),    # Remove the box around facet names
     strip.placement = "outside",           # Move facet labels outside the plot area
-    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5)  # Add a square border around the plots
+    panel.border = element_rect(colour = 
+                                  , fill = NA, linewidth = 0.5)  # Add a square border around the plots
   )
 }
 
@@ -3461,7 +3523,8 @@ p_boxplot_wilcox_outliers <-
     strip.placement = "outside",           # Optional: Move facet label outside the plot area
     #panel.border = element_blank(),        # Remove top and right border
     panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
-    axis.line = element_line(color = "black", linewidth = 0.5)  # Add bottom and left axis lines
+    axis.line = element_line(color = 
+                               , linewidth = 0.5)  # Add bottom and left axis lines
   )
  #"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
 # Save the combined plot (optional)
@@ -3515,7 +3578,8 @@ p_boxplot_wilcox_outliers_signif <- df_long_narrow_sub %>%
     strip.background = element_blank(),    
     strip.placement = "outside",           
     panel.grid = element_blank(),          
-    axis.line = element_line(color = "black", linewidth = 0.5)  
+    axis.line = element_line(color = 
+                               , linewidth = 0.5)  
   )
 
 # Display the plot
@@ -3575,7 +3639,8 @@ p_boxplot_wilcox_outliers_signif <-   df_long_narrow %>%
     strip.placement = "outside",           # Optional: Move facet label outside the plot area
     #panel.border = element_blank(),        # Remove top and right border
     panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
-    axis.line = element_line(color = "black", linewidth = 0.5)  # Add bottom and left axis lines
+    axis.line = element_line(color = 
+                               , linewidth = 0.5)  # Add bottom and left axis lines
   )
 #"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
 # Save the combined plot (optional)
@@ -3629,7 +3694,8 @@ p_boxplot_wilcox_rm_outliers <-
     strip.placement = "outside",           # Optional: Move facet label outside the plot area
     #panel.border = element_blank(),        # Remove top and right border
     #panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
-    axis.line = element_line(color = "black", linewidth = 0.5)  # Add bottom and left axis lines
+    axis.line = element_line(color = 
+                               , linewidth = 0.5)  # Add bottom and left axis lines
   )
 #"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
 # Save the combined plot (optional)
@@ -3746,7 +3812,8 @@ p_boxplot_wilcox_rm_outliers <-
     plot.title = element_text(size = 8),   # Plot title
     strip.background = element_blank(),    # Remove the box around facet names
     strip.placement = "outside",           # Move facet label outside the plot area
-    axis.line = element_line(color = "black")  # Add bottom and left axis lines
+    axis.line = element_line(color = 
+                               )  # Add bottom and left axis lines
   )
 
 p_boxplot_wilcox_rm_outliers
@@ -4158,11 +4225,6 @@ ggplot(df_suitability_summary, aes(x = country_pooled, y = species_count, fill =
 # "#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" "#DA362A" "#A50026" 
 # get just list of unique species per country under scenarios ---------------
 
-df_species_current <- df_compare_future_species %>% 
-  dplyr::filter(current == 1) %>% 
-  dplyr::select
-
-
 
 
 
@@ -4333,7 +4395,7 @@ ggsave(
 
 
 
-
+### Summary table per country -----------------------------
 
 
 # how many plots per cpuountry does not contain any currently present species??? ---------------
@@ -4394,7 +4456,7 @@ View(species_presence_proportion)
 
 
 # Identify plots with no species presence under each RCP scenario
-#plots_no_species <- 
+plots_no_species <- 
   df_compare_future_species %>%
   group_by(site) %>%
   summarise(
@@ -4414,9 +4476,8 @@ plots_no_species
 
 
 
-# Compare presence with future scenarios: caount the number of plots that have not a single species spared between curremt and future scenarios
+# Compare presence with future scenarios: count the number of plots that have not a single species spared between curremt and future scenarios
 df_compare_future_species_summary <-
-  
   df_compare_future_species %>%
   group_by(site, country_pooled) %>%
   summarise(
@@ -4533,13 +4594,6 @@ species_comparison <- data.frame(
 # Display the data frame
 print(species_comparison)
 
-
-4/12
-x = c('a', 'b', 'c')
-y = c('a','c', 'd', 'e', 'f')
-
-sp_diff <- setdiff(x, y)
-length(sp_diff)/length(x)*100
 
 
 
