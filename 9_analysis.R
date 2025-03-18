@@ -2515,6 +2515,7 @@ print(moran_test)
 y_lab = 'Regeneration stem density\n[#/ha]'
 
 summary(fin.m.reg.density)
+anova.gam(fin.m.reg.density)
 
 # show only 95% quatile for stem density
 # Define the quantiles for stem_density and tmp columns
@@ -2644,10 +2645,7 @@ summary(df_fin$elevation)
 # Plot the first interaction
 p1 <- 
   ggplot(pred1, aes(x = x, y = predicted/1000)) +
-  # geom_point(data = filtered_df_plot99, 
-  #            aes( x = prcp, y = stem_regeneration/1000), 
-  #            size = 1, alpha = 0.2, color = 'grey') +
-  geom_line(linewidth = 1, aes(color = group) ) +
+   geom_line(linewidth = 1, aes(color = group) ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
               alpha = 0.2, color = NA) +
   scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
@@ -2671,11 +2669,6 @@ p1 <-
 p1
 # Plot the second interaction
 p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
-  # geom_jitter(data = filtered_df_plot90, 
-  #             aes( x = distance_edge, y = stem_regeneration/1000), 
-  #             size = 1, alpha = 0.2, color = 'grey',
-  #             width = 7,
-  #             height = 1) +
   geom_line(linewidth = 1, aes(color = group) ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
   scale_color_manual(values = my_colors_interaction, 
@@ -2710,7 +2703,112 @@ ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_p
        width = 6, height = 3.1, bg = 'white')
 
           
-          
+    
+
+### Plot 4 drivers: clay, edge, severity, prcp_tmp ------------------------------------------
+# Generate predictions using ggpredict
+# Interaction 1: Precipitation and Temperature
+pred_tmp_prcp   <- ggpredict(m, terms = c("prcp", "tmp [8,10]"))
+pred_dist_edge  <- ggpredict(m, terms = c("distance_edge[50:250]"))
+pred_dist_sever <- ggpredict(m, terms = c("disturbance_severity"))
+pred_clay       <- ggpredict(m, terms = c("clay_extract"))
+
+my_theme_drivers <- theme(
+  axis.title = element_text(size = 8),
+  plot.title = element_text(hjust = 0.5, size = 8),       # Title size
+  #axis.title.y = element_blank(),                   # Axis title size
+  axis.text = element_text(size = 8),                    # Axis text size
+  legend.key.size = unit(0.5, "cm"),                     # Legend key size
+  legend.text = element_text(size = 8),                  # Legend text size
+  legend.title = element_text(size = 8),                 # Legend title size
+  legend.position = c(0.05, 0.9),
+  legend.justification = c(0.05, 0.9)
+)
+
+
+# Plot the first interaction
+p1 <- 
+  ggplot(pred_tmp_prcp, aes(x = x, y = predicted/1000)) +
+  geom_line(linewidth = 1, aes(color = group) ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
+              alpha = 0.2, color = NA) +
+  scale_color_manual(values = c('grey', 'red' ), name = "Temperature [°C]") +
+  scale_fill_manual(values = c('grey', 'red' ), name = "Temperature [°C]") +
+ # theme_classic() +
+  labs(x = "Precipitation [mm]", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p=0.012", 
+       # linetype =  "Temperature [°C]"
+  ) +
+  my_theme_drivers
+
+p1
+# !!!
+# Plot the second interaction
+p2 <- ggplot(pred_dist_edge, aes(x = x, y = predicted/1000)) +
+   geom_line(linewidth = 1, color = 'grey') +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
+  # scale_color_manual(values = 'my_co, 
+  #                    name = "Disturbance\nseverity",
+  #                    labels = c("Low", "High")) +
+  # scale_fill_manual(values = my_colors_interaction, 
+  #                   name = "Disturbance\nseverity",
+  #                   labels = c("Low", "High")) +
+  # theme_classic() +
+  #ylim(0,20) +
+  labs(x = "Distance to edge [m]",  y = "Regeneration stem density [#*1000/ha]", title = "p=0.006") +
+  my_theme_drivers + 
+  theme(legend.position = 'none')
+p2
+
+# Plot the second interaction
+p3 <- ggplot(pred_dist_sever, aes(x = x, y = predicted/1000)) +
+  geom_line(linewidth = 1, color = 'grey' ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), fill = "grey", alpha = 0.2, color = NA) +
+  theme_classic() +
+ # ylim(0,15) +
+  labs(x = "Disturbance severity [%]", y = "", title = "p=0.006") +
+  my_theme_drivers + 
+  theme(legend.position = 'none')
+p3
+
+
+# Plot the second interaction
+p4 <- ggplot(pred_clay, aes(x = x, y = predicted/1000)) +
+  geom_line(linewidth = 1, color = "grey" ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000),  fill = "grey", alpha = 0.2, color = NA) +
+  scale_color_manual(values = my_colors_interaction, 
+                     name = "",
+                     labels = c("Low", "High")) +
+  scale_fill_manual(values = my_colors_interaction, 
+                    name = "",
+                    labels = c("Low", "High")) +
+  theme_classic() +
+  #ylim(0,20) +
+  labs(x = "Clay content [%]", y = "", title = "p=0.006") +
+  my_theme_drivers + 
+  theme(legend.position = 'none')
+p4
+
+
+
+
+p_combined_int_no_points <- ggarrange(p1, p4, p2, p3,
+                                      labels = c("[a]","[b]", "[c]","[d]"), 
+                                      align = 'hv',
+                                      font.label = list(size = 8, face = "plain")) # Specify plain font style)
+
+p_combined_int_no_points
+
+# Save the combined plot
+ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_points, 
+       width = 5.5, height = 5.5, bg = 'white')
+
+
+
+
+
+
+      
 # check difference between groups : resiidual mature tree cover    ----------------- 
 # presence - absence, to have enought samples in each group
 df_fin %>% 
