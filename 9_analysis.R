@@ -1866,6 +1866,95 @@ m_int_sev_edge_full_te_comb <- gam(
   data = df_stem_regeneration2
 )
 
+# add soil predictors
+m_int_sev_edge_full_te_comb_soil <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+
+)
+
+m_int_sev_edge_full_te_comb_soil1 <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    #te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_soil_protect <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    #te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(protection_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+
+
+
+
+m_fixed_soil <-  gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(management_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+AIC(m_int_sev_edge_full_te_comb_soil,m_int_sev_edge_full_te_comb_soil1, m_int_sev_edge_full_te_comb, m_fixed_soil)
+
+
+
+
 ## understand explained variance: fiexed vs random ---------------------
 m_fixed_only <- gam(
   stem_regeneration ~ 
@@ -2073,7 +2162,19 @@ ggplot(pred_data, aes(x = x, y = predicted, fill = group,
   theme(legend.position = "top")
 
 
+  # quick plotting
+m<- m_int_sev_edge_full_te_comb_soil1
+clay_effect <- ggpredict(m, terms = "clay_extract")
+dist_edge_effect <- ggpredict(m, terms = c("distance_edge"))
+dist_sev_effect <- ggpredict(m, terms = c("disturbance_severity"))
+tmp_prcp_effect <- ggpredict(m, terms = c("prcp", "tmp[8,10]"))
+manag_effect <- ggpredict(m, terms = c("management_intensity", "country_pooled[DE]"))
 
+
+plot(clay_effect)
+plot(dist_sev_effect)
+plot(tmp_prcp_effect)
+plot(manag_effect)
 
 
 
@@ -3457,7 +3558,8 @@ p.protection
 
 
 # Example: Create individual plots
-p.clay <-   df_long_narrow_sub %>% 
+#p.clay <-   
+  df_long_narrow_sub %>% 
   dplyr::filter(Variable == "clay_extract") %>% 
   ggboxplot(x = "adv_delayed", 
             y = "Value", 
@@ -3472,32 +3574,32 @@ p.clay <-   df_long_narrow_sub %>%
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
-                     label.y = c(1.2, 
-                                 1.1, 
-                                 1)) +  # Standard Wilcoxon test comparison lines
+                     label.y = c(42, 
+                                 38, 
+                                 35)) +  # Standard Wilcoxon test comparison lines
   my_theme() +
   # Add mean dots
   geom_point(data =  subset(summary_stats_narrow_sub, Variable == "clay_extract"), 
              aes(x = adv_delayed, y = Mean, group = adv_delayed), 
              shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(0,1.3))  #
+  coord_cartesian(ylim = c(0,45))  #
 
-p.protection
+p.clay
 
 # Combine all plots into a single figure
-wilcox_plot_out <- ggarrange(p.prcp, p.tmp, p.spei1,p.manag,
+wilcox_plot_out_manag <- ggarrange(p.prcp, p.tmp, p.spei1,p.manag,
                         ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
 
 # Display the final merged plot
-wilcox_plot_out
+wilcox_plot_out_manag
 
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars.png", plot = wilcox_plot_out, 
+ggsave(filename = "outFigs/wilcox_vars_manag.png", plot = wilcox_plot_out_manag, 
        device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars.svg", plot = wilcox_plot_out, 
+ggsave(filename = "outFigs/wilcox_vars_manag.svg", plot = wilcox_plot_out_manag, 
        device = "svg", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
 
@@ -3508,8 +3610,19 @@ wilcox_plot_out_protection<- ggarrange(p.prcp, p.tmp, p.spei1,p.protection,
                              ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars.png", plot = wilcox_plot_out_protection, 
+ggsave(filename = "outFigs/wilcox_vars_protection.png", plot = wilcox_plot_out_protection, 
        device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
+
+
+# alternative Wilcopx with protection intensity
+# Combine all plots into a single figure
+wilcox_plot_out_6<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, p.manag, p.protection,
+                                       ncol = 3, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]'), 
+                              font.label = list(size = 8, face = "plain"))
+
+# Save the plot as an SVG file
+ggsave(filename = "outFigs/wilcox_vars6.png", plot = wilcox_plot_out_6, 
+       device = "png", width = 7, height = 5.5, dpi = 300, bg = 'white')
 
 
 
