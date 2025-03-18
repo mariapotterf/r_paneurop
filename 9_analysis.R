@@ -1925,6 +1925,24 @@ m_soil_protect <- gam(
   data = df_stem_regeneration2
 )
 
+m_soil_protect_int <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    s(protection_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
 
 
 
@@ -1950,7 +1968,8 @@ m_fixed_soil <-  gam(
 )
 
 
-AIC(m_int_sev_edge_full_te_comb_soil,m_int_sev_edge_full_te_comb_soil1, m_int_sev_edge_full_te_comb, m_fixed_soil)
+AIC(m_int_sev_edge_full_te_comb_soil,m_int_sev_edge_full_te_comb_soil1, m_int_sev_edge_full_te_comb, m_fixed_soil, m_soil_protect,
+    m_soil_protect_int)
 
 
 
@@ -2163,15 +2182,16 @@ ggplot(pred_data, aes(x = x, y = predicted, fill = group,
 
 
   # quick plotting
-m<- m_int_sev_edge_full_te_comb_soil1
+m<- m_soil_protect_int
 clay_effect <- ggpredict(m, terms = "clay_extract")
 dist_edge_effect <- ggpredict(m, terms = c("distance_edge"))
 dist_sev_effect <- ggpredict(m, terms = c("disturbance_severity"))
 tmp_prcp_effect <- ggpredict(m, terms = c("prcp", "tmp[8,10]"))
-manag_effect <- ggpredict(m, terms = c("management_intensity", "country_pooled[DE]"))
+manag_effect <- ggpredict(m, terms = c("protection_intensity", "country_pooled[DE]"))
 
 
 plot(clay_effect)
+plot(dist_edge_effect)
 plot(dist_sev_effect)
 plot(tmp_prcp_effect)
 plot(manag_effect)
