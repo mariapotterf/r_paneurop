@@ -1796,43 +1796,11 @@ AIC(m_fixed_soil,m_soil_protect )
 summary(m_fixed_soil)
 summary(m_soil_protect)
 
+# save teh best model
+fin.m.reg.density <- m_fixed_soil
 
 
-# Extract significance levels from model summary
-# sig_levels <- data.frame(
-#   country = c("AT", "CH", "CZ", "DE", "FR", "PL", "SI", "SK"),
-#   p_value = c(0.764, 0.287, 0.620, 0.01059, 0.487, 0.859, 0.476, 0.0817)
-# )
-
-# Join significance information with predicted data
-# pred_data2 <- pred_data %>%
-#   left_join(sig_levels, by = c("group" = "country")) %>%
-#   as.data.frame()# %>%
-
-# pred_data2 <- pred_data2 %>% 
-#   mutate(significance = ifelse(p_value < 0.1, "solid", "dashed"))# %>% 
-
-
-# Plotting
-ggplot(pred_data, aes(x = x, y = predicted, fill = group, 
-                       color = group)) +
-  geom_line() +
- # geom_line(aes( linetype = significance), size = 1.2) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
-  scale_linetype_manual(values = c("solid" = "solid", "dashed" = "dashed")) +
-  facet_wrap(.~ group)
-  labs(
-    title = "Predicted Stem Regeneration by Protection Intensity",
-    x = "Protection Intensity",
-    y = "Predicted Stem Regeneration",
-    color = "Country",
-    linetype = "Significance"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "top")
-
-
-  # quick plotting
+# quick plotting ---------------------------
 m<- m_soil_protect_int
 clay_effect <- ggpredict(m, terms = "clay_extract")
 dist_edge_effect <- ggpredict(m, terms = c("distance_edge"))
@@ -1850,6 +1818,63 @@ plot(tmp_prcp_effect)
 plot(manag_effect)
 
 
+
+## export final drivers model: only fixed effectd  -----------------------------------------------------------------
+
+# Identify random effects using the model's "smooth" component
+smooth_terms <- summary(fin.m.reg.density)$s.table
+
+# Extract the smooth terms labels and check which ones are random effects
+random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
+
+# Create a function to automatically label the terms in the summary output
+create_labels <- function(term) {
+  if (term %in% random_effects_labels) {
+    return(paste(term, "(Random Effect)"))
+  } else {
+    return(term)
+  }
+}
+
+# Apply the labeling function
+pred_labels <- sapply(rownames(smooth_terms), create_labels)
+
+# Display the tab_model with automatic labeling
+sjPlot::tab_model(fin.m.reg.density,
+                  show.re.var = TRUE,        # Show the variance components
+                  #show.icc = TRUE,           # Show Intraclass Correlation Coefficient
+                  #show.dev = TRUE,           # Show deviance
+                  pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
+                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.reg.density)$dev.expl, 2), "%"), 
+                  file = "outTable/full_drivers_reg_stem_density_fixed.doc")
+
+
+#### with random effects ------------------
+
+# Identify random effects using the model's "smooth" component
+smooth_terms <- summary(m_soil_protect)$s.table
+
+# Extract the smooth terms labels and check which ones are random effects
+random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
+
+# Create a function to automatically label the terms in the summary output
+create_labels <- function(term) {
+  if (term %in% random_effects_labels) {
+    return(paste(term, "(Random Effect)"))
+  } else {
+    return(term)
+  }
+}
+
+# Apply the labeling function
+pred_labels <- sapply(rownames(smooth_terms), create_labels)
+
+# Display the tab_model with automatic labeling
+sjPlot::tab_model(m_soil_protect,
+                  show.re.var = TRUE,        # Show the variance components
+                  pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
+                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.reg.density)$dev.expl, 2), "%"), 
+                  file = "outTable/full_drivers_reg_stem_density_full_random.doc")
 
 # Disturbance severity: balanced design: --------------------------------
 hist(df_stem_regeneration2$disturbance_severity)
@@ -2391,7 +2416,7 @@ p1 <-
   my_theme_drivers
 
 p1
-# !!!
+
 # Plot the second interaction
 p2 <- ggplot(pred_dist_edge, aes(x = x, y = predicted/1000)) +
    geom_line(linewidth = 1, color = 'grey') +
@@ -2524,35 +2549,6 @@ fisher_test_combined <- fisher.test(table_data_combined)
 fisher_test_combined
 
 
-
-# export final drivers model -----------------------------------------------------------------
-
-# Identify random effects using the model's "smooth" component
-smooth_terms <- summary(fin.m.reg.density)$s.table
-
-# Extract the smooth terms labels and check which ones are random effects
-random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
-
-# Create a function to automatically label the terms in the summary output
-create_labels <- function(term) {
-  if (term %in% random_effects_labels) {
-    return(paste(term, "(Random Effect)"))
-  } else {
-    return(term)
-  }
-}
-
-# Apply the labeling function
-pred_labels <- sapply(rownames(smooth_terms), create_labels)
-
-# Display the tab_model with automatic labeling
-sjPlot::tab_model(fin.m.reg.density,
-                  show.re.var = TRUE,        # Show the variance components
-                  #show.icc = TRUE,           # Show Intraclass Correlation Coefficient
-                  #show.dev = TRUE,           # Show deviance
-                  pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
-                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.reg.density)$dev.expl, 2), "%"), 
-                  file = "outTable/full_drivers_reg_stem_density.doc")
 
 
 
