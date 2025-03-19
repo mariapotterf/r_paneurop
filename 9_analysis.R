@@ -1585,64 +1585,6 @@ plot(df_fin$prcp, df_fin$clim_grid)
 plot(df_fin$tmp, df_fin$clim_grid )
 dev.off()
 
-# understand teh one to one relationship --------------
-
-ggplot(df_stem_regeneration2, aes(x = drought_spei12, y = stem_regeneration     )) +
-  geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-ggplot(df_stem_regeneration2, aes(x = sd_grw_anm_tmp, y = stem_regeneration     )) +
-  geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-ggplot(df_stem_regeneration2, aes(x = clay_extract, y = stem_regeneration     )) +
-  geom_point() +
-  geom_smooth(method = "loess", color = "blue")
-
-ggplot(df_stem_regeneration2, aes(x = cv_t2m, y = stem_regeneration     )) +
-  geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-# tmp_z is anomaly over whole year
-ggplot(df_stem_regeneration2, aes(x = tmp_z, y = stem_regeneration     )) +
-  geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-
-ggplot(df_stem_regeneration2, aes(x = max_grw_anm_tmp, y = stem_regeneration     )) +
-  geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-ggplot(df_stem_regeneration2, aes(x = median_grw_anm_prcp, y = stem_regeneration     )) +
-  geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-# get stats: distnace to edge and severity typesper country
-ggplot(df_stem_regeneration2, aes(x = country_pooled , y = distance_edge     )) +
-  geom_boxplot()
-  
-# get stats: distnace to edge and severity typesper country
-ggplot(df_stem_regeneration2, aes(x = country_pooled , y = disturbance_severity     )) +
-  geom_boxplot()
-
-# get stats: distnace to edge and severity typesper country
-ggplot(df_stem_regeneration2, aes(x = country_pooled , y = mature_dist_severity     )) +
-  geom_boxplot()
-
-
-# get stats: distnace to edge and severity typesper country
-ggplot(df_stem_regeneration2, aes(x = salvage_intensity , y = stem_regeneration     )) +
-  #geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-ggplot(df_stem_regeneration2, aes(x = management_intensity , y = stem_regeneration     )) +
-  #geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
-ggplot(df_stem_regeneration2, aes(x = protection_intensity , y = stem_regeneration     )) +
-  #geom_point() +
-  geom_smooth(method = "lm", color = "blue")
-
 
 
 # Export as a PNG
