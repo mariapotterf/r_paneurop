@@ -1951,13 +1951,13 @@ m_soil_protect_int <- gam(
 m_fixed_soil <-  gam(
   stem_regeneration ~ 
     s(prcp, k = 5) + s(tmp, k = 5) +
-    #s(distance_edge, k = 5) +
-    #s(disturbance_severity, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
     s(clay_extract, k = 5) +
     s(av.nitro, k = 5) +
-    te(disturbance_severity, distance_edge, k = 5 ) +
+    #te(disturbance_severity, distance_edge, k = 5 ) +
     ti(prcp,tmp, k = 5 ) +
-    s(management_intensity,by = country_pooled, k = 4) + 
+    s(protection_intensity,by = country_pooled, k = 4) + 
     #s(country_pooled, bs = "re") +
     #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
     s(x, y),                                 # Spatial autocorrelation
@@ -1973,6 +1973,10 @@ AIC(m_int_sev_edge_full_te_comb_soil,m_int_sev_edge_full_te_comb_soil1,
     m_soil_protect,
     m_soil_protect_int)
 
+
+AIC(m_fixed_soil,m_soil_protect )
+summary(m_fixed_soil)
+summary(m_soil_protect)
 
 
 
@@ -2310,7 +2314,7 @@ final_model <- gam(stem_density ~ s(drought_spei1, k = 5) +
 AIC(final_model, m_sd_tmp, m_int_sev_edge_full_te_comb, m2, m3)
 
 # store the best model for regeneration density
-fin.m.reg.density <- m_soil_protect #m_int_sev_edge_full_te_comb     
+fin.m.reg.density <- m_fixed_soil #m_soil_protect #m_int_sev_edge_full_te_comb     
 
 summary(fin.m.reg.density)
 
@@ -2325,7 +2329,7 @@ plot.gam(fin.m.reg.density, page = 1)
 # Predict stem density at mean precipitation for different temperatures
 
 
-### Predict effect of temperature (per 1°C increase)
+### Predict effect of temperature (per 1°C increase)------------------
 temp_pred <- ggpredict(m_int_sev_edge_full_te_comb, terms = "tmp [7:12]")
 temp_diff <- diff(temp_pred$predicted)
 
@@ -2736,7 +2740,7 @@ p1 <-
   scale_fill_manual(values = c('grey', 'red' ), name = "Temperature [°C]") +
  # theme_classic() +
   labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "p=0.012", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p=0.006", 
        # linetype =  "Temperature [°C]"
   ) +
   my_theme_drivers
@@ -2747,14 +2751,6 @@ p1
 p2 <- ggplot(pred_dist_edge, aes(x = x, y = predicted/1000)) +
    geom_line(linewidth = 1, color = 'grey') +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
-  # scale_color_manual(values = 'my_co, 
-  #                    name = "Disturbance\nseverity",
-  #                    labels = c("Low", "High")) +
-  # scale_fill_manual(values = my_colors_interaction, 
-  #                   name = "Disturbance\nseverity",
-  #                   labels = c("Low", "High")) +
-  # theme_classic() +
-  #ylim(0,20) +
   labs(x = "Distance to edge [m]",  y = "Regeneration stem density [#*1000/ha]", title = "p=0.006") +
   my_theme_drivers + 
   theme(legend.position = 'none')
@@ -2766,7 +2762,7 @@ p3 <- ggplot(pred_dist_sever, aes(x = x, y = predicted/1000)) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), fill = "grey", alpha = 0.2, color = NA) +
   theme_classic() +
  # ylim(0,15) +
-  labs(x = "Disturbance severity [%]", y = "", title = "p=0.006") +
+  labs(x = "Disturbance severity [%]", y = "", title = "p=0.004") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p3
@@ -2776,15 +2772,10 @@ p3
 p4 <- ggplot(pred_clay, aes(x = x, y = predicted/1000)) +
   geom_line(linewidth = 1, color = "grey" ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000),  fill = "grey", alpha = 0.2, color = NA) +
-  scale_color_manual(values = my_colors_interaction, 
-                     name = "",
-                     labels = c("Low", "High")) +
-  scale_fill_manual(values = my_colors_interaction, 
-                    name = "",
-                    labels = c("Low", "High")) +
   theme_classic() +
+  scale_y_continuous(breaks = seq(5, 15, 5)) +
   #ylim(0,20) +
-  labs(x = "Clay content [%]", y = "", title = "p=0.006") +
+  labs(x = "Clay content [%]", y = "", title = "p=0.004") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p4
@@ -2806,9 +2797,6 @@ ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_p
 
 
 
-
-
-      
 # check difference between groups : resiidual mature tree cover    ----------------- 
 # presence - absence, to have enought samples in each group
 df_fin %>% 
