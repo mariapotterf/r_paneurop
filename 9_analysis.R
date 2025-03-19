@@ -573,10 +573,6 @@ print(p_stem_density_species)
 
 
 
-
-
-
-
 ## get % of stems per saplings/juveniles -----------------------------------------
 # Summarize the total stem density per species 
 species_composition_sapl_juv <- stem_dens_species_long_cluster %>%
@@ -1533,22 +1529,6 @@ df_stem_regeneration2 <- df_fin %>%
                          
                          "country_pooled","region", "region_manual", "clim_grid",  "x", "y")))
 
-
-# Centering the variables in your data frame
-# Centering all relevant continuous variables in your data frame
-df_stem_regeneration2 <- df_stem_regeneration2 %>%
-  mutate(
-    prcp_c = prcp - mean(prcp, na.rm = TRUE),
-    tmp_c = tmp - mean(tmp, na.rm = TRUE),
-    spei12_c = spei12 - mean(spei12, na.rm = TRUE),
-    distance_edge_c = distance_edge - mean(distance_edge, na.rm = TRUE),
-    disturbance_severity_c = disturbance_severity - mean(disturbance_severity, na.rm = TRUE),
-    #mature_dist_severity_c = mature_dist_severity - mean(mature_dist_severity, na.rm = TRUE),
-    clay_extract_c = clay_extract - mean(clay_extract, na.rm = TRUE),
-   # av.nitro_c = av.nitro - mean(av.nitro, na.rm = TRUE),
-    depth_extract_c = depth_extract - mean(depth_extract, na.rm = TRUE)#,
-    #management_intensity_c = management_intensity - mean(management_intensity, na.rm = TRUE)
-  )
 
 summary(df_stem_regeneration2)
 
