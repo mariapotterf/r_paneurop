@@ -326,7 +326,7 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
 total_subplots <- nrow(df_individual_management)
 
 # Calculate counts and shares
-#management_types_summary <- 
+management_types_summary <- 
   df_individual_management %>%
   #group_by(cluster) %>% 
   summarise(
@@ -574,81 +574,6 @@ print(p_stem_density_species)
 
 
 
-### !!!get the species density plot for Czechia -------------
-
-df_cz <- df_stem_sp_sum[grep("15_|26_", df_stem_sp_sum$cluster), ]
-
-
-# Calculate median for each species and reorder the factor levels
-df_stem_sp_sum_ordered <- df_cz %>%
-  #dplyr::filter(cou)
-  dplyr::filter(sum_stem_density >0) %>% 
-  dplyr::filter(Species %in% top_species_site_share_cz$Species ) %>%  #top_species_overall
-  dplyr::group_by(Species) %>%
-  dplyr::mutate(median_stem_density = median(sum_stem_density, na.rm = TRUE)) %>% 
-  dplyr::ungroup() %>%
-  mutate(Species = factor(Species, levels = rev(top_species_site_share_cz$Species))) # Set custom order
-# dplyr::mutate(Species = reorder(Species, median_stem_density))  # Reorder species by median stem density
-
-# Add a log-transformed column for sum_stem_density
-df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
-  mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
-
-
-df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>% 
-  group_by(Species) %>% 
-  mutate(median_value = median(log_sum_stem_density, na.rm = TRUE)) %>% 
-  arrange(desc(median_value)) %>% 
-  ungroup()
-
-
-
-p_stem_density_species_cz <- df_stem_sp_sum_ordered %>%
-  ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
-  geom_density_ridges(
-    aes(fill = Species), 
-    alpha = 1, 
-    color = 'NA', 
-    scale = 0.9 # Adjust the vertical scale of the ridges
-  ) +
- # scale_fill_manual(values = species_colors) +
-  stat_summary(
-    aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
-    fun = median, 
-    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-    geom = "pointrange", 
-    color = 
-      ,  # Black outline for points
-    shape = 21,  # Shape 21 is a circle with a fill and border
-    size = 0.5,
-    linewidth = 0.2,
-    stroke = 0.2,
-    position = position_nudge(y = 0.2)  # No vertical nudge for alignment
-  ) +
-  theme_classic() +
-  labs(
-    title = "",
-    x = "Stem density\n(log10) [#/ha]",
-    y = ""
-  ) +
-  scale_x_continuous(
-    labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
-  ) +
-  
-  scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) + # Adjust y-axis padding
-  theme_classic(base_size = 8) +
-  theme(
-    axis.text = element_text(size = 8),    # Axis tick labels
-    axis.title = element_text(size = 8),   # Axis titles
-    panel.grid.minor = element_blank(),    # Remove minor grid lines
-    legend.position = 'none'               # Hide the legend
-  )
-
-# Print the plot
-print(p_stem_density_species_cz)
-
-# CZEchia stem density end ----
 
 
 
