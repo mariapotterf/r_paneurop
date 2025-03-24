@@ -2277,7 +2277,7 @@ filtered_df_plot90 <- df_stem_regeneration2 %>%
 
 
 
-# make plot manually:  --------------------------
+## DRivers effect plorts make plot manually:  --------------------------
 
 m <- fin.m.reg.density #m_int_sev_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
 k.check(m)
@@ -2523,6 +2523,71 @@ p_combined_int_no_points
 # Save the combined plot
 ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_points, 
        width = 5.5, height = 5.5, bg = 'white')
+
+
+
+#START  plot for each country --------------
+
+
+# Generate predictions for protection_intensity by country
+pred_protection_country <- ggpredict(m, terms = c("protection_intensity", "country_pooled"))
+pred_protection_country <- as.data.frame(pred_protection_country)
+
+# Identify significance to assign line types
+significant_countries <- c("DE", "SK")  # Based on your summary
+pred_protection_country <- pred_protection_country %>%
+  mutate(line_type = ifelse(group %in% significant_countries, "p <0.05", "n.s.")) %>% 
+  mutate(group = case_when(
+    group == "DE" ~ "DE",
+    group == "SK" ~ "SK",
+    line_type == "n.s." ~ "Others"
+  )) %>%
+  group_by(group, x) %>%
+  summarise(
+    predicted = mean(predicted, na.rm = TRUE),
+    conf.low = mean(conf.low, na.rm = TRUE),
+    conf.high = mean(conf.high, na.rm = TRUE)
+  ) %>%
+  ungroup() %>% 
+  mutate(group = factor(group, levels = c("DE", "SK", "Others")))
+
+
+
+# Create the plot
+p_protection_country <- 
+  ggplot(pred_protection_country, aes(x = x, y = predicted / 1000, 
+                                            color = group, linetype = group)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = conf.low / 1000, ymax = conf.high / 1000, fill = group), 
+              alpha = 0.2, color = NA) +
+    scale_color_manual(values = c('darkgreen', 'lightgreen', 'grey'), name = "Country") +
+    scale_fill_manual(values = c('darkgreen', 'lightgreen', 'grey'), name = "Country") +
+    scale_linetype_manual(values = c("solid", "solid", "dashed"), name = 'Country') +
+     labs(x = "Protection Intensity", 
+       y = "", 
+       title = "") +
+  my_theme_drivers + 
+    theme(legend.position = c(0.05, 0.9),
+          legend.justification = c(0.05, 0.9))
+
+p_protection_country
+
+p_combined_int_no_points_supplement <- ggarrange(p1, p4,  p3, p2,p_protection_country,ncol = 3, nrow = 2,
+                                      labels = c("[a]","[b]", "[c]","[d]", "[e]"), 
+                                      align = 'hv',
+                                      font.label = list(size = 8, face = "plain")) # Specify plain font style)
+
+p_combined_int_no_points_supplement
+
+# Save the combined plot
+ggsave('outFigs/fig_regen_int_drivers_supplement.png', plot = p_combined_int_no_points_supplement, 
+       width = 7, height = 5, bg = 'white')
+
+
+
+
+
+# END 
 
 
 
@@ -3109,7 +3174,7 @@ wilcox_plot_supplement<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, p.manag, p.pr
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_supplement, 
-       device = "png", width = 7, height = 5.5, dpi = 300, bg = 'white')
+       device = "png", width = 6.5, height = 4, dpi = 300, bg = 'white')
 
 
 
