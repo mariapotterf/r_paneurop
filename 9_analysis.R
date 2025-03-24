@@ -1366,8 +1366,67 @@ df_fin <- df_fin %>%
 df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
 
 
+## STem density : saplings vs juvemniles ------------------
+head(df_fin)
+
+# get sapling: juvenile ration:
+df_fin$sapl_juv_ratio = (df_fin$sum_stems_sapling+1)/(df_fin$sum_stems_juvenile+1)
+
+# interpretation: 
+#Ratio > 1: More saplings than juveniles → Common in early succession stages or following intense regeneration pulses.
+#Ratio ≈ 1: Balanced regeneration → Suggests successful recruitment into the juvenile stage.
+#Ratio < 1: More juveniles than saplings → May indicate declining recruitment or older forest stages.
+
+hist(df_fin$sapl_juv_ratio)
+View(df_fin)
+
+df_check <- df_fin %>% 
+  dplyr::select(site, sum_stems_sapling, sum_stems_juvenile, sapl_juv_ratio, adv_delayed, 
+                distance_edge, disturbance_severity) %>% 
+  mutate(log_saplings = log(sum_stems_sapling + 1),   # Adding +1 to handle zeros
+         log_juveniles = log(sum_stems_juvenile + 1)) # Same for juveniles
+
+View(df_check)
+
+df_check %>% 
+  ggplot(aes(x = adv_delayed, y = sapl_juv_ratio)) +
+  geom_boxplot()
 
 
+df_check %>% 
+  ggplot(aes(x = log_saplings, y = log_juveniles, color = adv_delayed)) +
+  geom_point() +geom_smooth(method = 'loess')
+
+# distance_edge
+df_check %>% 
+  ggplot(aes(x = distance_edge, y = log_saplings, color = adv_delayed)) +
+  geom_point() +geom_smooth(method = 'loess')
+
+
+df_check %>% 
+  ggplot(aes(x = distance_edge, y = log_juveniles, color = adv_delayed)) +
+  geom_point() +geom_smooth(method = 'loess')
+
+
+# disturbanec severity: saplings vs juveniles
+df_check %>% 
+  ggplot(aes(x = disturbance_severity, y = log_saplings, color = adv_delayed)) +
+  geom_point() +geom_smooth(method = 'loess')
+
+
+df_check %>% 
+  ggplot(aes(x = disturbance_severity, y = log_juveniles, color = adv_delayed)) +
+  geom_point() +geom_smooth(method = 'loess')
+
+
+
+
+
+df_check %>% 
+  ggplot(aes(x = sum_stems_sapling, y = sum_stems_juvenile, color = adv_delayed)) +
+  geom_point() +geom_smooth(method = 'lm') +
+  facet_wrap(.~adv_delayed, scales = 'free_y')
+  
 
 #### check for multicollinearity -----------------------------------------------------
 
@@ -1444,6 +1503,7 @@ predictor_vars_sub <- c(
   
   "clay_extract", 
   "depth_extract", 
+  "sapl_juv_ratio", 
    
    # site info
   "av.nitro",
@@ -2552,7 +2612,7 @@ fisher_test_combined
 
 
 
-## Wilcox: Boxplot sites differences: delayed vs advaced ----------------------------
+## 6. Wilcox: Boxplot sites differences: delayed vs advaced ----------------------------
 
 # two categories: count how many plots i have?
 
@@ -2601,7 +2661,7 @@ df_long_narrow <- df_fin %>%
                management_intensity,
                salvage_intensity,
                protection_intensity,
-               
+              # sapl_juv_ratio,
                 #cv_t2m, 
                # cv_tp,
                 
@@ -2630,6 +2690,8 @@ df_long_narrow_sub <- df_fin %>%
     sd_grw_anm_tmp,
     management_intensity,
     protection_intensity,
+    disturbance_severity,
+    distance_edge,
     clay_extract,
     drought_spei1,
     adv_delayed) %>% 
@@ -2688,7 +2750,7 @@ summary_stats_adv_delayed <- df_long_narrow %>%
   ungroup()
 
 
-summary_stats_adv_delayed
+print(summary_stats_adv_delayed, n = 40)
 
 
 # Plot using ggboxplot
@@ -2748,7 +2810,7 @@ my_theme <- function() {
 }
 
 
-## Final Wicox: ---make a final plot: only prcp, sd_gw_anm_prcp, sd_gw_anm_tmp, drought_spei1, drought_prcp
+## Final Wicox: ---make a final plot: only prcp,  sd_gw_anm_tmp, drought_spei1, 
 # manually 
 
 # Example: Create individual plots
@@ -2898,7 +2960,7 @@ p.protection
 
 
 # Example: Create individual plots
-#p.clay <-   
+p.clay <-   
   df_long_narrow_sub %>% 
   dplyr::filter(Variable == "clay_extract") %>% 
   ggboxplot(x = "adv_delayed", 
@@ -2925,6 +2987,66 @@ p.protection
   coord_cartesian(ylim = c(0,45))  #
 
 p.clay
+
+# Example: Create individual plots
+p.disturbance <-   df_long_narrow_sub %>% 
+  dplyr::filter(Variable == "disturbance_severity") %>% 
+  ggboxplot(x = "adv_delayed", 
+            y = "Value", 
+            fill = "adv_delayed", 
+            palette = c("#A50026", "#FDAE61", "#006837"),
+            ylab = "Disturbance severity [dim.]", 
+            xlab = "",
+            outlier.shape = NA,
+            #outlier.size = .2,
+            size = 0.2) +
+  stat_compare_means(comparisons = comparisons, 
+                     method = "wilcox.test", 
+                     label =  'p.format', #"p.signif",  
+                     size = 3,
+                     label.y = c(1.2, 
+                                 1.1, 
+                                 1)) +  # Standard Wilcoxon test comparison lines
+  my_theme() +
+  # Add mean dots
+  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "disturbance_severity"), 
+             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
+  coord_cartesian(ylim = c(0,1.3))  #
+
+p.disturbance
+
+
+# Example: Create individual plots
+p.distance_edge <-   
+  df_long_narrow_sub %>% 
+  dplyr::filter(Variable == "distance_edge") %>% 
+  ggboxplot(x = "adv_delayed", 
+            y = "Value", 
+            fill = "adv_delayed", 
+            palette = c("#A50026", "#FDAE61", "#006837"),
+            ylab = "Distance to edge [m]", 
+            xlab = "",
+            outlier.shape = NA,
+            #outlier.size = .2,
+            size = 0.2) +
+  stat_compare_means(comparisons = comparisons, 
+                     method = "wilcox.test", 
+                     label =  'p.format', #"p.signif",  
+                     size = 3,
+                     label.y = c(120, 
+                                 110, 
+                                 100)) +  # Standard Wilcoxon test comparison lines
+  my_theme() +
+  # Add mean dots
+  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "distance_edge"), 
+             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
+  coord_cartesian(ylim = c(0,150))  #
+
+p.distance_edge
+
+
 
 # Combine all plots into a single figure
 wilcox_plot_out_manag <- ggarrange(p.prcp, p.tmp, p.spei1,p.manag,
@@ -2956,6 +3078,19 @@ ggsave(filename = "outFigs/wilcox_vars_protection.png", plot = wilcox_plot_out_p
 
 # alternative Wilcopx with protection intensity
 # Combine all plots into a single figure
+wilcox_plot_out_protection_clay<- ggarrange(p.prcp,  p.spei1,p.clay, p.protection,
+                                       ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
+
+# Save the plot as an SVG file
+ggsave(filename = "outFigs/wilcox_vars_protection_clay.png", plot = wilcox_plot_out_protection_clay, 
+       device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
+
+
+
+
+
+# alternative Wilcopx with protection intensity
+# Combine all plots into a single figure
 wilcox_plot_out_6<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, p.manag, p.protection,
                                        ncol = 3, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]'), 
                               font.label = list(size = 8, face = "plain"))
@@ -2963,6 +3098,21 @@ wilcox_plot_out_6<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, p.manag, p.protect
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_vars6.png", plot = wilcox_plot_out_6, 
        device = "png", width = 7, height = 5.5, dpi = 300, bg = 'white')
+
+
+# Wilcox supplement ------------------
+# alternative Wilcopx with protection intensity
+# Combine all plots into a single figure
+wilcox_plot_supplement<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, p.manag, p.protection,p.disturbance, p.distance_edge,
+                              ncol = 4, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]',  '[g]','[h]'), 
+                              font.label = list(size = 8, face = "plain"))
+
+# Save the plot as an SVG file
+ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_supplement, 
+       device = "png", width = 7, height = 5.5, dpi = 300, bg = 'white')
+
+
+
 
 
 
