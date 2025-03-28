@@ -321,7 +321,7 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
   )
 
 
-# individual managementy types: subplot level  -----------------------
+### individual managementy types: subplot level  -----------------------
 
 total_subplots <- nrow(df_individual_management)
 
@@ -355,7 +355,7 @@ print(management_types_summary)
 
 
 
-## vertical classes share -----------------------------------
+### vertical classes share -----------------------------------
 
 # Categorize richness into bins and calculate proportions
 vert_str_summary <- df_fin %>%
@@ -435,36 +435,6 @@ print(species_site_share)
 top_species_site_share <- species_site_share %>% 
   arrange(desc(share_of_sites)) %>%
   slice_head(n = 10) # Select the top 7 rows
-
-
-### top species CZ start !!!-----
-
-df_stem_sp_sum_cz <- df_stem_sp_sum[grep("15_|26_", df_stem_sp_sum$cluster), ]
-# Count the unique clusters (sites) for each species
-species_site_share_cz <- df_stem_sp_sum_cz %>%
-  dplyr::filter(sum_stem_density >0) %>% 
-  group_by(Species) %>%
-  summarise(site_count = n_distinct(cluster)) %>%
-  ungroup()
-
-
-# Add a column for the share (percentage) of sites
-species_site_share_cz <- species_site_share_cz %>%
-  mutate(share_of_sites = (site_count / 135) * 100)
-
-# Sort the results in descending order of share
-species_site_share_cz <- species_site_share_cz %>%
-  arrange(desc(share_of_sites))
-
-# Print the result
-print(species_site_share_cz)
-
-top_species_site_share_cz <- species_site_share_cz%>% 
-  arrange(desc(share_of_sites)) %>%
-  slice_head(n = 10) # Select the top 7 rows
-
-
-# !!! cz top end
 
 
 
