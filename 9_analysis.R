@@ -52,6 +52,8 @@ library(scales)  # add % for the plots
 
 library(RColorBrewer)
 
+library(cowplot)
+
 
 source('my_functions.R')
 
@@ -68,6 +70,42 @@ theme_set(
       legend.text = element_text(size =7),  # Legend text
       plot.title = element_text(size = 7)    # Plot title
     )
+)
+
+
+# update labels
+species_labels <- c(
+  "piab" = "Picea abies",
+  "fasy" = "Fagus sylvatica",
+  "quro" = "Quercus robur/petraea",
+  "pisy" = "Pinus sylvestris",
+  "soau" = "Sorbus aucuparia",
+  "acps" = "Acer pseudoplatanus",
+  "potr" = "Populus tremula",
+  "abal" = "Abies alba",
+  "besp" = "Betula sp.",
+  "lade" = "Larix decidua"
+)
+
+
+top_species_site_share <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
+# Assign colors to each species in the order of `top_species_site_share$Species`
+species_colors <- setNames(
+  reversed_colors,
+  c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
+)
+
+species_colors <- c(
+  piab = "#006837",
+  fasy = "#229C52",
+  quro = "#74C364",
+  pisy = "#B7E075",
+  soau = "#E9F6A2",
+  acps = "#FEEDA2",
+  potr = "#FDBE6E",
+  abal = "#F67B49",
+  besp = "#DA362A",
+  lade = "#A50026"
 )
 
 
@@ -208,26 +246,6 @@ prop.table(table(df_fin$disturbance_year))
 # environmental condistins;
 #  soil: 
 #    - more stem density at better soil conditions (higher depth, nutrient content)
-
-top_species_site_share <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
-# Assign colors to each species in the order of `top_species_site_share$Species`
-species_colors <- setNames(
-  reversed_colors,
-  c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
-)
-
-species_colors <- c(
-  piab = "#006837",
-  fasy = "#229C52",
-  quro = "#74C364",
-  pisy = "#B7E075",
-  soau = "#E9F6A2",
-  acps = "#FEEDA2",
-  potr = "#FDBE6E",
-  abal = "#F67B49",
-  besp = "#DA362A",
-  lade = "#A50026"
-)
 
 ## Get summary tables ---------------------------------------------------------
 
@@ -675,21 +693,7 @@ p_share_vertical_species <- ggplot(species_composition_sapl_juv_summary, aes(x =
   )
 
 
-library(cowplot)
 
-# update labels
-species_labels <- c(
-  "piab" = "Picea abies",
-  "fasy" = "Fagus sylvatica",
-  "quro" = "Quercus robur/petraea",
-  "pisy" = "Pinus sylvestris",
-  "soau" = "Sorbus aucuparia",
-  "acps" = "Acer pseudoplatanus",
-  "potr" = "Populus tremula",
-  "abal" = "Abies alba",
-  "besp" = "Betula sp.",
-  "lade" = "Larix decidua"
-)
 
 # Remove x- and y-axis labels from individual plots
 p1 <- p_sites_share_species +
