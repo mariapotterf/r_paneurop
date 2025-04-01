@@ -48,10 +48,7 @@ library(GGally) # for pairwise comparions of the variables 1:1, also calculates 
 
 library(sf)     # read coordinates
 library(scales)  # add % for the plots
-
-
 library(RColorBrewer)
-
 library(cowplot)
 
 
@@ -88,6 +85,15 @@ species_labels <- c(
 )
 
 
+### Get a color scheme per species -------------------------
+
+# Reverse the color palette and map to the species in the desired order
+n_colors <- 10  # Number of species
+my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Generate colors
+
+
+
+
 top_species_site_share <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
 # Assign colors to each species in the order of `top_species_site_share$Species`
 species_colors <- setNames(
@@ -108,6 +114,12 @@ species_colors <- c(
   lade = "#A50026"
 )
 
+# Reverse the color order to start with dark green
+reversed_colors <- rev(my_colors)
+
+
+# Print the color assignments for confirmation
+print(species_colors)
 
 # Read data -----------------------------------------------------------------------
 
@@ -481,19 +493,6 @@ p_sites_share_species <- species_site_share %>%
 
 p_sites_share_species
 
-
-### Get a color scheme per species -------------------------
-
-# Reverse the color palette and map to the species in the desired order
-n_colors <- 10  # Number of species
-my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Generate colors
-
-# Reverse the color order to start with dark green
-reversed_colors <- rev(my_colors)
-
-
-# Print the color assignments for confirmation
-print(species_colors)
 
 
 ## Density plot of stem density  ----------------------------------
