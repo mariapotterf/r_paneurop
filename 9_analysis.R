@@ -1404,31 +1404,6 @@ df_check %>%
   facet_wrap(.~adv_delayed, scales = 'free_y')
   
 
-#### check for multicollinearity -----------------------------------------------------
-
-library(car)
-selected_data <- df_fin %>%
-  dplyr::select(stem_regeneration, 
-                drought_spei12,
-                #spei12,
-                tmp,  
-                prcp,
-                #spei1,
-                cv_t2m,
-                cv_tp,
-                sd_grw_anm_tmp
-  )
-
-# Step 2: Fit a linear model predicting stem_density
-lm_model <- lm(stem_regeneration ~ ., data = selected_data)
-
-# Step 3: Run VIF to check multicollinearity
-vif_values <- vif(lm_model)
-
-(vif_values)
-
-# final climatic predictors are tmp and prec
-
 
 # TW has a better fit, also can handle zero!
 # select main variables as predictors 
@@ -1498,7 +1473,10 @@ predictor_vars_sub <- c(
 
 
 
-# run univariate models to find teh best predictors :
+
+
+
+### run univariate models to find teh best predictors : -----------------------------
 
 # Define response and predictor variables
 response_var <- "stem_regeneration" # Replace with your actual response variable name
@@ -1557,6 +1535,20 @@ df_stem_regeneration2 <- df_fin %>%
 
 summary(df_stem_regeneration2)
 
+
+#### check for multicollinearity -----------------------------------------------------
+
+library(car)
+
+
+df_small <- df_stem_regeneration2 %>% 
+  dplyr::select(stem_regeneration, spei1, sd_grw_anm_tmp, drought_prcp, tmp_z, prcp_z)
+
+lm_small <- lm(stem_regeneration ~ ., data = df_small)
+vif(lm_small)
+
+
+
 ## Drivers: regeneration density pooled ---------------------------------------------
 
 
@@ -1576,26 +1568,31 @@ library(corrplot)
 # Select the relevant predictors from your data frame
 predictors <- df_stem_regeneration2 %>%
  # dplyr::select(where(is.numeric))
-  dplyr::select(prcp, tmp, spei12,
-                drought_prcp, drought_tmp, drought_spei12, 
-                drought_spei1,
+  dplyr::select(prcp, 
+                tmp, 
+                #spei12,
+                drought_prcp, 
+                drought_tmp, 
+                #drought_spei12, 
+                #drought_spei1,
                 drought_spei3,
                 sd_grw_anm_prcp,
                 sd_grw_anm_tmp,
-                tmp_z, prcp_z,
-                cv_t2m,
-                cv_tp,
-                distance_edge, depth_extract,
-                disturbance_severity, #mature_dist_severity ,
+                #tmp_z, 
+                #prcp_z,
+                #cv_t2m,
+                #cv_tp,
+                #distance_edge, 
+                depth_extract,
+               # disturbance_severity, #mature_dist_severity ,
                 #sum_stems_mature ,
-                depth_extract , clay_extract, av.nitro, #management_intensity
+                depth_extract , 
+                clay_extract, 
+                av.nitro, #management_intensity
                 )
 
 # Calculate the correlation matrix
 correlation_matrix <- cor(predictors, use = "complete.obs")
-
-# Display the correlation matrix
-library(corrplot)
 
 # Plot using corrplot
 corrplot(correlation_matrix, method = "color", type = "upper",
@@ -1625,42 +1622,6 @@ dev.off()#summary(interaction_model_4)
 
 
 
-
-# et median data per clim cluster -----------------------------------------one for climate: on grid 9x9, for disturbance severity vs distance_edge - on local basis
-
-df_median <- df_stem_regeneration2 %>%
-  group_by(clim_grid) %>%
-  summarise(
-    # Compute the median for numeric columns
-    across(where(is.numeric), \(x) median(x, na.rm = TRUE)),
-    # Retain the first value for factor columns
-    across(where(is.factor), ~ first(.)),
-    # Retain the first value for character columns
-    across(where(is.character), ~ first(.))
-  )
-
-# View the result
-head(df_median)
-
-# averaged values lead to completely different results! importance of tmp, not prec
-m_med_int <- gam(stem_regeneration ~
-               s(prcp, k = 5) + s(tmp, k = 5) + 
-               #s(spei12, k = 5) + 
-               #s(distance_edge, k = 5) +
-               #s(depth_extract, k = 4) +
-               #s(disturbance_severity, k =5) +
-               #s(mature_dist_severity, k = 5) +
-               #s(clay_extract, k = 5) +
-               #s(av.nitro, k =5) +
-               ti(tmp, prcp, k = 5) +
-               te(disturbance_severity, distance_edge, k = 5) +
-               #ti(disturbance_severity_c, prcp_c, k = 5) +
-               #s(management_intensity,by = country_pooled, k = 4) + 
-               #s(country_pooled, bs = "re") + 
-               s(x,y) #+
-               #s(clim_grid, bs = "re") 
-             ,
-             family = tw(), method = "REML", data = df_median)
 
 
 # categorize teh disturbance severity to understand teh relationship ---------
