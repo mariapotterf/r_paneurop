@@ -1404,19 +1404,30 @@ df_check %>%
   facet_wrap(.~adv_delayed, scales = 'free_y')
   
 
+#### check for multicollinearity -----------------------------------------------------
+
+library(car)
+selected_data <- df_fin %>%
+  dplyr::select(stem_regeneration, 
+                drought_spei12,
+                #spei12,
+                tmp,  
+                prcp,
+                #spei1,
+                cv_t2m,
+                cv_tp,
+                sd_grw_anm_tmp
+  )
+
+# Step 2: Fit a linear model predicting stem_density
+lm_model <- lm(stem_regeneration ~ ., data = selected_data)
+
+# Step 3: Run VIF to check multicollinearity
+vif_values <- vif(lm_model)
+
+(vif_values)
 
 # final climatic predictors are tmp and prec
-
-### test with different families ----------------------------------------------
-hist(df_fin$stem_density)
-
-
-# Fit a GAM model with a Negative Binomial distribution
-m1 <- gam(stem_density ~ s(spei12, k = 15),  # Factors included without s() for categorical variables
-          family = nb,  # Negative Binomial to handle overdispersion
-          data = df_fin)
-
-# tw distribution is the best
 
 
 # TW has a better fit, also can handle zero!
