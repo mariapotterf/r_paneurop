@@ -1782,26 +1782,149 @@ AIC(m_fixed_soil,m_soil_protect )
 summary(m_fixed_soil)
 summary(m_soil_protect)
 
+
+
+# 20250401 - completely remove management, also protection and salvage intensity ------------
+
+m_rnd <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    #te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_rnd_te <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    #s(distance_edge, k = 5) +
+    #s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    te(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+m_rnd_ti <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    s(country_pooled, bs = "re") +
+    s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+m_rnd_ti_fixed <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+# complete altarnative based on univariate AIC ---------
+m_alt <- gam(
+  stem_regeneration ~ 
+    s(drought_prcp, k = 5) + s(tmp_z, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(drought_prcp,tmp_z, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+AIC(m_rnd_ti_fixed, m_rnd,m_rnd_te, m_rnd_ti, m_alt)
+summary(m_rnd)
+summary(m_rnd_te)
+summary(m_rnd_ti)
+summary(m_rnd_ti_fixed)
+
+
 # save teh best model
-fin.m.reg.density <- m_fixed_soil
+fin.m.reg.density <- m_rnd_ti_fixed
 
 
+### Get predicted smooth effects (log scale) ---------------------------
+pred_terms <- predict(m_rnd_ti, type = "terms")
+
+# Look at the first few rows
+head(pred_terms)
+summary(pred_terms)
+
+hist(pred_terms["s(prcp)",])
+
+vis.gam(m_rnd_ti, view = c("prcp", "tmp"), plot.type = "contour")
 # quick plotting ---------------------------
-m<- m_soil_protect_int
+plot(m_rnd_ti_fixed, page = 1, shade = T)
+
+m<- m_alt #m_rnd_ti         
+
 clay_effect <- ggpredict(m, terms = "clay_extract")
 dist_edge_effect <- ggpredict(m, terms = c("distance_edge"))
 dist_sev_effect <- ggpredict(m, terms = c("disturbance_severity"))
-dist_sev_effect_int <- ggpredict(m, terms = c('distance_edge', "disturbance_severity"))
-plot(dist_sev_effect_int)
+dist_sev_effect_int <- ggpredict(m, terms = c('distance_edge', "disturbance_severity[0.3, 0.99]"))
 tmp_prcp_effect <- ggpredict(m, terms = c("prcp", "tmp[8,10]"))
-manag_effect <- ggpredict(m, terms = c("protection_intensity", "country_pooled[CZ]"))
+tmp_prcp_effect <- ggpredict(m, terms = c("drought_prcp", "tmp_z[0,1.5]"))
+
+#manag_effect <- ggpredict(m, terms = c("protection_intensity", "country_pooled[CZ]"))
 
 
 plot(clay_effect)
 plot(dist_edge_effect)
 plot(dist_sev_effect)
+plot(dist_sev_effect_int)
 plot(tmp_prcp_effect)
-plot(manag_effect)
+#plot(manag_effect)
 
 
 
@@ -1838,7 +1961,7 @@ sjPlot::tab_model(fin.m.reg.density,
 #### with random effects ------------------
 
 # Identify random effects using the model's "smooth" component
-smooth_terms <- summary(m_soil_protect)$s.table
+smooth_terms <- summary(m_rnd_ti)$s.table
 
 # Extract the smooth terms labels and check which ones are random effects
 random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
@@ -1856,7 +1979,7 @@ create_labels <- function(term) {
 pred_labels <- sapply(rownames(smooth_terms), create_labels)
 
 # Display the tab_model with automatic labeling
-sjPlot::tab_model(m_soil_protect,
+sjPlot::tab_model(m_rnd_ti,
                   show.re.var = TRUE,        # Show the variance components
                   pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
                   dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.reg.density)$dev.expl, 2), "%"), 
@@ -1953,34 +2076,6 @@ ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
   theme_minimal()
 
 
-# check VIF again
-selected_data <- df_fin %>% dplyr::select(stem_regeneration,  prcp,  sd_grw_anm_tmp, cv_t2m, cv_tp)# drought_spei1,tmp,
-lm_model <- lm(stem_regeneration ~ ., data = selected_data)
-vif(lm_model)
-# still low VIF
-
-final_model <- gam(stem_density ~ s(drought_spei1, k = 5) + 
-                     s(prcp, k = 5) + 
-                     s(tmp, k = 5) + 
-                     s(sd_grw_anm_tmp, k = 5) + 
-                     s(cv_t2m, k = 5) + 
-                     s(cv_tp, k = 5),
-                   family = tw(), data = df_fin)
-
-AIC(final_model, m_sd_tmp, m_int_sev_edge_full_te_comb, m2, m3)
-
-# store the best model for regeneration density
-fin.m.reg.density <- m_fixed_soil #m_soil_protect #m_int_sev_edge_full_te_comb     
-
-summary(fin.m.reg.density)
-
-#fin.m.reg.density <- m_int_sev_edge_full_te_comb_protection #m_int_sev_edge_full_te_comb#m_anom_prcp_re_reg
-
-vis.gam(fin.m.reg.density, view = c("prcp", "tmp"), plot.type = "persp",
-        main = "Interaction between Precipitation and Temperature",
-        zlab = "Stem Regeneration", xlab = "Precipitation", ylab = "Temperature")
-
-plot.gam(fin.m.reg.density, page = 1)
 # interpret the results:  - average increase in stem density per tmp, prcp and tehir interaction -
 # Predict stem density at mean precipitation for different temperatures
 
