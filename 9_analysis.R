@@ -2937,64 +2937,6 @@ p.spei1
 
 
 
-# Example: Create individual plots
-p.manag <-   df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "management_intensity") %>% 
-  ggboxplot(x = "adv_delayed", 
-            y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("#A50026", "#FDAE61", "#006837"),
-            ylab = "Management intensity [dim.]", 
-            xlab = "",
-            outlier.shape = NA,
-            #outlier.size = .2,
-            size = 0.2) +
-  stat_compare_means(comparisons = comparisons, 
-                     method = "wilcox.test", 
-                     label =  'p.format', #"p.signif",  
-                     size = 3,
-                     label.y = c(1.2, 
-                                 1.1, 
-                                 1)) +  # Standard Wilcoxon test comparison lines
-  my_theme() +
-  # Add mean dots
-  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "management_intensity"), 
-             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(0,1.3))  #
-
-p.manag
-
-
-# Example: Create individual plots
-p.protection <-   df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "protection_intensity") %>% 
-  ggboxplot(x = "adv_delayed", 
-            y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("#A50026", "#FDAE61", "#006837"),
-            ylab = "Protection intensity [dim.]", 
-            xlab = "",
-            outlier.shape = NA,
-            #outlier.size = .2,
-            size = 0.2) +
-  stat_compare_means(comparisons = comparisons, 
-                     method = "wilcox.test", 
-                     label =  'p.format', #"p.signif",  
-                     size = 3,
-                     label.y = c(1.2, 
-                                 1.1, 
-                                 1)) +  # Standard Wilcoxon test comparison lines
-  my_theme() +
-  # Add mean dots
-  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "protection_intensity"), 
-             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(0,1.3))  #
-
-p.protection
-
-
 
 # Example: Create individual plots
 p.clay <-   
