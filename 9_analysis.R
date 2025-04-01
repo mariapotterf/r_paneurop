@@ -92,8 +92,6 @@ n_colors <- 10  # Number of species
 my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Generate colors
 
 
-
-
 top_species_site_share <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
 # Assign colors to each species in the order of `top_species_site_share$Species`
 species_colors <- setNames(
@@ -120,6 +118,11 @@ reversed_colors <- rev(my_colors)
 
 # Print the color assignments for confirmation
 print(species_colors)
+
+
+
+
+
 
 # Read data -----------------------------------------------------------------------
 
