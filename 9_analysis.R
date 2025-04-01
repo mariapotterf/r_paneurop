@@ -2592,34 +2592,6 @@ ggsave('outFigs/fig_p_combined_int_no_points_supplem.png', plot = p_combined_int
 
 
 
-# check difference between groups : resiidual mature tree cover    ----------------- 
-# presence - absence, to have enought samples in each group
-df_fin %>% 
-ggplot(aes(x = adv_delayed,
-           y = residual_mature_trees)) +
-  geom_boxplot()
-
-
-table(df_fin$adv_delayed, df_fin$country_pooled )
-round(prop.table(table(df_fin$adv_delayed, df_fin$country_pooled ))*100,1)
-
-
-
-
-
-
-
-
-df_fin %>% 
-  ggplot(aes(x = time_since_disturbance,
-             y = stem_regeneration)) +
-  #geom_point() + 
-  geom_smooth(methods = 'lm')
-
-table(df_fin$time_since_disturbance, df_fin$adv_delayed)
-prop.table(table(df_fin$adv_delayed))
-
-
 ## Chi squared: time since diosturbance  -----------------------
 # Create contingency table
 contingency_table <- table(df_fin$time_since_disturbance, df_fin$adv_delayed)
