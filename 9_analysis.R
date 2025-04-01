@@ -2081,7 +2081,7 @@ ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
 
 
 ### Predict effect of temperature (per 1°C increase)------------------
-temp_pred <- ggpredict(m_int_sev_edge_full_te_comb, terms = "tmp [7:12]")
+temp_pred <- ggpredict(fin.m.reg.density, terms = "tmp [7:12]")
 temp_diff <- diff(temp_pred$predicted)
 
 #Predict increase bfor TMP 
@@ -2092,8 +2092,8 @@ temp_diff <- diff(temp_pred$predicted)
 (avg_percent_increase <- (avg_tmp_increase / avg_tmp) * 100)
 
 # Predict effect of precipitation (per 100mm increase)
-prcp_pred <- ggpredict(m_int_sev_edge_full_te_comb, terms = "prcp [500:1700 by=100]")
-prcp_diff <- diff(precip_pred$predicted)
+prcp_pred <- ggpredict(fin.m.reg.density, terms = "prcp [500:1700 by=100]")
+prcp_diff <- diff(prcp_pred$predicted)
 
 (avg_prcp_increase <- mean(prcp_diff))
 (avg_prcp          <- mean(prcp_pred$predicted))
@@ -2102,7 +2102,7 @@ prcp_diff <- diff(precip_pred$predicted)
 (avg_percent_increase <- (avg_prcp_increase / avg_prcp) * 100)
 
 # Predict interaction effect of temperature and precipitation
-interaction_pred <- ggpredict(m_int_sev_edge_full_te_comb, 
+interaction_pred <- ggpredict(fin.m.reg.density, 
                               terms = c("prcp [500:1700 by=100]", "tmp [8,10]"))
 
 # Separate predictions for each temperature
@@ -2336,7 +2336,7 @@ p1 <-
   scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
   theme_classic() +
   labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "p=0.008", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p=0.005", 
       # linetype =  "Temperature [°C]"
        ) +
   theme(
@@ -2368,7 +2368,7 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
                     labels = c("Low", "High")) +
   theme_classic() +
   #ylim(0,20) +
-  labs(x = "Distance to edge [m]", y = "", title = "p=0.010") +
+  labs(x = "Distance to edge [m]", y = "", title = "p=0.751") +
   theme(
     axis.title = element_text(size = 8),
     plot.title = element_text(hjust = 0.5, size = 8),       # Title size
@@ -2392,8 +2392,6 @@ p_combined_int <- ggarrange(p1, p2,
 ggsave('outFigs/fig_regen_int_drivers.png', plot = p_combined_int, 
        width = 6, height = 3.1, bg = 'white')
 
-summary(df_fin$elevation)
-
 
 ### p combined no points --------------------------
 
@@ -2407,7 +2405,7 @@ p1 <-
   scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
   theme_classic() +
   labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "p<0.0001", 
+       y = "Regeneration stem density [#*1000/ha]", title = "p=0.005", 
        # linetype =  "Temperature [°C]"
   ) +
   theme(
@@ -2434,7 +2432,7 @@ p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
                     labels = c("Low", "High")) +
   theme_classic() +
   #ylim(0,20) +
-  labs(x = "Distance to edge [m]", y = "", title = "p=0.001") +
+  labs(x = "Distance to edge [m]", y = "", title = "p=0.751") +
   theme(
     axis.title = element_text(size = 8),
     plot.title = element_text(hjust = 0.5, size = 8),       # Title size
@@ -2462,7 +2460,11 @@ ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_p
 
 ### Plot 4 drivers: clay, edge, severity, prcp_tmp ------------------------------------------
 # Generate predictions using ggpredict
+summary(m)
+
 # Interaction 1: Precipitation and Temperature
+pred_prcp       <- ggpredict(m, terms = c("prcp"))
+pred_tmp        <- ggpredict(m, terms = c("tmp"))
 pred_tmp_prcp   <- ggpredict(m, terms = c("prcp", "tmp [8,10]"))
 pred_dist_edge  <- ggpredict(m, terms = c("distance_edge[50:250]"))
 pred_dist_sever <- ggpredict(m, terms = c("disturbance_severity"))
@@ -2479,6 +2481,26 @@ my_theme_drivers <- theme(
   legend.position = c(0.05, 0.9),
   legend.justification = c(0.05, 0.9)
 )
+
+
+# Plot precipitation
+p.prcp <- ggplot(pred_prcp, aes(x = x, y = predicted/1000)) +
+  geom_line(linewidth = 1, color = 'grey') +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
+  labs(x = "Precipitation [mm]",  y = "Regeneration stem density [#*1000/ha]", title = "p<0.001") +
+  my_theme_drivers + 
+  theme(legend.position = 'none')
+p.prcp
+
+# Plot precipitation
+p.tmp <- ggplot(pred_tmp, aes(x = x, y = predicted/1000)) +
+  geom_line(linewidth = 1, color = 'grey') +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
+  labs(x = "Temperature [°C]",  y = "Regeneration stem density [#*1000/ha]", title = "p=0.004") +
+  my_theme_drivers + 
+  theme(legend.position = 'none')
+p.tmp
+
 
 
 # Plot the first interaction
@@ -2498,14 +2520,17 @@ p1 <-
 
 p1
 
-# Plot the second interaction
+# Plot distance to edge
 p2 <- ggplot(pred_dist_edge, aes(x = x, y = predicted/1000)) +
    geom_line(linewidth = 1, color = 'grey') +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
-  labs(x = "Distance to edge [m]",  y = "Regeneration stem density [#*1000/ha]", title = "p=0.006") +
+  labs(x = "Distance to edge [m]",  y = "Regeneration stem density [#*1000/ha]", title = "p=0.023") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p2
+
+
+
 
 # Plot the second interaction
 p3 <- ggplot(pred_dist_sever, aes(x = x, y = predicted/1000)) +
@@ -2513,20 +2538,20 @@ p3 <- ggplot(pred_dist_sever, aes(x = x, y = predicted/1000)) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), fill = "grey", alpha = 0.2, color = NA) +
   theme_classic() +
  # ylim(0,15) +
-  labs(x = "Disturbance severity [%]", y = "", title = "p=0.004") +
+  labs(x = "Disturbance severity [%]", y = "", title = "p=0.001") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p3
 
 
-# Plot the second interaction
+# PlotCaly
 p4 <- ggplot(pred_clay, aes(x = x, y = predicted/1000)) +
   geom_line(linewidth = 1, color = "grey" ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000),  fill = "grey", alpha = 0.2, color = NA) +
   theme_classic() +
   scale_y_continuous(breaks = seq(5, 15, 5)) +
   #ylim(0,20) +
-  labs(x = "Clay content [%]", y = "", title = "p=0.004") +
+  labs(x = "Clay content [%]", y = "", title = "p=0.003") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p4
@@ -2547,68 +2572,22 @@ ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_p
 
 
 
-#START  plot for each country --------------
+# all predictors for supplemeny ----------------------------------
 
-
-# Generate predictions for protection_intensity by country
-pred_protection_country <- ggpredict(m, terms = c("protection_intensity", "country_pooled"))
-pred_protection_country <- as.data.frame(pred_protection_country)
-
-# Identify significance to assign line types
-significant_countries <- c("DE", "SK")  # Based on your summary
-pred_protection_country <- pred_protection_country %>%
-  mutate(line_type = ifelse(group %in% significant_countries, "p <0.05", "n.s.")) %>% 
-  mutate(group = case_when(
-    group == "DE" ~ "DE",
-    group == "SK" ~ "SK",
-    line_type == "n.s." ~ "Others"
-  )) %>%
-  group_by(group, x) %>%
-  summarise(
-    predicted = mean(predicted, na.rm = TRUE),
-    conf.low = mean(conf.low, na.rm = TRUE),
-    conf.high = mean(conf.high, na.rm = TRUE)
-  ) %>%
-  ungroup() %>% 
-  mutate(group = factor(group, levels = c("DE", "SK", "Others")))
-
-
-
-# Create the plot
-p_protection_country <- 
-  ggplot(pred_protection_country, aes(x = x, y = predicted / 1000, 
-                                            color = group, linetype = group)) +
-  geom_line(linewidth = 1) +
-  geom_ribbon(aes(ymin = conf.low / 1000, ymax = conf.high / 1000, fill = group), 
-              alpha = 0.2, color = NA) +
-    scale_color_manual(values = c('darkgreen', 'lightgreen', 'grey'), name = "Country") +
-    scale_fill_manual(values = c('darkgreen', 'lightgreen', 'grey'), name = "Country") +
-    scale_linetype_manual(values = c("solid", "solid", "dashed"), name = 'Country') +
-     labs(x = "Protection Intensity", 
-       y = "", 
-       title = "") +
-  my_theme_drivers + 
-    theme(legend.position = c(0.05, 0.9),
-          legend.justification = c(0.05, 0.9))
-
-p_protection_country
-
-p_combined_int_no_points_supplement <- ggarrange(p1, p4,  p3, p2,p_protection_country,ncol = 3, nrow = 2,
-                                      labels = c("[a]","[b]", "[c]","[d]", "[e]"), 
+p_combined_int_no_points_supplem <- ggarrange(p.prcp, p.tmp, p1, p4, p2, p3,
+                                      labels = c("[a]","[b]", "[c]","[d]", "[e]","[f]"), 
+                                      ncol = 3, nrow = 2,
                                       align = 'hv',
                                       font.label = list(size = 8, face = "plain")) # Specify plain font style)
 
-p_combined_int_no_points_supplement
+p_combined_int_no_points_supplem
 
 # Save the combined plot
-ggsave('outFigs/fig_regen_int_drivers_supplement.png', plot = p_combined_int_no_points_supplement, 
-       width = 7, height = 5, bg = 'white')
+ggsave('outFigs/fig_p_combined_int_no_points_supplem.png', plot = p_combined_int_no_points_supplem, 
+       width = 8, height = 5.5, bg = 'white')
 
 
 
-
-
-# END 
 
 
 
