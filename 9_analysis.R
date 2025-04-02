@@ -1951,8 +1951,6 @@ pred_labels <- sapply(rownames(smooth_terms), create_labels)
 # Display the tab_model with automatic labeling
 sjPlot::tab_model(fin.m.reg.density,
                   show.re.var = TRUE,        # Show the variance components
-                  #show.icc = TRUE,           # Show Intraclass Correlation Coefficient
-                  #show.dev = TRUE,           # Show deviance
                   pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
                   dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.reg.density)$dev.expl, 2), "%"), 
                   file = "outTable/full_drivers_reg_stem_density_fixed.doc")
@@ -1982,7 +1980,7 @@ pred_labels <- sapply(rownames(smooth_terms), create_labels)
 sjPlot::tab_model(m_rnd_ti,
                   show.re.var = TRUE,        # Show the variance components
                   pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
-                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.reg.density)$dev.expl, 2), "%"), 
+                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(m_rnd_ti)$dev.expl, 2), "%"), 
                   file = "outTable/full_drivers_reg_stem_density_full_random.doc")
 
 # Disturbance severity: balanced design: --------------------------------
@@ -3028,67 +3026,34 @@ p.distance_edge
 
 
 # Combine all plots into a single figure
-wilcox_plot_out_manag <- ggarrange(p.prcp, p.tmp, p.spei1,p.manag,
+wilcox_plot_out_clay <- ggarrange(p.prcp, p.tmp, p.spei1,p.clay,
                         ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
 
 # Display the final merged plot
-wilcox_plot_out_manag
+wilcox_plot_out_clay
 
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars_manag.png", plot = wilcox_plot_out_manag, 
+ggsave(filename = "outFigs/wilcox_plot_out_clay.png", plot = wilcox_plot_out_clay, 
        device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars_manag.svg", plot = wilcox_plot_out_manag, 
+ggsave(filename = "outFigs/wilcox_plot_out_clay.svg", plot = wilcox_plot_out_clay, 
        device = "svg", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
-
-
-# alternative Wilcopx with protection intensity
-# Combine all plots into a single figure
-wilcox_plot_out_protection<- ggarrange(p.prcp, p.tmp, p.spei1,p.protection,
-                             ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
-
-# Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars_protection.png", plot = wilcox_plot_out_protection, 
-       device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
-
-
-# alternative Wilcopx with protection intensity
-# Combine all plots into a single figure
-wilcox_plot_out_protection_clay<- ggarrange(p.prcp,  p.spei1,p.clay, p.protection,
-                                       ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
-
-# Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars_protection_clay.png", plot = wilcox_plot_out_protection_clay, 
-       device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
-
-
-
-
-
-# alternative Wilcopx with protection intensity
-# Combine all plots into a single figure
-wilcox_plot_out_6<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, p.manag, p.protection,
-                                       ncol = 3, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]'), 
-                              font.label = list(size = 8, face = "plain"))
-
-# Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars6.png", plot = wilcox_plot_out_6, 
-       device = "png", width = 7, height = 5.5, dpi = 300, bg = 'white')
 
 
 # Wilcox supplement ------------------
 # alternative Wilcopx with protection intensity
 # Combine all plots into a single figure
-wilcox_plot_supplement<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, p.manag, p.protection,p.disturbance, p.distance_edge,
-                              ncol = 4, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]',  '[g]','[h]'), 
+wilcox_plot_supplement<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, #p.manag, p.protection,
+                                   p.disturbance, p.distance_edge,
+                              ncol = 3, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]'), #'[g]','[h]'
                               font.label = list(size = 8, face = "plain"))
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_supplement, 
-       device = "png", width = 6.5, height = 4, dpi = 300, bg = 'white')
+       device = "png", width = 5.5, height = 4, dpi = 300, bg = 'white')
 
 
 
