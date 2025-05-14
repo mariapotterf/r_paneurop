@@ -129,6 +129,24 @@ dat2 <- dat2 %>%
                                                "Saplings"
                                                )))
   
+# filetr:
+# 13_26_165_3
+# 13_26_165_5
+# 13_26_165_1
+# 13_26_165_2
+# 13_26_165_4
+
+d2_select_opocno <- dat2 %>% 
+  dplyr::filter(ID %in% c("13_26_165_3",
+                           "13_26_165_5",
+                          "13_26_165_1",
+                           "13_26_165_2",
+                          "13_26_165_4")) %>% 
+  dplyr::select(Species, VegType, Variable, value) %>% 
+  dplyr::filter(Variable == "n") %>% 
+  na.omit()
+
+View(d2_select_opocno)
 
 # filter sub-plots that are misplaced/double recorded
 # visually checked on May 8th, 2024
