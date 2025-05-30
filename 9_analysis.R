@@ -15,12 +15,8 @@ library(terra)
 library(ggplot2)
 library(lubridate)
 library(stringr)
-
 library(ggpubr)
-
-# library
 library(ggridges)
-
 library(purrr)
 
 # stats
@@ -357,33 +353,6 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
 ### individual managementy types: subplot level  -----------------------
 
 total_subplots <- nrow(df_individual_management)
-
-# Calculate counts and shares
-management_types_summary <- 
-  df_individual_management %>%
-  #group_by(cluster) %>% 
-  summarise(
-    logging_trail_sites = sum(logging_trail) ,
-    planting_sites = sum(planting),
-    clear_sites = sum(clear),
-    grndwrk_sites = sum(grndwrk),
-    anti_browsing_sites = sum(anti_browsing),
-    windthrow_sites = sum(windthrow),
-    deadwood_sites = sum(deadwood)
-  ) %>%
-  mutate(
-    #total_sites = n_distinct(cluster),  # Total number of unique sites
-    logging_trail_share = logging_trail_sites / total_subplots * 100,
-    planting_share = planting_sites / total_subplots * 100,
-    clear_share = clear_sites / total_subplots * 100,
-    grndwrk_share = grndwrk_sites / total_subplots * 100,
-    anti_browsing_share = anti_browsing_sites / total_subplots * 100,
-    windthrow_share = windthrow_sites / total_subplots * 100,
-    deadwood_share = deadwood_sites / total_subplots * 100
-  )
-
-# Display results
-print(management_types_summary)
 
 
 
