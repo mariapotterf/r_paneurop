@@ -450,7 +450,7 @@ p_sites_share_species <- species_site_share %>%
            ) + # Horizontal bars
   scale_fill_manual(values = species_colors) +  # Apply custom color palette
   labs(
-    x = "Share of plots [%]",
+    x = "Share of plots\n[%]",
     y = "",
     title = ""
   ) +
@@ -510,7 +510,7 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
   theme_classic() +
   labs(
     title = "",
-    x = expression("Stem density (log"[10]*") [n ha"^-1*"]"),
+    x = expression("Stem density\n(log"[10]*") [n ha"^-1*"]"),
    # x = "Stem density\n(log10) [#/ha]",
     y = ""
   ) +
@@ -530,6 +530,20 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
 # Print the plot
 print(p_stem_density_species)
 
+
+# % of recorded stems of juveniles and saplings
+stem_dens_species_long_cluster %>% 
+  group_by(VegType) %>% 
+  summarise(sum_vegType = sum(stem_density, na.rm = T)) %>% 
+  mutate(total_stem_density = sum(sum_vegType),
+         share = sum_vegType/total_stem_density)
+# 
+# # A tibble: 3 × 4
+# VegType   sum_vegType total_stem_density  share
+# <fct>           <dbl>              <dbl>  <dbl>
+#   1 Mature         101000            6172500 0.0164
+# 2 Juveniles      859125            6172500 0.139 
+# 3 Saplings      5212375            6172500 0.844 
 
 
 ## get % of stems per saplings/juveniles -----------------------------------------
