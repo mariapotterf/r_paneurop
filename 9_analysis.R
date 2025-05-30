@@ -531,7 +531,7 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
 print(p_stem_density_species)
 
 
-# % of recorded stems of juveniles and saplings
+# % of recorded stems of juveniles and saplings ---------------------
 stem_dens_species_long_cluster %>% 
   group_by(VegType) %>% 
   summarise(sum_vegType = sum(stem_density, na.rm = T)) %>% 
@@ -544,6 +544,14 @@ stem_dens_species_long_cluster %>%
 #   1 Mature         101000            6172500 0.0164
 # 2 Juveniles      859125            6172500 0.139 
 # 3 Saplings      5212375            6172500 0.844 
+
+# get quantiles for stem density: here i need to account for empty clusters!
+median(df_fin$stem_density)
+mean(df_fin$stem_density)
+#quantile(df_fin$stem_density)
+quantile(df_fin$stem_density, probs = c(0, 0.05,0.1, 0.25, 0.5, 0.75,0.9,  0.95, 1), na.rm = TRUE)
+
+
 
 
 ## get % of stems per saplings/juveniles -----------------------------------------
