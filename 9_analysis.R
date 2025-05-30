@@ -450,7 +450,7 @@ p_sites_share_species <- species_site_share %>%
            ) + # Horizontal bars
   scale_fill_manual(values = species_colors) +  # Apply custom color palette
   labs(
-    x = "Share of plots\n[%]",
+    x = "\nShare of plots [%]",
     y = "",
     title = ""
   ) +
@@ -510,8 +510,8 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
   theme_classic() +
   labs(
     title = "",
-    x = expression("Stem density\n(log"[10]*") [n ha"^-1*"]"),
-   # x = "Stem density\n(log10) [#/ha]",
+    x = expression("\nStem density(log"[10]*") [n ha"^-1*"]"),
+   # x = "\nStem density (log10) [#/ha]",
     y = ""
   ) +
   scale_x_continuous(
@@ -552,8 +552,6 @@ mean(df_fin$stem_density)
 quantile(df_fin$stem_density, probs = c(0, 0.05,0.1, 0.25, 0.5, 0.75,0.9,  0.95, 1), na.rm = TRUE)
 
 
-
-
 ## get % of stems per saplings/juveniles -----------------------------------------
 # Summarize the total stem density per species 
 species_composition_sapl_juv <- stem_dens_species_long_cluster %>%
@@ -575,7 +573,8 @@ species_composition_sapl_juv <-
 species_composition_sapl_juv_med <- species_composition_sapl_juv %>% 
   ungroup(.) %>% 
   group_by(Species, VegType) %>% 
-  summarise(med_share = median(share))
+  summarise(med_share = median(share),
+            mean_share = mean(share))
 
 # Transform data to make saplings negative for diverging plot
 species_composition_plot_data <- species_composition_sapl_juv_med %>%
@@ -586,18 +585,6 @@ species_composition_plot_data <- species_composition_sapl_juv_med %>%
                           levels = rev(top_species_site_share$Species))) # Set custom order
 
   
-# Calculate overall median share for Juveniles and Saplings
-overall_med_share <- species_composition_sapl_juv_summary %>%
-  group_by(VegType) %>%  # Group by Vegetation Type (Juveniles/Saplings)
-  summarize(
-    overall_med_share = median(med_share, na.rm = TRUE),
-    IRQ_med_share = IQR(med_share, na.rm = TRUE),
-    min_med_share = min(med_share, na.rm = TRUE),
-    max_med_share = max(med_share, na.rm = TRUE)# Calculate median
-  )
-
-# View the results
-print(overall_med_share)
 
 
 # Calculate median and IQR for each species and VegType
@@ -625,9 +612,22 @@ species_composition_sapl_juv_summary %>%
 
 
 
+# Calculate overall median share for Juveniles and Saplings
+overall_med_share <- species_composition_sapl_juv_summary %>%
+  group_by(VegType) %>%  # Group by Vegetation Type (Juveniles/Saplings)
+  summarize(
+    overall_med_share = median(med_share, na.rm = TRUE),
+    IRQ_med_share = IQR(med_share, na.rm = TRUE),
+    min_med_share = min(med_share, na.rm = TRUE),
+    max_med_share = max(med_share, na.rm = TRUE)# Calculate median
+  )
+
+# View the results
+print(overall_med_share)
+
+
 
 ## adjust colors -----------------------------------------------------------------
-library(scales) # For color adjustment (lighter/darker shades)
 
 # Generate separate colors for Juveniles (darker) and Saplings (lighter)
 #species_colors_juveniles <- species_colors
@@ -649,12 +649,12 @@ species_composition_sapl_juv_summary <- species_composition_sapl_juv_summary %>%
   mutate(fill_key = paste0(Species, "_", VegType))
 
 # Diverging bar chart with species-specific colors
-p_share_vertical_species <- ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fill = fill_key)) +
+p_share_vertical_species <- 
+  ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fill = fill_key)) +
   geom_bar(stat = "identity", position = "identity", alpha = 1) + # Horizontal bars
   geom_errorbarh(aes(xmin = iqr_low, xmax = iqr_high), 
                  height = 0.1, 
-                 color = 
-                   ,
+                 color = "black",                   ,
                  linewidth = 0.2) + # Add IQR error bars
   scale_x_continuous(
     labels = abs, # Show positive labels
@@ -666,8 +666,9 @@ p_share_vertical_species <- ggplot(species_composition_sapl_juv_summary, aes(x =
     y = "",
     title = ""
   ) +
-  geom_vline(xintercept = 0, linetype = "solid", color = 
-               , linewidth = 0.2) + #
+  geom_vline(xintercept = 0, linetype = "solid", 
+             color = "black",
+             linewidth = 0.2) + #
   theme_classic(base_size = 8) +
   annotate("text", x = -60, 
            #y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
@@ -727,7 +728,14 @@ ggsave(
   units = "in"                      # Units for width and height
 )
 
-
+ggsave(
+  filename = "outFigs/combined_plot2_greens.svg",  # Save as SVG
+  plot = combined_plot,
+  width = 7,
+  height = 3.5,
+  dpi = 300,
+  units = "in"
+)
 
 ## Bar plot with error plot ---------------------------------------------------------
 
