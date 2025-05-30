@@ -358,6 +358,9 @@ total_subplots <- nrow(df_individual_management)
 
 
 ### vertical classes share -----------------------------------
+# what is teh share of plots with only saplings?
+
+
 
 # Categorize richness into bins and calculate proportions
 vert_str_summary <- df_fin %>%
@@ -378,10 +381,10 @@ vert_str_summary <- df_fin %>%
 # Create a stacked bar plot
 p_bar_vertical_groups <- ggplot(vert_str_summary, aes(x = 1, y = proportion, 
                                                       fill = vert_category)) +
-  geom_bar(stat = "identity", color = 
-             ) #+
+  geom_bar(stat = "identity", color = "black"
+             ) +
   geom_text(aes(label = paste0(round(proportion, 1), "%", '(', site_count, ')')), 
-            position = position_stack(vjust = 0.5), size = 2) #+  # Add percentage labels
+            position = position_stack(vjust = 0.5), size = 2) +  # Add percentage labels
   scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
   labs(
     title = "",
