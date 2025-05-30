@@ -379,9 +379,9 @@ vert_str_summary <- df_fin %>%
 p_bar_vertical_groups <- ggplot(vert_str_summary, aes(x = 1, y = proportion, 
                                                       fill = vert_category)) +
   geom_bar(stat = "identity", color = 
-             ) +
+             ) #+
   geom_text(aes(label = paste0(round(proportion, 1), "%", '(', site_count, ')')), 
-            position = position_stack(vjust = 0.5), size = 2) +  # Add percentage labels
+            position = position_stack(vjust = 0.5), size = 2) #+  # Add percentage labels
   scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
   labs(
     title = "",
@@ -450,7 +450,7 @@ p_sites_share_species <- species_site_share %>%
            ) + # Horizontal bars
   scale_fill_manual(values = species_colors) +  # Apply custom color palette
   labs(
-    x = "Plots share\n[%]",
+    x = "Share of plots [%]",
     y = "",
     title = ""
   ) +
@@ -500,8 +500,7 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
     geom = "pointrange", 
-    color = 
-      ,  # Black outline for points
+    color = 'black'      ,  # Black outline for points
     shape = 21,  # Shape 21 is a circle with a fill and border
     size = 0.5,
     linewidth = 0.2,
@@ -511,7 +510,8 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
   theme_classic() +
   labs(
     title = "",
-    x = "Stem density\n(log10) [#/ha]",
+    x = expression("Stem density (log"[10]*") [n ha"^-1*"]"),
+   # x = "Stem density\n(log10) [#/ha]",
     y = ""
   ) +
   scale_x_continuous(
