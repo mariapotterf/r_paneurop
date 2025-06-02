@@ -984,14 +984,18 @@ df_fin_country_ind <- df_fin %>%
   dplyr::select(site, country_abbr)
 
 # Summarize the total stem density per species for each climate class
-species_composition <- stem_dens_species_long_cluster %>%
-  left_join(df_fin_country_ind, by = c("cluster" = "site")) %>% 
+species_composition_country <- 
+  stem_dens_species_long_cluster %>%
+  dplyr::rename(site = cluster) %>% 
+  #  head()
+  left_join(df_fin_country_ind, by = c("site")) %>%
+  #  View()
   group_by(Species, country_abbr) %>%
   summarize(sum_stems = sum(stem_density, na.rm = TRUE)) %>% 
   ungroup() 
 
 # Calculate the total stem density per climate class and the share of each species
-species_composition <- species_composition %>%
+species_composition_country <- species_composition_country %>%
   group_by(country_abbr) %>%
   mutate(total_stems = sum(sum_stems),  # Total stem density in each climate class
          share = (sum_stems / total_stems) * 100) %>%  # Calculate percentage share
@@ -1026,16 +1030,16 @@ species_labels_full <- c(
 
 
 # Create the stacked bar plot
-p_species_distribution_country <- species_composition %>% 
+p_species_distribution_country <- species_composition_country %>% 
   dplyr::filter(share >5) %>% 
-  ggplot(
-                                 aes(x = country_abbr, 
+  ggplot(    aes(x = country_abbr, 
                                      y = share, 
                                      fill = Species)) +
   geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
   geom_text(aes(label = ifelse(share >= 5, paste0(round(share, 1), ""), "")),
             position = position_stack(vjust = 0.5),  # Labels inside the bars
-            size = 3, color = 
+            size = 3, 
+            color ="black" 
               ) +  # Adjust text size and color
   labs(x = "", y = "Share [%]", 
        fill = "",
@@ -1101,8 +1105,6 @@ vert_class_presence_absence_fin <- vert_class_presence_absence  %>%
 
 library(UpSetR)
 library("ComplexUpset")
-
-
 library(ggupset)
 
 tidy_movies %>%
@@ -1112,29 +1114,12 @@ tidy_movies %>%
   geom_bar() +
   scale_x_upset(n_intersections = 20)
   
-vert_class_presence_absence_fin %>% 
-  ggplot(aes(x=))
-
-  
-upset_data <- vert_class_presence_absence_fin %>%
-  rowwise() %>%
-  mutate(
-    sets = list(
-      c(
-        if (sap == 1) "sap" else NULL,
-        if (juv == 1) "juv" else NULL,
-        if (mat == 1) "mat" else NULL
-      )
-    )
-  ) %>%
-  ungroup() %>%
-  filter(lengths(sets) > 0)  # Remove rows with no sets
-
 
 # full data:
 
 # Step 2: Select only the columns with presence/absence data
-upset_data <- vert_class_presence_absence_fin %>% dplyr::select(sap, juv, mat) %>% 
+upset_data <- vert_class_presence_absence_fin %>% 
+  dplyr::select(sap, juv, mat) %>% 
   as.data.frame()
 
 # Step 3: Create the UpSet plot
@@ -1162,35 +1147,6 @@ p_upset_test <- ComplexUpset::upset(
 
 # Display the plot
 p_upset_test
-
-#### upset data test ---------------------------------------------------------
-
-dd <- data.frame(site = c(1,2,2,3,3,3,4,5,5,6,7,7,7),
-                 vert = c('m', 
-                          's', 'j',
-                          'j','s','m',
-                          's',
-                          'j','s',
-                          's',
-                          'm','j','s'))
-# Step 1: Create a binary presence/absence matrix for each site
-dd_wide <- dd %>%
-  pivot_wider(names_from = vert, values_from = vert, 
-              values_fn = length, values_fill = 0) %>%
-  mutate(m = ifelse(m > 0, 1, 0),
-         j = ifelse(j > 0, 1, 0),
-         s = ifelse(s > 0, 1, 0))
-
-# Step 2: Select only the columns with presence/absence data
-upset_data <- dd_wide %>% dplyr::select(m, j, s) %>% 
-  as.data.frame()
-
-# Step 3: Create the UpSet plot
-upset(upset_data, sets = c("m", "j", "s"), order.by = "freq")
-
-
-
-
 
 
 
@@ -1229,7 +1185,7 @@ df_fin <- df_fin %>%
 df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
 
 
-## STem density : saplings vs juvemniles ------------------
+## STem density : saplings vs juveniles ------------------
 head(df_fin)
 
 # get sapling: juvenile ration:
