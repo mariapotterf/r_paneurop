@@ -1185,67 +1185,6 @@ df_fin <- df_fin %>%
 df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
 
 
-## STem density : saplings vs juveniles ------------------
-head(df_fin)
-
-# get sapling: juvenile ration:
-df_fin$sapl_juv_ratio = (df_fin$sum_stems_sapling+1)/(df_fin$sum_stems_juvenile+1)
-
-# interpretation: 
-#Ratio > 1: More saplings than juveniles → Common in early succession stages or following intense regeneration pulses.
-#Ratio ≈ 1: Balanced regeneration → Suggests successful recruitment into the juvenile stage.
-#Ratio < 1: More juveniles than saplings → May indicate declining recruitment or older forest stages.
-
-hist(df_fin$sapl_juv_ratio)
-View(df_fin)
-
-df_check <- df_fin %>% 
-  dplyr::select(site, sum_stems_sapling, sum_stems_juvenile, sapl_juv_ratio, adv_delayed, 
-                distance_edge, disturbance_severity) %>% 
-  mutate(log_saplings = log(sum_stems_sapling + 1),   # Adding +1 to handle zeros
-         log_juveniles = log(sum_stems_juvenile + 1)) # Same for juveniles
-
-View(df_check)
-
-df_check %>% 
-  ggplot(aes(x = adv_delayed, y = sapl_juv_ratio)) +
-  geom_boxplot()
-
-
-df_check %>% 
-  ggplot(aes(x = log_saplings, y = log_juveniles, color = adv_delayed)) +
-  geom_point() +geom_smooth(method = 'loess')
-
-# distance_edge
-df_check %>% 
-  ggplot(aes(x = distance_edge, y = log_saplings, color = adv_delayed)) +
-  geom_point() +geom_smooth(method = 'loess')
-
-
-df_check %>% 
-  ggplot(aes(x = distance_edge, y = log_juveniles, color = adv_delayed)) +
-  geom_point() +geom_smooth(method = 'loess')
-
-
-# disturbanec severity: saplings vs juveniles
-df_check %>% 
-  ggplot(aes(x = disturbance_severity, y = log_saplings, color = adv_delayed)) +
-  geom_point() +geom_smooth(method = 'loess')
-
-
-df_check %>% 
-  ggplot(aes(x = disturbance_severity, y = log_juveniles, color = adv_delayed)) +
-  geom_point() +geom_smooth(method = 'loess')
-
-
-
-
-
-df_check %>% 
-  ggplot(aes(x = sum_stems_sapling, y = sum_stems_juvenile, color = adv_delayed)) +
-  geom_point() +geom_smooth(method = 'lm') +
-  facet_wrap(.~adv_delayed, scales = 'free_y')
-  
 
 
 # TW has a better fit, also can handle zero!
