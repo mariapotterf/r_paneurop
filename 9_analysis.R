@@ -1829,7 +1829,7 @@ ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
   theme_minimal()
 
 
-# interpret the results:  - average increase in stem density per tmp, prcp and tehir interaction -
+# interpret the results:  - average increase in stem density per tmp, prcp and tehir interaction ---------------
 # Predict stem density at mean precipitation for different temperatures
 
 
@@ -1858,9 +1858,13 @@ prcp_diff <- diff(prcp_pred$predicted)
 interaction_pred <- ggpredict(fin.m.reg.density, 
                               terms = c("prcp [500:1700 by=100]", "tmp [8,10]"))
 
+
 # Separate predictions for each temperature
 pred_8 <- interaction_pred %>% filter(group == "8")
 pred_10 <- interaction_pred %>% filter(group == "10")
+
+avg_prcp_level <- mean(pred_10$x) # same as avg_prcp_level <- mean(pred_8$x)
+
 
 # Calculate the slope (change in density per 100mm increase in precipitation)
 slope_8 <- diff(pred_8$predicted) / diff(pred_8$x)
@@ -1889,32 +1893,59 @@ cat(sprintf(
 ))
 
 
-### distrubanec severity and disturbance edge -------------------------------------
+### distrubanec severity and distance edge -------------------------------------
 
-# Predict interaction effect of disturbance severity and distance to edge
-disturbance_pred <- ggpredict(m_int_sev_edge_full_te_comb, 
-                              terms = c("distance_edge [50:250 by=50]", "disturbance_severity [0.3, 0.9]"))
+# Predict effect of distance from edge
+distance_pred <- ggpredict(fin.m.reg.density, terms = "distance_edge [50,250]")
 
-# Separate predictions for each disturbance severity value
-pred_03 <- disturbance_pred %>% filter(group == "0.3")
-pred_09 <- disturbance_pred %>% filter(group == "0.9")
+# Extract predicted values
+distance_50 <- distance_pred$predicted[distance_pred$x == 50]
+distance_250 <- distance_pred$predicted[distance_pred$x == 250]
 
-# Calculate the slope (change in stem density per 50m increase in distance to edge)
-slope_03 <- diff(pred_03$predicted) / diff(pred_03$x)
-slope_09 <- diff(pred_09$predicted) / diff(pred_09$x)
+percent_drop <- ((distance_50 - distance_250) / distance_50) * 100
+percent_drop
 
-# Mean stem density values for disturbance severity = 0.3 and 0.9
-(avg_stem_density_03 <- mean(pred_03$predicted))
+# Extract CIs
+ci_50_low  <- distance_pred$conf.low[distance_pred$x == 50]
+ci_50_high <- distance_pred$conf.high[distance_pred$x == 50]
 
-# Confidence intervals for average densities
-(ci_03_low  <- mean(pred_03$conf.low))
-(ci_03_high <- mean(pred_03$conf.high))
+ci_250_low  <- distance_pred$conf.low[distance_pred$x == 250]
+ci_250_high <- distance_pred$conf.high[distance_pred$x == 250]
 
-(avg_stem_density_09 <- mean(pred_09$predicted))
+cat(sprintf(
+  "At 50 m, predicted stem density was %.0f n ha⁻¹ (95%% CI: %.0f–%.0f), while at 250 m it was %.0f n ha⁻¹ (95%% CI: %.0f–%.0f).\n",
+  distance_50, ci_50_low, ci_50_high,
+  distance_250, ci_250_low, ci_250_high
+))
 
-(ci_09_low  <- mean(pred_09$conf.low))
-(ci_09_high <- mean(pred_09$conf.high))
 
+# Predict stem density at disturbance severity levels 0.3 and 0.9 ---------------
+severity_pred <- ggpredict(fin.m.reg.density, terms = "disturbance_severity [0.3,0.9]")
+
+# Extract predicted values and confidence intervals
+density_03     <- severity_pred$predicted[severity_pred$x == 0.3]
+ci_03_low      <- severity_pred$conf.low[severity_pred$x == 0.3]
+ci_03_high     <- severity_pred$conf.high[severity_pred$x == 0.3]
+
+density_09     <- severity_pred$predicted[severity_pred$x == 0.9]
+ci_09_low      <- severity_pred$conf.low[severity_pred$x == 0.9]
+ci_09_high     <- severity_pred$conf.high[severity_pred$x == 0.9]
+
+# Calculate percent increase
+percent_increase <- ((density_09 - density_03) / density_03) * 100
+
+# Print formatted sentence
+cat(sprintf(
+  "Stem density increased with disturbance severity.\n"
+))
+cat(sprintf(
+  "At a severity of 0.3, predicted stem density was %.0f n ha⁻¹ (95%% CI: %.0f–%.0f),\n",
+  density_03, ci_03_low, ci_03_high
+))
+cat(sprintf(
+  "while at 0.9 it was %.0f n ha⁻¹ (95%% CI: %.0f–%.0f), representing an increase of %.0f%%.\n",
+  density_09, ci_09_low, ci_09_high, percent_increase
+))
 
 
 
