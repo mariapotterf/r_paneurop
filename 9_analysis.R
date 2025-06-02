@@ -306,7 +306,7 @@ p_bar_species_dominance <- species_dominance_rIVI %>%
   )
 
 
-## share of plots by species richness --------------------------------------------
+## Species richness --------------------------------------------
 
 # Categorize richness into bins and calculate proportions
 richness_summary <- df_fin %>%
@@ -352,11 +352,6 @@ p_bar_richness_groups <- ggplot(richness_summary,
   )
 
 p_bar_richness_groups
-
-### individual managementy types: subplot level  -----------------------
-
-total_subplots <- nrow(df_individual_management)
-
 
 
 
