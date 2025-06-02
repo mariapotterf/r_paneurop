@@ -84,16 +84,11 @@ species_labels <- c(
 ### Get a color scheme per species -------------------------
 
 # Reverse the color palette and map to the species in the desired order
-n_colors <- 10  # Number of species
+n_colors  <- 10  # Number of species
 my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Generate colors
 
-
-top_species_site_share <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
-# Assign colors to each species in the order of `top_species_site_share$Species`
-species_colors <- setNames(
-  reversed_colors,
-  c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
-)
+# Reverse the color order to start with dark green
+reversed_colors <- rev(my_colors)
 
 species_colors <- c(
   piab = "#006837",
@@ -108,15 +103,17 @@ species_colors <- c(
   lade = "#A50026"
 )
 
-# Reverse the color order to start with dark green
-reversed_colors <- rev(my_colors)
-
 
 # Print the color assignments for confirmation
 print(species_colors)
 
+top_species_site_share <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
 
-
+# Assign colors to each species in the order of `top_species_site_share$Species`
+species_colors <- setNames(
+  reversed_colors,
+  c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
+)
 
 
 
@@ -137,15 +134,15 @@ df_fin <- df_fin %>%
   rename(region_manual = name)
 
 # ad disturbance severity based on presence/absence of mature trees 
-df_mature_dist_severity <- fread('outData/disturb_severity_mature.csv')
+#df_mature_dist_severity <- fread('outData/disturb_severity_mature.csv')
 
 # Create the opposite vector: listing residual trees
-df_mature_dist_severity$residual_mature_trees <- 1 - df_mature_dist_severity$mature_dist_severity
+#df_mature_dist_severity$residual_mature_trees <- 1 - df_mature_dist_severity$mature_dist_severity
 
 
-df_fin <- df_fin %>% 
-  left_join(df_mature_dist_severity, by = c('site' = 'cluster')) %>% 
-  mutate(time_since_disturbance = 2023 - disturbance_year)
+#df_fin <- df_fin %>% 
+#  left_join(df_mature_dist_severity, by = c('site' = 'cluster')) %>% 
+#  mutate(time_since_disturbance = 2023 - disturbance_year)
 
 ### get coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG file
@@ -265,7 +262,8 @@ prop.table(table(df_fin$disturbance_year))
 total_sites <- length(unique(df_fin$site))
 
 
-# How many plots per dominant tree species ? (rIVI)
+### rIVI -----------------------
+#### rIVI How many plots per dominant tree species ? (rIVI) -----------
 # what are dominant species : from rIVI?
 # Create a table of dominant_species with counts and proportions
 species_dominance_rIVI <- df_fin %>%
@@ -280,7 +278,7 @@ species_dominance_rIVI <- df_fin %>%
 species_dominance_rIVI
 
 
-## get plots share by most frequent dominant species: rIVI -------------------------------
+#### get plots share by most frequent dominant species: rIVI -------------------------------
 # Filter species with > 5% proportion
 
 # Create the barplot
@@ -297,7 +295,7 @@ p_bar_species_dominance <- species_dominance_rIVI %>%
     title = "",
     fill = 'Dominant tree\nspecies (rIVI)',
     x = NULL,
-    y = "Proportion (%)"
+    y = "Share of plots [%]"
   ) +
   theme_minimal() +
   theme(axis.text.x = element_blank(),  # Remove x-axis text since it's a single bar
@@ -309,7 +307,6 @@ p_bar_species_dominance <- species_dominance_rIVI %>%
 
 
 ## share of plots by species richness --------------------------------------------
-
 
 # Categorize richness into bins and calculate proportions
 richness_summary <- df_fin %>%
@@ -328,9 +325,14 @@ richness_summary <- df_fin %>%
   summarise(site_count = n_distinct(site)) %>%
   mutate(proportion = site_count / sum(site_count) * 100)  # Calculate proportions
 
+richness_summary
+
 # Create a stacked bar plot
-p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fill = richness_category)) +
-  geom_bar(stat = "identity", color = 
+p_bar_richness_groups <- ggplot(richness_summary, 
+                                aes(x = 1, 
+                                    y = proportion, 
+                                    fill = richness_category)) +
+  geom_bar(stat = "identity", color ="black" 
              ) +
   geom_text(aes(label = paste0(round(proportion, 1), "%", '(', site_count, ')')), 
             position = position_stack(vjust = 0.5), size = 2) +  # Add percentage labels
@@ -338,8 +340,8 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
   labs(
     title = "",
     x = NULL,
-    y = "Proportion (%)",
-    fill = "Count species\nrichness"
+    y = "Share of plots [%]",
+    fill = "Species\nrichness"
   ) +
   theme_minimal() +
   theme(
@@ -349,6 +351,7 @@ p_bar_richness_groups <- ggplot(richness_summary, aes(x = 1, y = proportion, fil
     plot.title = element_text(size = 8, face = "plain", hjust = 0.5)
   )
 
+p_bar_richness_groups
 
 ### individual managementy types: subplot level  -----------------------
 
@@ -358,11 +361,9 @@ total_subplots <- nrow(df_individual_management)
 
 
 ### vertical classes share -----------------------------------
-# what is teh share of plots with only saplings?
+# get from vertical claas share
 
-
-
-# Categorize richness into bins and calculate proportions
+# Categorize counts of vertical claases into bins and calculate proportions
 vert_str_summary <- df_fin %>%
   mutate(
     vert_category = case_when(
@@ -410,12 +411,16 @@ ggarrange(p_bar_vertical_groups,p_bar_species_dominance, p_bar_richness_groups,
 
 df_stem_sp_sum <- stem_dens_species_long_cluster %>% 
   group_by(cluster, Species) %>% 
+  # summarize across vertical groups
   summarise(sum_stem_density = sum(stem_density, na.rm = t)) #%>% 
   #dplyr::filter(sum_stem_density>0)
 
+# do i still have sites that have no stem density? 
 
+df_stem_sp_sum %>% 
+  dplyr::filter(sum_stem_density==0)
 
-## Share of plots by species -----------------------------------------------------
+### Share of plots by species -----------------------------------------------------
 
 # Count the unique clusters (sites) for each species
 species_site_share <- df_stem_sp_sum %>%
