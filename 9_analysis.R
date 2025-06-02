@@ -1955,50 +1955,6 @@ cat(sprintf(
 
 
 
-### check variability withing clim grid --------------------------
-
-# Calculate standard deviation of stem_regeneration for each clim_grid
-regional_variability <- df_fin %>%
-  dplyr::filter(region_manual != 'CH2') %>% 
-  group_by(region_manual) %>%
-  summarise(
-    mean_stem_regeneration = mean(stem_regeneration, na.rm = TRUE),
-    sd_stem_regeneration = sd(stem_regeneration, na.rm = TRUE),
-    cv_stem_regeneration = (sd_stem_regeneration / mean_stem_regeneration) * 100,
-    
-    mean_elevation = mean(elevation, na.rm = TRUE),
-    sd_elevation = sd(elevation, na.rm = TRUE),
-    cv_elevation = (sd_elevation / mean_elevation) * 100,
-    
-    mean_tmp = mean(tmp, na.rm = TRUE),
-    sd_tmp = sd(tmp, na.rm = TRUE),
-    cv_tmp = (sd_tmp / mean_tmp) * 100,
-    
-    mean_prcp = mean(prcp, na.rm = TRUE),
-    sd_prcp = sd(prcp, na.rm = TRUE),
-    cv_prcp = (sd_prcp / mean_prcp) * 100
-  )
-
-# View variability
-#View(regional_variability)
-
-# Function to plot coefficient of variation
-plot_cv <- function(data, variable, title, y_label) {
-  ggplot(data, aes(x = region_manual, y = !!sym(variable))) +
-    geom_bar(stat = "identity", fill = "steelblue") +
-    labs(title = title, x = "Region", y = y_label) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-}
-
-# Generate plots
-p_stems_cv <- plot_cv(regional_variability, "cv_stem_regeneration", "Variability in Stem Regeneration by Region", "CV of Stem Regeneration")
-p_tmp_cv <- plot_cv(regional_variability, "cv_tmp", "Variability in Temperature by Region", "CV of Temperature")
-p_prcp_cv <- plot_cv(regional_variability, "cv_prcp", "Variability in Precipitation by Region", "CV of Precipitation")
-p_elevation_cv <- plot_cv(regional_variability, "cv_elevation", "Variability in Elevation by Region", "CV of Elevation")
-
-ggarrange(p_stems_cv, p_tmp_cv, p_prcp_cv,p_elevation_cv, ncol = 2, nrow = 2)
-
 ##### sites per clim_grid ---------------------------------------
 
 site_clim_grid <- df_fin %>%
