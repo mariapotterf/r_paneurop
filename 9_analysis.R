@@ -1951,23 +1951,6 @@ cat(sprintf(
 
 
 
-
-
-
-
-##### sites per clim_grid ---------------------------------------
-
-site_clim_grid <- df_fin %>%
-  group_by(clim_grid, country_abbr) %>%
-  summarise(num_sites = n())
-
-summary(site_clim_grid$num_sites)
-
-
-# get summary statistics of variation in stem density, elevation, tmp and prcp within manual clusters
-
-
-
 ### test for spatial autocorrelation: ------------------------------------------
 
 # 
@@ -1994,7 +1977,8 @@ print(moran_test)
 
 
 # Plot: Drivers  ---------------------------------------------------------------------------
-y_lab = 'Regeneration stem density\n[#/ha]'
+#y_lab = 'Regeneration stem density\n[#/ha]'
+y_lab = expression("Stem density [1000 n ha"^{-1}*"]")
 
 summary(fin.m.reg.density)
 anova.gam(fin.m.reg.density)
@@ -2209,21 +2193,27 @@ my_theme_drivers <- theme(
   legend.justification = c(0.05, 0.9)
 )
 
+my_colors_interaction <- c("#FDAE61", "#A50026") 
+my_color_main_effects <- "grey" # "#006837"    
 
 # Plot precipitation
 p.prcp <- ggplot(pred_prcp, aes(x = x, y = predicted/1000)) +
-  geom_line(linewidth = 1, color = 'grey') +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
-  labs(x = "Precipitation [mm]",  y = "Regeneration stem density [#*1000/ha]", title = "p<0.001") +
+  geom_line(linewidth = 1, color = my_color_main_effects) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = my_color_main_effects) +
+  labs(x = "Precipitation [mm]", 
+       y = y_lab, 
+       title = "p<0.001") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p.prcp
 
 # Plot precipitation
 p.tmp <- ggplot(pred_tmp, aes(x = x, y = predicted/1000)) +
-  geom_line(linewidth = 1, color = 'grey') +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
-  labs(x = "Temperature [°C]",  y = "Regeneration stem density [#*1000/ha]", title = "p=0.004") +
+  geom_line(linewidth = 1, color = my_color_main_effects) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = my_color_main_effects) +
+  labs(x = "Temperature [°C]",  
+       y = y_lab, 
+       title = "p=0.004") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p.tmp
@@ -2236,11 +2226,12 @@ p1 <-
   geom_line(linewidth = 1, aes(color = group) ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
               alpha = 0.2, color = NA) +
-  scale_color_manual(values = c('grey', 'red' ), name = "Temperature [°C]") +
-  scale_fill_manual(values = c('grey', 'red' ), name = "Temperature [°C]") +
+  scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
+  scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
  # theme_classic() +
   labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "p=0.006", 
+       y =y_lab,  
+       title = "p=0.006", 
        # linetype =  "Temperature [°C]"
   ) +
   my_theme_drivers
@@ -2249,23 +2240,29 @@ p1
 
 # Plot distance to edge
 p2 <- ggplot(pred_dist_edge, aes(x = x, y = predicted/1000)) +
-   geom_line(linewidth = 1, color = 'grey') +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = 'grey') +
-  labs(x = "Distance to edge [m]",  y = "Regeneration stem density [#*1000/ha]", title = "p=0.023") +
+   geom_line(linewidth = 1, color = my_color_main_effects) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), 
+              alpha = 0.2,fill = my_color_main_effects) +
+  labs(x = "Distance to edge [m]",  
+       y = y_lab, 
+       title = "p=0.023") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p2
 
-
+# "#4D4D4D"
+# "#666666"
+# my_color_main_effects
 
 
 # Plot the second interaction
-p3 <- ggplot(pred_dist_sever, aes(x = x, y = predicted/1000)) +
-  geom_line(linewidth = 1, color = 'grey' ) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), fill = "grey", alpha = 0.2, color = NA) +
+p3 <- ggplot(pred_dist_sever, aes(x = x*100, y = predicted/1000)) +
+  geom_line(linewidth = 1, color = my_color_main_effects ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), fill =my_color_main_effects, alpha = 0.2, color = NA) +
   theme_classic() +
  # ylim(0,15) +
-  labs(x = "Disturbance severity [%]", y = "", title = "p=0.001") +
+  labs(x = "Disturbance severity [%]", 
+       y = "", title = "p=0.001") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p3
@@ -2273,8 +2270,9 @@ p3
 
 # PlotCaly
 p4 <- ggplot(pred_clay, aes(x = x, y = predicted/1000)) +
-  geom_line(linewidth = 1, color = "grey" ) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000),  fill = "grey", alpha = 0.2, color = NA) +
+  geom_line(linewidth = 1, color = my_color_main_effects ) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000),  
+              fill = my_color_main_effects, alpha = 0.2, color = NA) +
   theme_classic() +
   scale_y_continuous(breaks = seq(5, 15, 5)) +
   #ylim(0,20) +
