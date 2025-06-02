@@ -1220,7 +1220,7 @@ predictor_vars_sub <- c(
    #"mature_dist_severity",  # cover of residual trees over subplots
    "sum_stems_mature",       # stem density of mature trees
    #"sum_stems_mature_scaled" , # mature trees stems: scaled
-   "residual_mature_trees",        
+  # "residual_mature_trees",        
    #"sum_stems_mature_pres_abs",  # mature trees present/absent
   
   "clay_extract", 
@@ -1230,7 +1230,7 @@ predictor_vars_sub <- c(
    # site info
   "av.nitro",
   
-  "time_since_disturbance",
+ # "time_since_disturbance",
   
   # anomalies per growing season for tmp and prcp
   "mean_grw_anm_prcp" ,        
@@ -1366,7 +1366,7 @@ predictors <- df_stem_regeneration2 %>%
                 #cv_tp,
                 #distance_edge, 
                 depth_extract,
-               # disturbance_severity, #mature_dist_severity ,
+                disturbance_severity, #mature_dist_severity ,
                 #sum_stems_mature ,
                 depth_extract , 
                 clay_extract, 
@@ -1401,33 +1401,6 @@ corrplot(correlation_matrix, method = "color", type = "upper",
          addCoef.col = 
            , number.cex = 0.7)
 dev.off()#summary(interaction_model_4)
-
-
-
-
-
-# categorize teh disturbance severity to understand teh relationship ---------
-df_stem_regeneration2 <- df_stem_regeneration2 %>% 
-  mutate(disturb_sev_cl2 = case_when(
-    disturbance_severity >= 0 & disturbance_severity < 0.8 ~ "Low",
-    disturbance_severity >= 0.8 ~ "High"
-  )) %>% 
-  mutate(disturb_sev_cl3 = case_when(
-    disturbance_severity >= 0 & disturbance_severity < 0.5 ~ "Low",
-    disturbance_severity >= 0.5 & disturbance_severity <= 0.8 ~ "Medium",
-    disturbance_severity > 0.8 ~ "High"
-  )) %>% 
-  mutate(distance_edge_cl = case_when(
-    distance_edge >= 0 & distance_edge < 100 ~ "Near",
-    distance_edge >= 100 & distance_edge <= 200 ~ "Medium",
-    distance_edge > 200 ~ "Far"
-  )) %>% 
-  mutate(disturb_sev_cl2 = factor(disturb_sev_cl2),
-         disturb_sev_cl3 = factor(disturb_sev_cl3),
-         distance_edge_cl = factor(distance_edge_cl))
-
-
-
 
 
 
