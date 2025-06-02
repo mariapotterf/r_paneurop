@@ -1953,19 +1953,6 @@ cat(sprintf(
 
 
 
-# correlation matrix --------------------------------
-cor_matrix <- cor(df_fin %>% dplyr::select(drought_spei1, drought_spei12, tmp, prcp), use = "pairwise.complete.obs", method = "pearson")
-(cor_matrix)
- 
-# drought_spei1 drought_spei12        tmp       prcp
-# drought_spei1      1.0000000      0.7803899 -0.1644824  0.6986090
-# drought_spei12     0.7803899      1.0000000 -0.1696574  0.7655749
-# tmp               -0.1644824     -0.1696574  1.0000000 -0.4270087
-# prcp               0.6986090      0.7655749 -0.4270087  1.0000000
-
-
-
-
 
 
 ### check variability withing clim grid --------------------------
