@@ -2526,9 +2526,8 @@ df_long_narrow_sub <- df_fin %>%
   na.omit() %>% 
   dplyr::select( 
     prcp,
+    tmp,
     tmp_z,
-    #management_intensity,
-    #protection_intensity,
     disturbance_severity,
     distance_edge,
     clay_extract,
@@ -2555,7 +2554,10 @@ print(summary_stats_narrow_sub)
 
 
 # list groups to pairwise comparison
-comparisons_3grps <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
+comparisons_3grps <- list(c("Delayed", "Other"), 
+                          c("Delayed", "Advanced"), 
+                          c("Other", "Advanced"))
+
 comparisons_2grps <- list(c("Delayed", "Advanced"))
 
 
@@ -2644,8 +2646,9 @@ my_theme <- function() {
     plot.title = element_text(size = 8),   # Plot title
     strip.background = element_blank(),    # Remove the box around facet names
     strip.placement = "outside",           # Move facet labels outside the plot area
-    panel.border = element_rect(colour = 
-                                  , fill = NA, linewidth = 0.5)  # Add a square border around the plots
+    panel.border = element_rect(colour = "black",
+                                fill = NA, 
+                                linewidth = 0.5)  # Add a square border around the plots
   )
 }
 
@@ -2685,12 +2688,12 @@ p.prcp
 p.tmp <- 
 
     df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "tmp_z") %>% 
+  dplyr::filter(Variable == "tmp") %>% 
     ggboxplot(x = "adv_delayed", 
               y = "Value", 
                    fill = "adv_delayed", 
                    palette = c("#A50026", "#FDAE61", "#006837"),
-                   ylab = "Temperature anomaly [z-score]", 
+                   ylab = "Temperature [°C]",
                    xlab = "",
                    outlier.shape = NA,
                    #outlier.size = .2,
@@ -2699,16 +2702,17 @@ p.tmp <-
                          method = "wilcox.test",
                          label =  'p.format', #"p.signif",
                          size = 3,
-                         label.y = c(3.1,
-                                     2.85,
-                                     2.65)) +
+                         label.y = c(13.4,
+                                     12.8,
+                                     12.2)) +
   my_theme() +
       # Add mean dots
-      geom_point(data =  subset(summary_stats_narrow_sub, Variable == "tmp_z"), 
+      geom_point(data =  subset(summary_stats_narrow_sub, Variable == "tmp"), 
                  aes(x = adv_delayed, y = Mean, group = adv_delayed), 
                  shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-    coord_cartesian(ylim = c(0,3.3)) 
-    
+    coord_cartesian(ylim = c(7,14)) 
+  
+p.tmp
 
 p.spei1 <-
   df_long_narrow_sub %>% 
