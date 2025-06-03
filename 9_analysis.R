@@ -1190,6 +1190,7 @@ df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
 # TW has a better fit, also can handle zero!
 # select main variables as predictors 
 predictor_vars_sub <- c(
+  
   "spei1",
   "spei3",
   "spei12",
@@ -1208,26 +1209,25 @@ predictor_vars_sub <- c(
   "drought_spei12",
   
   # 
-  "salvage_intensity",
-  "protection_intensity",
-  "management_intensity",
+ # "salvage_intensity",
+ # "protection_intensity",
+#  "management_intensity",
+
   "distance_edge", 
-  
   # disturbance severity est
   "disturbance_severity", # from RS 
  
   # disturbance severity based on residual trees: 
    #"mature_dist_severity",  # cover of residual trees over subplots
-   "sum_stems_mature",       # stem density of mature trees
+   #"sum_stems_mature",       # stem density of mature trees
    #"sum_stems_mature_scaled" , # mature trees stems: scaled
   # "residual_mature_trees",        
    #"sum_stems_mature_pres_abs",  # mature trees present/absent
   
+  # site info
+  "sand_extract",
   "clay_extract", 
   "depth_extract", 
-  "sapl_juv_ratio", 
-   
-   # site info
   "av.nitro",
   
  # "time_since_disturbance",
@@ -1235,18 +1235,16 @@ predictor_vars_sub <- c(
   # anomalies per growing season for tmp and prcp
   "mean_grw_anm_prcp" ,        
   "mean_grw_anm_tmp"  ,        
-  "sd_grw_anm_prcp",           
-  "sd_grw_anm_tmp" ,           
-  #"median_grw_anm_prcp"   ,   
-  #"median_grw_anm_tmp" ,      
   "max_grw_anm_prcp" ,        
   "max_grw_anm_tmp",
- # "min_grw_anm_prcp",
-#  "min_grw_anm_tmp",  
-  
+  "sd_grw_anm_prcp",           
+  "sd_grw_anm_tmp" ,           
+
+
   # seasonality: CV - over year
   "cv_t2m",
-  "cv_tp"    
+  "cv_tp",
+   
   #"richness",
   #'rIVI',
   
@@ -2417,7 +2415,8 @@ print(summary_stats_narrow_sub)
 
 
 # list groups to pairwise comparison
-comparisons <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
+comparisons_full <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
+comparisons_simple <- list(c("Delayed", "Advanced"))
 
 
 # # Compute Wilcoxon effect sizes for each variable
@@ -2479,7 +2478,7 @@ p_boxplot_wilcox_narrow <-
     panel.border = element_rect(colour = 
                                   , fill = NA, linewidth = 0.5)  # Add a square border around the plots
   )  +
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
+  stat_compare_means(comparisons = comparisons_full, method = "wilcox.test", 
                      label = "p.signif", #"p.format",  
                      size = 2, label.x = 1.5) +
   # Add mean dots
@@ -2526,7 +2525,7 @@ p.prcp <-   df_long_narrow_sub %>%
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
-  stat_compare_means(comparisons = comparisons, 
+  stat_compare_means(comparisons = comparisons_full, 
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
@@ -2555,7 +2554,7 @@ p.tmp <-
                    outlier.shape = NA,
                    #outlier.size = .2,
                    size = 0.2) +
-      stat_compare_means(comparisons = comparisons, 
+      stat_compare_means(comparisons = comparisons_full, 
                          method = "wilcox.test", 
                          label =  'p.format', #"p.signif",  
                          size = 3,
