@@ -60,35 +60,45 @@ setDT(climate_months_1980_2023)  # note that TMP is in kelvin, and prcp is in a 
 ### seasonality: CV and sd -----------
 # seasonality make sense if calculated as interannual variation: variation within tmonths in a year 
 # seasonality over years
-df_cv_year <- climate_months_1980_2023 %>%
+df_seasonality_year <- climate_months_1980_2023 %>%
  # dplyr::filter(year %in% 2018:2023, var %in% c("t2m", "tp")) %>% 
   group_by(cluster, var, year) %>%
   summarise(
-    mean_value = mean(value, na.rm = TRUE),
-    sd_value = sd(value, na.rm = TRUE),
-    cv = sd_value / mean_value  # Coefficient of Variation
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE),
+    cv = sd / mean  # Coefficient of Variation
   ) %>%
   ungroup()
 
 # get median value per cluster oevr 2018"2023
-df_cv_med <- 
-  df_cv_year %>%
+df_seasonality_med <- 
+  df_seasonality_year %>%
    dplyr::filter(year %in% 2018:2023, var %in% c("t2m", "tp")) %>% 
   group_by(cluster, var) %>%
   summarise(
     cv = median(cv, na.rm = T),  # Seasonality: Coefficient of Variation
-    sd = median(sd_value, na.rm = T) # Seasonality from SD
+    sd = median(sd, na.rm = T) # Seasonality from SD
   ) %>%
   ungroup() %>% 
   # Convert to wide format
   pivot_wider(names_from = var, values_from = c(cv, sd), names_prefix = "")
 
-df_cv_year %>% 
+# check plots ----------------
+df_seasonality_year %>% 
   dplyr::filter(var == 'tp') %>% 
   ggplot(aes(x = year,
              y = cv)) +
   geom_point() + 
   geom_smooth(method = 'lm')
+
+
+df_seasonality_year %>% 
+  dplyr::filter(var == 'tp') %>% 
+  ggplot(aes(x = year,
+             y = sd)) +
+  geom_point() + 
+  geom_smooth(method = 'lm')
+
 
 ### anomalies per growth season ---------
 
@@ -326,7 +336,7 @@ df_predictors_plot <-
             aspect           = median(aspect, na.rm = T)
             ) %>% 
   right_join(growth_anomalies_wide, by = join_by(cluster)) %>%  # join tm,p and prco anomalies over gropwth season
-  right_join(df_cv_med, by = join_by(cluster))                  # join seasonality indicator (CV, median)
+  right_join(df_seasonality_med, by = join_by(cluster))                  # join seasonality indicator (CV, median)
 
 nrow(df_predictors_plot)
 
