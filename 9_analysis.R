@@ -3034,105 +3034,16 @@ df_fin %>%
 df_fin %>% 
   #group_by(adv_delayed) %>% 
   summarize(
-    min_distance = min(disturbance_severity, na.rm = TRUE),
-    max_distance = max(disturbance_severity, na.rm = TRUE),
-    mean_distance = mean(disturbance_severity, na.rm = TRUE),
-    median_distance = median(disturbance_severity, na.rm = TRUE),
-    IQR_distance = IQR(disturbance_severity, na.rm = TRUE),
-    sd_distance = sd(disturbance_severity, na.rm = TRUE),
+    min_severity = min(disturbance_severity, na.rm = TRUE),
+    max_severity = max(disturbance_severity, na.rm = TRUE),
+    mean_severity = mean(disturbance_severity, na.rm = TRUE),
+    median_severity = median(disturbance_severity, na.rm = TRUE),
+    IQR_severity = IQR(disturbance_severity, na.rm = TRUE),
+    sd_severity = sd(disturbance_severity, na.rm = TRUE),
     n = n()
   )
 
 
-# TEST 
-
-library(ggpubr)
-library(dplyr)
-
-# Manually calculate p-values for each comparison
-comparison_results <- lapply(comparisons, function(comp) {
-  test <- wilcox.test(
-    Value ~ adv_delayed, 
-    data = df_long_narrow_filtered %>% filter(adv_delayed %in% comp),
-    paired = FALSE
-  )
-  data.frame(
-    group1 = comp[1],
-    group2 = comp[2],
-    p.value = test$p.value
-  )
-})
-
-# Combine results into a single data frame
-comparison_results <- bind_rows(comparison_results)
-
-# Filter for significant results only (p < 0.05)
-significant_comparisons <- comparison_results %>%
-  dplyr::filter(p.value < 0.05) %>%
-  select(group1, group2) %>%
-  as.list()
-
-# Create the boxplot
-p_boxplot_wilcox_rm_outliers <- 
-  df_long_narrow_filtered %>% 
-  mutate(Variable = factor(Variable, 
-                           levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity",
-                                      "mature_dist_severity", 
-                                      "sum_stems_mature",  
-                                      "residual_mature_trees"))) %>% 
-  ggboxplot(
-    x = "adv_delayed", y = "Value", 
-    fill = "adv_delayed", 
-    palette = c("#A50026", 
-                "#FDAE61",
-                "#006837"),
-    alpha = 0.5,
-    facet.by = "Variable", 
-    scales = "free_y", 
-    ylab = "Values", xlab = "Regeneration Status",
-    outlier.shape = NA,  # Hide outliers
-    size = 0.2
-  ) +
-  stat_compare_means(
-    #comparisons = significant_comparisons,  # Use only significant comparisons
-    method = "wilcox.test", 
-    label = "p.format", 
-    size = 2,
-    label.x = 1.5
-  ) +
-  labs(title = "",
-       x = "", y = "Vals") +
-  theme_classic() +
-  theme(
-    legend.position = 'none',
-    text = element_text(size = 8),         # Set all text to size 8
-    axis.text = element_text(size = 8),    # Axis tick labels
-    axis.title = element_text(size = 8),   # Axis titles
-    strip.text = element_text(size = 8),   # Facet labels
-    legend.text = element_text(size = 8),  # Legend text
-    plot.title = element_text(size = 8),   # Plot title
-    strip.background = element_blank(),    # Remove the box around facet names
-    strip.placement = "outside",           # Move facet label outside the plot area
-    axis.line = element_line(color = 
-                               )  # Add bottom and left axis lines
-  )
-
-p_boxplot_wilcox_rm_outliers
-
-
-
-# END
-# Save the plot ensuring text sizes are preserved
-ggsave("outFigs/p_boxplot_wilcox_with_outliers.png", plot = p_boxplot_wilcox_outliers , 
-       width = 3, height = 3.2, units = "in", dpi = 300, 
-       bg = 'white', scale = 1)
-
-
-
-# Save the plot ensuring text sizes are preserved
-ggsave("outFigs/p_boxplot_wilcox_no_outliers.png", plot = p_boxplot_wilcox_rm_outliers, 
-       width = 3, height = 3.2, units = "in", dpi = 300, 
-       bg = 'white', scale = 1)
 
 
 #### Wilcox tablle -----------------------------------------------
