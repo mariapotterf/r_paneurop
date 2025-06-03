@@ -3046,37 +3046,6 @@ df_fin %>%
 
 
 
-#### Wilcox tablle -----------------------------------------------
-
-# Perform Wilcoxon pairwise comparisons and extract p-values
-wilcox_results <- df_long_narrow %>%
-  #df_long_narrow_filtered %>% 
-  group_by(Variable) %>%
-  summarise(
-    p_values = list(pairwise.wilcox.test(Value, adv_delayed, p.adjust.method = "bonferroni")$p.value)
-  )
-
-# Convert the Wilcoxon results into a tidy format
-tidy_wilcox_results <- wilcox_results %>%
-  rowwise() %>%
-  mutate(
-    tidy_p_values = list(as.data.frame(as.table(p_values)))
-  ) %>%
-  unnest(tidy_p_values) %>%
-  dplyr::rename(Group1 = Var1, Group2 = Var2, p_value = Freq) %>%
-  arrange(Variable, Group1, Group2)
-
-# Display the tidy results
-tidy_wilcox_results
-
-
-df_fin %>% 
-  group_by(adv_delayed) %>% 
-  summarize(mean = mean(stem_density),
-            sd = sd(stem_density),
-            median = median(stem_density),
-            IQR = IQR(stem_density))
-
 
 # Country effect ----------------------------------------------------------
 df_richness <- df_richness %>% 
