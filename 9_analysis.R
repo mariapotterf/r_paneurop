@@ -2821,9 +2821,9 @@ p.distance_edge <-
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
-                     label.y = c(120, 
-                                 110, 
-                                 100)) +  # Standard Wilcoxon test comparison lines
+                     label.y = c(140, 
+                                 130, 
+                                 120)) +  # Standard Wilcoxon test comparison lines
   my_theme() +
   # Add mean dots
   geom_point(data =  subset(summary_stats_narrow_sub, Variable == "distance_edge"), 
@@ -2869,7 +2869,7 @@ ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_suppl
 
 
 
-### remove 'other' category -----
+### FINAL wilcox: remove 'other' category -----
 # filter the tables
 # !!! START
 summary_stats_narrow_sub2 <- summary_stats_narrow_sub %>%
@@ -2894,18 +2894,29 @@ plot_variable_box <- function(var_name,
                               label_y_values, 
                               palette = c(  "#F67B49", "#74C364")) {
   
+  data_filtered <- df_long_narrow_sub2 %>%
+    dplyr::filter(Variable == var_name)
+  
   # Base plot
-  p <- df_long_narrow_sub2 %>% 
-    filter(Variable == var_name) %>%
-    ggboxplot(x = "adv_delayed", 
-              y = "Value", 
-              fill = "adv_delayed", 
-              palette = palette,
-              ylab = y_label, 
-              xlab = "",
-              outlier.shape = NA,
-              size = 0.2) +
+  p <- ggboxplot(data_filtered,
+                 x = "adv_delayed", 
+                 y = "Value", 
+                 fill = "adv_delayed", 
+                 palette = palette,
+                 ylab = y_label, 
+                 xlab = "",
+                 outlier.shape = NA,
+                 size = 0.2) +
     
+    # Jittered raw data points
+    # geom_jitter(data = data_filtered,
+    #             aes(x = adv_delayed, y = Value),
+    #            color = 'gray30',
+    #              width = 0.2,
+    #             alpha = 0.4,
+    #             size = 0.8,
+    #             inherit.aes = FALSE) +
+    # 
     # Wilcoxon comparison
     stat_compare_means(comparisons = comparisons_2grps, 
                        method = "wilcox.test", 
@@ -2919,7 +2930,7 @@ plot_variable_box <- function(var_name,
     # Red mean points
     geom_point(data = subset(summary_stats_narrow_sub2, Variable == var_name), 
                aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-               shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
+               shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
     
     # Zoomed y-axis
     coord_cartesian(ylim = y_limits)
@@ -2961,17 +2972,17 @@ wilcox_fin
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_fin.png", plot = wilcox_fin, 
-       device = "png", width = 7, height = 3, dpi = 300, bg = 'white')
+       device = "png", width = 6, height = 3, dpi = 300, bg = 'white')
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_fin.svg", plot = wilcox_fin, 
-       device = "svg", width = 7, height = 3, dpi = 300, bg = 'white')
+       device = "svg", width = 6, height = 3, dpi = 300, bg = 'white')
 
 
 # use bayes statistics: more robust for uneven sample sizes ----------------------------
 library("BayesFactor")
 # Compute Bayesian ANOVA for each variable
-bayesian_results <- df_long_narrow %>%
+bayesian_results <- df_long_narrow_sub2 %>%
   group_by(Variable) %>%
   summarise(
     BF = extractBF(anovaBF(Value ~ adv_delayed, data = cur_data()))$bf[1]  # Extract Bayes Factor
@@ -2991,245 +3002,6 @@ df_sub <- df_long_narrow %>%
 
 anovaBF(Value ~ adv_delayed, data = df_sub)
 
-
-# filter out outliers
-df_long_narrow_filtered <- df_long_narrow %>%
-  group_by(adv_delayed, Variable) %>%
-  dplyr::filter(
-    Value > quantile(Value, 0.25) - 1.5 * IQR(Value) & 
-      Value < quantile(Value, 0.75) + 1.5 * IQR(Value)
-  ) %>%
-  ungroup()
-
-
-  #count(adv_delayed)
-
-p_boxplot_wilcox_outliers <- 
- #df_long_narrow_filtered %>% 
-  df_long_narrow %>% 
-  mutate(Variable = factor(Variable, 
-                           levels = c('prcp', 'tmp', "distance_edge", "disturbance_severity",
-                                       
-                                      #"max_grw_anm_prcp",
-                                      #"max_grw_anm_tmp",
-                                      "drought_spei1"#,
-                                     # "mature_dist_severity", 
-                                     # "sum_stems_mature",  
-                                     # "residual_mature_trees"
-                                     ))) %>% 
-  droplevels() %>% 
-  ggboxplot(
-          x = "adv_delayed", y = "Value", 
-          fill = "adv_delayed", 
-          palette = c("#A50026", 
-                      "#FDAE61",
-                      "#006837"),
-          alpha = 0.5,
-          facet.by = "Variable", 
-          scales = "free_y", 
-          ylab = "Values", xlab = "Regeneration Status",
-          outlier.shape = NA,  # Hide outliers
-          size = 0.2) +
-   # geom_jitter(size = 0.1, alpha = 0.5, aes(color = adv_delayed)) +
-  scale_color_manual(values = c("#A50026", 
-                                "#FDAE61",
-                                "#006837")) +
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.signif", 
-                     size = 2,
-                     label.x = 1.5) +  # Position labels between the groups
-  labs(title = "",
-       x = "", y = "Vals") +
-  theme(
-    legend.position = 'none',
-    text = element_text(size = 5),         # Set all text to size 3
-    axis.text = element_text(size = 5),    # Axis tick labels
-    axis.title = element_text(size = 5),   # Axis titles
-    strip.text = element_text(size = 5),   # Facet labels
-    legend.text = element_text(size = 5),  # Legend text
-    plot.title = element_text(size = 5),   # Plot title
-    strip.background = element_blank(),    # Remove the box around facet names
-    strip.placement = "outside",           # Optional: Move facet label outside the plot area
-    #panel.border = element_blank(),        # Remove top and right border
-    panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
-    axis.line = element_line(color = 
-                               , linewidth = 0.5)  # Add bottom and left axis lines
-  )
- #"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
-# Save the combined plot (optional)
-p_boxplot_wilcox_outliers
-
-
-## START
-df_long_narrow_sub <- df_long_narrow %>%
-  dplyr::filter(Variable %in% c('prcp', 'drought_spei1', "disturbance_severity")) %>% 
-  droplevels() %>% 
-  mutate(Variable = factor(Variable, 
-                         levels = c("prcp", "disturbance_severity", "drought_spei1"), 
-                         labels = c("Precipitation (mm)", "Disturbance Severity", "Drought Index (SPEI)")))
-
-# Define custom labels for facets
-facet_labels <- c(
-  "prcp" = "Precipitation (mm)", 
-  "drought_spei1" = "Drought Index (SPEI)", 
-  "disturbance_severity" = "Disturbance Severity"
-)
-
-# Create the plot using ggplot instead of ggboxplot
-p_boxplot_wilcox_outliers_signif <- df_long_narrow_sub %>% 
-  #dplyr::filter(Variable %in% c('prcp', 'drought_spei1', "disturbance_severity")) %>% 
-  #droplevels() %>% 
- # mutate(Variable = factor(Variable, levels = c('prcp', 'disturbance_severity', 'drought_spei1'))) %>%
-  
-  ggplot(aes(x = adv_delayed, y = Value, fill = adv_delayed)) +
-  geom_boxplot(alpha = 0.5, outlier.shape = NA, size = 0.2) +
-  scale_fill_manual(values = c("#A50026", "#FDAE61", "#006837")) +
-  
-  # Add facet labels using facet_wrap
-  facet_wrap(~ Variable, scales = "free_y") + #labeller = as_labeller(facet_labels)
-  
-  # Wilcoxon test annotations
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.signif", size = 2, label.x = 1.5) +
-  
-  # Titles and axis labels
-  labs(title = "", x = "Regeneration Status", y = "Values") +
-  
-  # Theme modifications
-  theme(
-    legend.position = 'none',
-    text = element_text(size = 5),         
-    axis.text = element_text(size = 5),    
-    axis.title = element_text(size = 5),   
-    strip.text = element_text(size = 5),   # Ensures facet labels show properly
-    legend.text = element_text(size = 5),  
-    plot.title = element_text(size = 5),   
-    strip.background = element_blank(),    
-    strip.placement = "outside",           
-    panel.grid = element_blank(),          
-    axis.line = element_line(color = 
-                               , linewidth = 0.5)  
-  )
-
-# Display the plot
-print(p_boxplot_wilcox_outliers_signif)
-my_colors <- c("#E67E22", "#66A060", "#29502A")
-#my_colors <- viridis(3, option = "C")
-### END
-
-p_boxplot_wilcox_outliers_signif <-   df_long_narrow %>% 
-  dplyr::filter(Variable %in% c('prcp', 'drought_spei1',"disturbance_severity" )) %>% 
-  droplevels() %>% 
-  mutate(Variable = factor(Variable, 
-                           levels = c('prcp', #'tmp', 
-                                      #"distance_edge", 
-                                      "disturbance_severity",
-                                      #"max_grw_anm_prcp",
-                                      #"max_grw_anm_tmp",
-                                      "drought_spei1"#,
-                                      # "mature_dist_severity", 
-                                      # "sum_stems_mature",  
-                                      # "residual_mature_trees"
-                           ))) %>% 
-  
-  ggboxplot(
-    x = "adv_delayed", y = "Value", 
-    fill = "adv_delayed", 
-    palette = c("#A50026", 
-                "#FDAE61",
-                "#006837"),
-    alpha = 0.5,
-    facet.by = "Variable", 
-    scales = "free_y", 
-    ylab = "Values", xlab = "Regeneration Status",
-    outlier.shape = NA,  # Hide outliers
-    size = 0.2) +
-  # geom_jitter(size = 0.1, alpha = 0.5, aes(color = adv_delayed)) +
-  scale_color_manual(values = c("#A50026", 
-                                "#FDAE61",
-                                "#006837")) +
-  stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.signif", 
-                     size = 2,
-                     label.x = 1.5) +  # Position labels between the groups
-  labs(title = "",
-       x = "", y = "Vals") +
-  # Modify facet labels
-  facet_wrap(~ Variable, scales = "free_y", labeller = as_labeller(facet_labels)) +
-  theme(
-    legend.position = 'none',
-    text = element_text(size = 5),         # Set all text to size 3
-    axis.text = element_text(size = 5),    # Axis tick labels
-    axis.title = element_text(size = 5),   # Axis titles
-    strip.text = element_text(size = 5),   # Facet labels
-    legend.text = element_text(size = 5),  # Legend text
-    plot.title = element_text(size = 5),   # Plot title
-    strip.background = element_blank(),    # Remove the box around facet names
-    strip.placement = "outside",           # Optional: Move facet label outside the plot area
-    #panel.border = element_blank(),        # Remove top and right border
-    panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
-    axis.line = element_line(color = 
-                               , linewidth = 0.5)  # Add bottom and left axis lines
-  )
-#"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
-# Save the combined plot (optional)
-p_boxplot_wilcox_outliers_signif
-
-
-
-# filtered outliers
-p_boxplot_wilcox_rm_outliers <- 
-   df_long_narrow_filtered %>% 
-  #df_long_narrow %>% 
-  mutate(Variable = factor(Variable, 
-                           levels = c('prcp', 'tmp',
-                                      "distance_edge", "disturbance_severity",
-                                      "drought_spei1"
-                                     # "mature_dist_severity", 
-                                    #  "sum_stems_mature",  
-                                     # "residual_mature_trees"
-                                    ))) %>% 
-  ggboxplot(
-    x = "adv_delayed", y = "Value", 
-    fill = "adv_delayed", 
-    palette = c("#A50026", 
-                "#FDAE61",
-                "#006837"),
-    alpha = 0.5,
-    facet.by = "Variable", 
-    scales = "free_y", 
-    ylab = "Values", xlab = "Regeneration Status",
-    outlier.shape = NA,  # Hide outliers
-    size = 0.2#,
-    #notch = T
-    ) +
-  #geom_jitter(size = 0.1, alpha = 0.5, aes(color = adv_delayed)) +
-   stat_compare_means(comparisons = comparisons, method = "wilcox.test", 
-                     label = "p.signif", 
-                     size = 2,
-                     label.x = 1.5) +  # Position labels between the groups
-  labs(title = "",
-       x = "", y = "Vals") +
-  theme_classic() +
-  theme(
-    legend.position = 'none',
-    text = element_text(size = 5),         # Set all text to size 3
-    axis.text = element_text(size = 5),    # Axis tick labels
-    axis.title = element_text(size = 5),   # Axis titles
-    strip.text = element_text(size = 5),   # Facet labels
-    legend.text = element_text(size = 5),  # Legend text
-    plot.title = element_text(size = 5),   # Plot title
-    strip.background = element_blank(),    # Remove the box around facet names
-    strip.placement = "outside",           # Optional: Move facet label outside the plot area
-    #panel.border = element_blank(),        # Remove top and right border
-    #panel.grid = element_blank(),          # Optional: Remove grid lines for a cleaner look
-    axis.line = element_line(color = 
-                               , linewidth = 0.5)  # Add bottom and left axis lines
-  )
-#"#A50026" "#DA362A" "#F46D43" "#FDAE61" "#FEE08B" "#D9EF8B" "#A6D96A" "#66BD63" 
-# Save the combined plot (optional)
-# Save the plot ensuring text sizes are preserved
-p_boxplot_wilcox_rm_outliers
 
 
 # Test 
