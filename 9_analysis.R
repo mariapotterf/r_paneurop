@@ -199,7 +199,7 @@ df_fin <- df_fin %>%
 df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))  
 
 # Step 2: Check the structure of the sf object to ensure everything is correct
-print(df_fin_clim_clust_xy)
+#print(df_fin_clim_clust_xy)
 
 # Step 3: Export the data as a GeoPackage (GPKG)
 #st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
@@ -1182,7 +1182,7 @@ df_fin <- df_fin %>%
                                levels = c("Delayed", "Other", "Advanced")))
 
 # include mature trees: present/absent
-df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
+#df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
 
 
 
@@ -1243,7 +1243,7 @@ predictor_vars_sub <- c(
 
   # seasonality: CV - over year
   "cv_t2m",
-  "cv_tp",
+  "cv_tp" #,
    
   #"richness",
   #'rIVI',
@@ -1301,6 +1301,10 @@ sjPlot::tab_df(AIC_results_univariate,
 
 
 
+library(corrplot)
+cor_matrix <- cor(df_fin[, ..predictor_vars], use = "complete.obs")
+corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.7)
+
 
 
 ## Models: simplify table just for stem_regeneration  ---------------------------------------------------------------------------------
@@ -1322,7 +1326,8 @@ library(car)
 
 
 df_small <- df_stem_regeneration2 %>% 
-  dplyr::select(stem_regeneration, spei1, sd_grw_anm_tmp, drought_prcp, tmp_z, prcp_z)
+  dplyr::select(stem_regeneration, tmp, spei1, sd_grw_anm_tmp, #drought_prcp, 
+                tmp_z, prcp_z)
 
 lm_small <- lm(stem_regeneration ~ ., data = df_small)
 vif(lm_small)
@@ -1642,6 +1647,137 @@ summary(m_rnd_te)
 summary(m_rnd_ti)
 summary(m_rnd_ti_fixed)
 
+# 20250603 add tmp anomalies into model: ----------------
+# add tmp_z
+m_rnd_ti_fixed_anm <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(tmp_z, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# add sd_deviation of teh growth
+m_rnd_ti_fixed_anm2 <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(sd_grw_anm_tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# add drought_prcp
+m_rnd_ti_fixed_anm3 <- gam(
+  stem_regeneration ~ 
+    s(drought_prcp, k = 5) + s(tmp, k = 5) +
+    s(sd_grw_anm_tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# add drought_prcp
+m_rnd_ti_fixed_anm4 <- gam(
+  stem_regeneration ~ 
+   # s(prcp, k = 5) +
+    s(drought_prcp, k = 5) + s(tmp, k = 5) +
+    s(sd_grw_anm_tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(prcp,tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+
+m_rnd_ti_fixed_anm5 <- gam(
+  stem_regeneration ~ 
+    # s(prcp, k = 5) +
+    s(drought_prcp, k = 5) + s(tmp, k = 5) +
+    s(sd_grw_anm_tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5 ) +
+    ti(drought_prcp,sd_grw_anm_tmp, k = 5 ) +
+    #s(protection_intensity,by = country_pooled, k = 4) + 
+    #s(country_pooled, bs = "re") +
+    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
+    s(x, y),                                 # Spatial autocorrelation
+  family = tw(),
+  method = 'REML',
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# drought_prcp
+
+AIC( m_rnd_ti_fixed_anm, m_rnd_ti_fixed, m_rnd_ti_fixed_anm2,m_rnd_ti_fixed_anm3, m_rnd_ti_fixed_anm4, m_rnd_ti_fixed_anm5)
+summary(m_rnd_ti_fixed_anm5)
+
+plot(m_rnd_ti_fixed_anm5, pages = 1, scheme = 1, se = TRUE, rug = TRUE)
+draw(m_rnd_ti_fixed_anm5)
+
+# Basic 3D surface plot
+vis.gam(m_rnd_ti_fixed_anm5,
+        view = c("drought_prcp", "sd_grw_anm_tmp"),
+        plot.type = "persp",  # use "contour" for flat plot
+        color = "terrain",
+        main = "Interaction: Drought × Temp Instability",
+        zlab = "Effect on stem density",
+        ticktype = "detailed")
+
+vis.gam(m_rnd_ti_fixed_anm5,
+        view = c("drought_prcp", "sd_grw_anm_tmp"),
+        plot.type = "contour",
+        color = "topo",
+        main = "Interaction: Drought × Temp Instability")
+
 
 # save teh best model
 fin.m.reg.density <- m_rnd_ti_fixed
@@ -1736,7 +1872,7 @@ sjPlot::tab_model(m_rnd_ti,
                   dv.labels = paste0("Explained Deviance: ", round(100 * summary(m_rnd_ti)$dev.expl, 2), "%"), 
                   file = "outTable/full_drivers_reg_stem_density_full_random.doc")
 
-# Disturbance severity: balanced design: --------------------------------
+## Disturbance severity: balanced design: --------------------------------
 hist(df_stem_regeneration2$disturbance_severity)
 hist(df_stem_regeneration2$distance_edge)
 
@@ -1827,11 +1963,12 @@ ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
   theme_minimal()
 
 
-# interpret the results:  - average increase in stem density per tmp, prcp and tehir interaction ---------------
+# 6. interpret the results:  drivers -----------------------
+# average increase in stem density per tmp, prcp and tehir interaction 
 # Predict stem density at mean precipitation for different temperatures
 
 
-### Predict effect of temperature (per 1°C increase)------------------
+## Predict effect of temperature (per 1°C increase)------------------
 temp_pred <- ggpredict(fin.m.reg.density, terms = "tmp [7:12]")
 temp_diff <- diff(temp_pred$predicted)
 
@@ -1917,7 +2054,7 @@ cat(sprintf(
 ))
 
 
-# Predict stem density at disturbance severity levels 0.3 and 0.9 ---------------
+## Predict stem density at disturbance severity levels 0.3 and 0.9 ---------------
 severity_pred <- ggpredict(fin.m.reg.density, terms = "disturbance_severity [0.3,0.9]")
 
 # Extract predicted values and confidence intervals
@@ -1974,7 +2111,7 @@ moran_test <- moran.test(model_residuals, listw)
 print(moran_test)
 
 
-# Plot: Drivers  ---------------------------------------------------------------------------
+# 7.  Plot: Drivers  ---------------------------------------------------------------------------
 #y_lab = 'Regeneration stem density\n[#/ha]'
 y_lab = expression("Stem density [1000 n ha"^{-1}*"]")
 
@@ -2014,7 +2151,7 @@ k.check(m)
 summary(m)
 
 
-# test -----------
+# test 
 # Generate predictions using ggpredict
 # Interaction 1: Precipitation and Temperature
 pred1 <- ggpredict(m, terms = c("prcp", "tmp [8,10]"))
@@ -2295,7 +2432,7 @@ ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_p
 
 
 
-# all predictors for supplemeny ----------------------------------
+## all predictors for supplemeny  ------------------------
 
 p_combined_int_no_points_supplem <- ggarrange(p.prcp, p.tmp, p1, p4, p2, p3,
                                       labels = c("[a]","[b]", "[c]","[d]", "[e]","[f]"), 
@@ -2345,21 +2482,24 @@ df_fin %>%
 # Step 1: Reshape the data to long format
 df_long_narrow <- df_fin %>%
   na.omit() %>% 
-  dplyr::select(#tmp, 
+  dplyr::select(tmp, 
                 prcp,
                 sd_grw_anm_prcp,
                 sd_grw_anm_tmp,
+                tmp_z,
+                prcp_z,
                 #max_grw_anm_prcp,
                # max_grw_anm_tmp,
                 av.nitro, 
                depth_extract,
-               slope, elevation,
+               slope, 
+               elevation,
                sand_extract,
                clay_extract,
                
-               management_intensity,
-               salvage_intensity,
-               protection_intensity,
+               #management_intensity,
+               #salvage_intensity,
+               #protection_intensity,
               # sapl_juv_ratio,
                 #cv_t2m, 
                # cv_tp,
@@ -2386,9 +2526,9 @@ df_long_narrow_sub <- df_fin %>%
   na.omit() %>% 
   dplyr::select( 
     prcp,
-    sd_grw_anm_tmp,
-    management_intensity,
-    protection_intensity,
+    tmp_z,
+    #management_intensity,
+    #protection_intensity,
     disturbance_severity,
     distance_edge,
     clay_extract,
@@ -2415,8 +2555,8 @@ print(summary_stats_narrow_sub)
 
 
 # list groups to pairwise comparison
-comparisons_full <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
-comparisons_simple <- list(c("Delayed", "Advanced"))
+comparisons_3grps <- list(c("Delayed", "Other"), c("Delayed", "Advanced"), c("Other", "Advanced"))
+comparisons_2grps <- list(c("Delayed", "Advanced"))
 
 
 # # Compute Wilcoxon effect sizes for each variable
@@ -2478,7 +2618,7 @@ p_boxplot_wilcox_narrow <-
     panel.border = element_rect(colour = 
                                   , fill = NA, linewidth = 0.5)  # Add a square border around the plots
   )  +
-  stat_compare_means(comparisons = comparisons_full, method = "wilcox.test", 
+  stat_compare_means(comparisons = comparisons_3grps, method = "wilcox.test", 
                      label = "p.signif", #"p.format",  
                      size = 2, label.x = 1.5) +
   # Add mean dots
@@ -2510,7 +2650,7 @@ my_theme <- function() {
 }
 
 
-## Final Wicox: ---make a final plot: only prcp,  sd_gw_anm_tmp, drought_spei1, 
+## Supplement Wilcox: ---make a final plot: only prcp,  tmp_z, drought_spei1, - 3  groups -------------------
 # manually 
 
 # Example: Create individual plots
@@ -2525,7 +2665,7 @@ p.prcp <-   df_long_narrow_sub %>%
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
-  stat_compare_means(comparisons = comparisons_full, 
+  stat_compare_means(comparisons = comparisons_3grps, 
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
@@ -2543,30 +2683,31 @@ p.prcp
 
 
 p.tmp <- 
-  df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "sd_grw_anm_tmp") %>% 
+
+    df_long_narrow_sub %>% 
+  dplyr::filter(Variable == "tmp_z") %>% 
     ggboxplot(x = "adv_delayed", 
               y = "Value", 
                    fill = "adv_delayed", 
                    palette = c("#A50026", "#FDAE61", "#006837"),
-                   ylab = "Seasonal temperature [SD]", 
+                   ylab = "Temperature anomaly [z-score]", 
                    xlab = "",
                    outlier.shape = NA,
                    #outlier.size = .2,
                    size = 0.2) +
-      stat_compare_means(comparisons = comparisons_full, 
-                         method = "wilcox.test", 
-                         label =  'p.format', #"p.signif",  
+      stat_compare_means(comparisons = comparisons_3grps,
+                         method = "wilcox.test",
+                         label =  'p.format', #"p.signif",
                          size = 3,
-                         label.y = c(1.48, 
-                                     1.44, 
-                                     1.40)) + 
+                         label.y = c(3.1,
+                                     2.85,
+                                     2.65)) +
   my_theme() +
       # Add mean dots
-      geom_point(data =  subset(summary_stats_narrow_sub, Variable == "sd_grw_anm_tmp"), 
+      geom_point(data =  subset(summary_stats_narrow_sub, Variable == "tmp_z"), 
                  aes(x = adv_delayed, y = Mean, group = adv_delayed), 
                  shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-    coord_cartesian(ylim = c(1.06,1.52)) 
+    coord_cartesian(ylim = c(0,3.3)) 
     
 
 p.spei1 <-
@@ -2581,7 +2722,7 @@ p.spei1 <-
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
-  stat_compare_means(comparisons = comparisons, 
+  stat_compare_means(comparisons = comparisons_3grps, 
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
@@ -2614,7 +2755,7 @@ p.clay <-
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
-  stat_compare_means(comparisons = comparisons, 
+  stat_compare_means(comparisons = comparisons_3grps, 
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
@@ -2642,7 +2783,7 @@ p.disturbance <-   df_long_narrow_sub %>%
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
-  stat_compare_means(comparisons = comparisons, 
+  stat_compare_means(comparisons = comparisons_3grps, 
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
@@ -2672,7 +2813,7 @@ p.distance_edge <-
             outlier.shape = NA,
             #outlier.size = .2,
             size = 0.2) +
-  stat_compare_means(comparisons = comparisons, 
+  stat_compare_means(comparisons = comparisons_3grps, 
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
@@ -2692,7 +2833,9 @@ p.distance_edge
 
 # Combine all plots into a single figure
 wilcox_plot_out_clay <- ggarrange(p.prcp, p.tmp, p.spei1,p.clay,
-                        ncol = 2, nrow = 2, labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
+                        ncol = 2, 
+                        nrow = 2, 
+                        labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
 
 # Display the final merged plot
 wilcox_plot_out_clay
@@ -2722,10 +2865,106 @@ ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_suppl
 
 
 
+### remove 'other' category -----
+# filter the tables
+# !!! START
+summary_stats_narrow_sub2 <- summary_stats_narrow_sub %>%
+  dplyr::filter(adv_delayed != "Other") %>%
+  droplevels()
+
+df_long_narrow_sub2 <- df_long_narrow_sub %>%
+  dplyr::filter(adv_delayed != "Other") %>%
+  droplevels()
 
 
+# > species_colors
+# piab      fasy      quro      pisy      soau      acps      potr      abal 
+# "#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" 
+# besp      lade 
+ #"#DA362A" "#A50026" 
+# 
+# make a function  # "#FDAE61", 
+plot_variable_box <- function(var_name, 
+                              y_label, 
+                              y_limits, 
+                              label_y_values, 
+                              palette = c(  "#F67B49", "#74C364")) {
+  
+  # Base plot
+  p <- df_long_narrow_sub2 %>% 
+    filter(Variable == var_name) %>%
+    ggboxplot(x = "adv_delayed", 
+              y = "Value", 
+              fill = "adv_delayed", 
+              palette = palette,
+              ylab = y_label, 
+              xlab = "",
+              outlier.shape = NA,
+              size = 0.2) +
+    
+    # Wilcoxon comparison
+    stat_compare_means(comparisons = comparisons_2grps, 
+                       method = "wilcox.test", 
+                       label = 'p.format',
+                       size = 3,
+                       label.y = label_y_values) +
+    
+    # Theme
+    my_theme() +
+    
+    # Red mean points
+    geom_point(data = subset(summary_stats_narrow_sub2, Variable == var_name), 
+               aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+               shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
+    
+    # Zoomed y-axis
+    coord_cartesian(ylim = y_limits)
+  
+  return(p)
+}
 
-# use bayes statistics: more robust for uneven sample sizes
+p.spei1.fin <- plot_variable_box(
+  var_name = "drought_spei1",
+  y_label = "SPEI-1 [dim.]",
+  y_limits = c(-1.2, -0.6),
+  label_y_values = c( -0.62, -0.6)
+)
+
+p.prcp.fin <- plot_variable_box(
+  var_name = "prcp",
+  y_label = "Precipitation [mm]",
+  y_limits = c(300, 1600),
+  label_y_values = c(1500, 1400, 1300)
+)
+
+p.clay.fin <- plot_variable_box(
+  var_name = "clay_extract",
+  y_label = "Clay [%]",
+  y_limits = c(0, 45),
+  label_y_values = c(42, 38, 35)
+)
+
+# Combine all plots into a single figure
+wilcox_fin <- ggarrange(p.prcp.fin,
+                        p.spei1.fin,p.clay.fin,
+                                  ncol = 3, 
+                                  nrow = 1, 
+                                  labels = c("[a]", "[b]","[c]"), font.label = list(size = 8, face = "plain"))
+
+# Display the final merged plot
+wilcox_fin
+
+
+# Save the plot as an SVG file
+ggsave(filename = "outFigs/wilcox_fin.png", plot = wilcox_fin, 
+       device = "png", width = 7, height = 3, dpi = 300, bg = 'white')
+
+# Save the plot as an SVG file
+ggsave(filename = "outFigs/wilcox_fin.svg", plot = wilcox_fin, 
+       device = "svg", width = 7, height = 3, dpi = 300, bg = 'white')
+
+
+# use bayes statistics: more robust for uneven sample sizes ----------------------------
 library("BayesFactor")
 # Compute Bayesian ANOVA for each variable
 bayesian_results <- df_long_narrow %>%
