@@ -57,8 +57,8 @@ climate_months_1980_2023 <- climate_months_1980_2023 %>%
 # Convert to data.table for efficiency
 setDT(climate_months_1980_2023)  # note that TMP is in kelvin, and prcp is in a day and in meters
 
-### seasonality: CV -----------
-
+### seasonality: CV and sd -----------
+# seasonality make sense if calculated as interannual variation: variation within tmonths in a year 
 # seasonality over years
 df_cv_year <- climate_months_1980_2023 %>%
  # dplyr::filter(year %in% 2018:2023, var %in% c("t2m", "tp")) %>% 
@@ -71,15 +71,17 @@ df_cv_year <- climate_months_1980_2023 %>%
   ungroup()
 
 # get median value per cluster oevr 2018"2023
-df_cv_med <- df_cv_year %>%
+df_cv_med <- 
+  df_cv_year %>%
    dplyr::filter(year %in% 2018:2023, var %in% c("t2m", "tp")) %>% 
   group_by(cluster, var) %>%
   summarise(
-    cv = median(cv, na.rm = T)  # Coefficient of Variation
+    cv = median(cv, na.rm = T),  # Seasonality: Coefficient of Variation
+    sd = median(sd_value, na.rm = T) # Seasonality from SD
   ) %>%
   ungroup() %>% 
   # Convert to wide format
-  pivot_wider(names_from = var, values_from = cv, names_prefix = "cv_")
+  pivot_wider(names_from = var, values_from = c(cv, sd), names_prefix = "")
 
 df_cv_year %>% 
   dplyr::filter(var == 'tp') %>% 
