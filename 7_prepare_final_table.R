@@ -126,7 +126,7 @@ climate_growing_season <- merge(
 # Step 3: Calculate anomalies (Z-score)
 climate_growing_season[, anomaly := (value - mean_value) / sd_value]
 
-# Step 4: Filter only the target period (2016-2023)
+# Step 4: Filter only the target period (2018-2023)
 climate_grow_season_anomalies_2018_2023 <- climate_growing_season[year %in% 2018:2023]
 
 # keep only information per cluster level
