@@ -3560,37 +3560,6 @@ ggplot(df_suitability_summary, aes(x = country_pooled, y = species_count, fill =
 
 
 
-# Step 1: Identify suitable species (current == 1 & rcp45 == 1)
-df_suitable <- df_suitab_sub45 %>%
-  dplyr::filter(suitability_rcp45 == "suitable") %>%
-  group_by(country_pooled) %>%
-  distinct() #%>% 
-  #mutate(suitable_species = n_distinct(acc))
-  
-# Step 2: Identify novel species (current == 0 & rcp45 == 1)
-df_novel <- df_suitab_sub45 %>%
-  dplyr::filter(suitability_rcp45 == "novel") %>%
-  group_by(country_pooled) %>%
-  distinct() #%>% 
- # mutate(suitable_species = n_distinct(acc))
-
-# Step 3: Identify not suitable species (current == 1 & rcp45 == 0)
-df_not_suitable <- df_suitab_sub45 %>%
-  filter(suitability_rcp45 == "not_suitable") %>%
-  group_by(country_pooled) %>%
-  distinct() #%>% )
-
-# Step 4: Combine all results into one dataframe
-df_species_changes <- df_suitable %>%
-  full_join(df_novel, by = "country_pooled") %>%
-  full_join(df_not_suitable, by = "country_pooled") %>%
-  replace_na(list(suitable_species = 0, novel_species = 0, not_suitable_species = 0))
-
-# Step 5: Display results
-print(df_species_changes)
-
-
-
 
 
 
