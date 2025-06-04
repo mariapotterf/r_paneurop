@@ -3047,7 +3047,7 @@ df_fin %>%
 
 
 
-# Country effect ----------------------------------------------------------
+# 7. Analyze at country level: Country effect ----------------------------------------------------------
 df_richness <- df_richness %>% 
   dplyr::filter(cluster %in% cluster_id_keep) 
 
@@ -3071,7 +3071,7 @@ p.country.richness <- ggplot(data = df_richness,
   theme(legend.position = 'none')
 #coord_cartesian(ylim=c(60, 67)) # ylim=c(59,66)
 
-
+p.country.richness
 
 stem_dens_ha_cluster_sum <- stem_dens_ha_cluster_sum %>% 
   dplyr::filter(cluster %in% cluster_id_keep) 
@@ -3157,26 +3157,37 @@ fwrite(df_stem_regeneration2, 'outTable/df_stem_regeneration2.csv')
 
 # 5. Species climate suitability  -------------------------------------------
 
-# compare current species composition with future ones form wessely
+# overall richness from field data?
 
-# 
+stem_dens_species_long_cluster %>% 
+  dplyr::filter(stem_density > 0) %>% 
+  distinct(Species) %>% 
+  count()  #@ 35
+
+# compare current species composition with future ones form wessely
+# Need to adjust tree species naming a bit: 
+#   we have less species then wessely: 
+  # - eg we have besp, which can be betula pendula, betula pubescense
+  # - same for populus (3), quercus (6), salix ...
+
 head(stem_dens_species_long_cluster)
 
-# get species merging table
+# get species merging table - acronyms from iLand
 species_look_up_simple<- read.csv("rawData/tree_sp_simple.csv", sep = ';')
 
-# get species merging table
+# get species merging table:   - merged my naming with Wessely species naming
 species_look_up_full<- read.csv("rawData/tree_sp_field_wessely_merged.csv", sep = ';')
 
 
-# identify what species are present per plot
+# identify what species are present per plot - use simple look up table, 
+# add only latin names
 present_species <- 
   stem_dens_species_long_cluster %>% 
   ungroup() %>% 
   group_by(cluster, Species) %>% 
   summarize(sum_stem_density = sum(stem_density, na.rm = T )) %>% 
   mutate(presence = if_else(sum_stem_density > 0, 1, 0)) %>% 
-  dplyr::select(-sum_stem_density ) %>% 
+ # dplyr::select(-sum_stem_density ) %>% 
   left_join(species_look_up_simple, by = c("Species" = "acc")) %>% 
   dplyr::select(-latin) 
 
@@ -3184,20 +3195,24 @@ present_species <- present_species %>%
   dplyr::rename(acc = Species) %>% 
   dplyr::rename(site = cluster)
 
-# read table with Wessely species
+# read table with Wessely species - from species present/absent of clusters locations
+# only species present on every perios (occurence = 8) are climatically suitable across whole century
 future_species      <- fread('outTable/species_presence_clim_change.csv')
-future_species_full <- fread('outTable/species_presence_clim_change_full.csv')
+# future_species_full <- fread('outTable/species_presence_clim_change_full.csv')
 
-
+unique(future_species$species )
 
 
 # add acronyms and consider presence across several species: eg betula sp.
 future_species_sum <- 
   future_species %>%
+  # add naming
   left_join(species_look_up_full, by = c('species' = 'wessely')) %>%
+ #   View()
   # group by species to allow occurence of species that have specified genus: eg betula sp.
   group_by(site, scenario, acc) %>% 
-  # Summarize and set sum_presence to 1 if the sum is greater than 1
+  # Summarize and set sum_presence to 1 if the sum is greater than 1 - 
+  # this account for the fact that wessely can have two betulas, I have only 1
   summarize(sum_presence = pmin(sum(overall_presence), 1), .groups = 'drop')
   
 wide_future_species <- future_species_sum %>%
@@ -3205,8 +3220,16 @@ wide_future_species <- future_species_sum %>%
 
 # merge both tables: the presently recorded species and species under climate scenarios
 df_compare_future_species <- wide_future_species %>% 
-  full_join(present_species) %>% 
+  left_join(present_species) %>%   # use left join to explude species that are recorded in field, but not present in Wessely database
   dplyr::rename(current = presence)
+
+anyNA(df_compare_future_species)
+length(unique(df_compare_future_species$acc))  # final length is 30 species: corss between wessely and observed field database
+
+# how many species are present in my species database, but not in Wessely? 
+species_out_of_wessely <- df_compare_future_species %>%
+  dplyr::filter(is.na(rcp26)) %>%
+  distinct(acc)  # Optional, if you want all unique rows with NA acc
 
 # add country indication
 df_compare_future_species <- df_compare_future_species %>%
@@ -3215,6 +3238,7 @@ df_compare_future_species <- df_compare_future_species %>%
   # Left join with unique_regions_per_country to get country indication
   left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
 
+# evaluate presence vs absence of species per cluster
 df_compare_future_species <- df_compare_future_species %>%
   mutate(
     suitability_rcp26 = case_when(
@@ -3237,10 +3261,71 @@ df_compare_future_species <- df_compare_future_species %>%
     )
   )
 
+
+# what is teh share of stem sum per species that is not suitable under CC scenarios?
+# Convert suitability columns to logical: TRUE if unsuitable ("0"), FALSE otherwise
+
+df_compare_future_species %>% 
+  
+
+
+
+# TEST START !!!
+df_compare_future_species_unsuit <- df_compare_future_species %>%
+  mutate(
+    unsuitable_26 = suitability_rcp26 == "0",
+    unsuitable_45 = suitability_rcp45 == "0",
+    unsuitable_85 = suitability_rcp85 == "0"
+  )
+
+# Compute total and unsuitable stem densities for each RCP
+unsuitability_percentages <- df_compare_future_species_unsuit %>%
+  summarise(
+    total_stems = sum(sum_stem_density),
+    rcp26_unsuitable = sum(sum_stem_density[unsuitable_26], na.rm =T) / total_stems * 100,
+    rcp45_unsuitable = sum(sum_stem_density[unsuitable_45], na.rm =T) / total_stems * 100,
+    rcp85_unsuitable = sum(sum_stem_density[unsuitable_85], na.rm =T) / total_stems * 100
+  )
+
+print(unsuitability_percentages)
+# END TEST!!!
+
+total_stems = sum(stem_dens_species_long_cluster$stem_density)
+total_stems
+#6172500
+
+#df_suitability_long_full <- 
+  df_compare_future_species %>%
+  dplyr::select(site, 
+                acc,
+                sum_stem_density , 
+                country_pooled, 
+                suitability_rcp26, 
+                suitability_rcp45, 
+                suitability_rcp85) %>%
+  pivot_longer(cols = starts_with("suitability_rcp"), 
+               names_to = "scenario", 
+               values_to = "suitability") %>%
+    View()
+  mutate(scenario = gsub("suitability_", "", scenario)) %>%  # Remove "suitability_" prefix
+  group_by(suitability, scenario) %>% 
+ dplyr::filter(suitability == "not_suitable") %>%  
+  summarize(sum = sum(sum_stem_density)) %>% 
+ 
+  ungroup()
+
+
+
+
 ## Plot level : Get only counts per country and plot, no need for specific species : ------------
 # Convert to long format
-df_suitability_long <- df_compare_future_species %>%
-  dplyr::select(site, country_pooled, suitability_rcp26, suitability_rcp45, suitability_rcp85) %>%
+df_suitability_long <- 
+  df_compare_future_species %>%
+  dplyr::select(site, 
+                country_pooled, 
+                suitability_rcp26, 
+                suitability_rcp45, 
+                suitability_rcp85) %>%
   pivot_longer(cols = starts_with("suitability_rcp"), 
                names_to = "scenario", 
                values_to = "suitability") %>%
@@ -3322,6 +3407,7 @@ p.species.suitability_country <-
                  "suitable" = "Suitable", 
                  "novel" = "Novel")  # Custom legend labels
     )+
+ # geom_hline(yintercept = 0, color = "black", linewidth = 0.3) +
   theme(
     legend.position = 'right',
     legend.text = element_text(size = 8),  
@@ -3378,7 +3464,7 @@ df_suitability_summary <- df_species_comparison %>%
   #tidyr::pivot_wider(names_from = suitability_rcp45, values_from = species_count, values_fill = 0)
 
 
-df_richness_country_simpl <- df_richness_country %>% 
+df_richness_country_simpl <- df_richness_country_current %>% 
   dplyr::select(-acc) %>% 
   distinct() %>% 
   rename(current_richness = richness)
