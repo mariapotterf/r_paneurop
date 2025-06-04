@@ -3262,37 +3262,16 @@ df_compare_future_species <- df_compare_future_species %>%
   )
 
 
-# what is teh share of stem sum per species that is not suitable under CC scenarios?
+# Share of stems that is not suitable under CC scenarios?
 # Convert suitability columns to logical: TRUE if unsuitable ("0"), FALSE otherwise
 
-df_compare_future_species %>% 
-  
+anyNA(df_compare_future_species)  
 
-
-
-# TEST START !!!
-df_compare_future_species_unsuit <- df_compare_future_species %>%
-  mutate(
-    unsuitable_26 = suitability_rcp26 == "0",
-    unsuitable_45 = suitability_rcp45 == "0",
-    unsuitable_85 = suitability_rcp85 == "0"
-  )
-
-# Compute total and unsuitable stem densities for each RCP
-unsuitability_percentages <- df_compare_future_species_unsuit %>%
-  summarise(
-    total_stems = sum(sum_stem_density),
-    rcp26_unsuitable = sum(sum_stem_density[unsuitable_26], na.rm =T) / total_stems * 100,
-    rcp45_unsuitable = sum(sum_stem_density[unsuitable_45], na.rm =T) / total_stems * 100,
-    rcp85_unsuitable = sum(sum_stem_density[unsuitable_85], na.rm =T) / total_stems * 100
-  )
-
-print(unsuitability_percentages)
-# END TEST!!!
-
-total_stems = sum(stem_dens_species_long_cluster$stem_density)
-total_stems
-#6172500
+# get total sum of stems: acdjust for fact that ionly 30 species overlaps between 2 dababases
+total_stems         <- sum(stem_dens_species_long_cluster$stem_density)
+total_stems_wessely <- sum(df_compare_future_species$sum_stem_density )
+total_stems_wessely
+#6172500 - all stems, 6008250 over crossed databases 
 
 #df_suitability_long_full <- 
   df_compare_future_species %>%
@@ -3306,14 +3285,13 @@ total_stems
   pivot_longer(cols = starts_with("suitability_rcp"), 
                names_to = "scenario", 
                values_to = "suitability") %>%
-    View()
   mutate(scenario = gsub("suitability_", "", scenario)) %>%  # Remove "suitability_" prefix
   group_by(suitability, scenario) %>% 
- dplyr::filter(suitability == "not_suitable") %>%  
+# dplyr::filter(suitability == "not_suitable") %>%  
   summarize(sum = sum(sum_stem_density)) %>% 
+    mutate(share = round(sum/total_stems*100,1))
  
-  ungroup()
-
+  
 
 
 
