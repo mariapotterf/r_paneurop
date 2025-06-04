@@ -2112,7 +2112,6 @@ print(moran_test)
 
 
 # 7.  Plot: Drivers  ---------------------------------------------------------------------------
-#y_lab = 'Regeneration stem density\n[#/ha]'
 y_lab = expression("Stem density [1000 n ha"^{-1}*"]")
 
 summary(fin.m.reg.density)
@@ -3118,7 +3117,7 @@ dunnTest
 ggarrange(p.country.density, p.country.richness)
 
 
-# Get partial R2: define teh most important variable --------------------
+### Get partial R2: define teh most important variable --------------------
 # Perform an ANOVA to assess each term's contribution to the model
 
 # Run ANOVA on GAM model
@@ -3142,7 +3141,7 @@ sjPlot::tab_df(anova_results,
                digits = 3) 
 
 
-# Save models --------------------------------------------------
+## Save models --------------------------------------------------
 
 # Save the model object and input data
 save(fin.m.reg.density, df_stem_regeneration2,
@@ -3150,7 +3149,7 @@ save(fin.m.reg.density, df_stem_regeneration2,
 
 
 
-# Save data ------------------------------------------------
+## Save data ------------------------------------------------
 fwrite(df_delayed_advanced, 'outTable/df_delayed_advanced.csv')
 fwrite(df_stem_regeneration2, 'outTable/df_stem_regeneration2.csv')
 
@@ -3183,6 +3182,7 @@ species_look_up_full<- read.csv("rawData/tree_sp_field_wessely_merged.csv", sep 
 # add only latin names
 present_species <- 
   stem_dens_species_long_cluster %>% 
+  dplyr::filter(VegType != "Mature") %>% 
   ungroup() %>% 
   group_by(cluster, Species) %>% 
   summarize(sum_stem_density = sum(stem_density, na.rm = T )) %>% 
@@ -3273,8 +3273,8 @@ total_stems_wessely <- sum(df_compare_future_species$sum_stem_density )
 total_stems_wessely
 #6172500 - all stems, 6008250 over crossed databases 
 
-#df_suitability_long_full <- 
-  df_compare_future_species %>%
+# now, it is only climate suitability for regeneration!
+df_compare_future_species_long_full <- df_compare_future_species %>%
   dplyr::select(site, 
                 acc,
                 sum_stem_density , 
@@ -3285,14 +3285,88 @@ total_stems_wessely
   pivot_longer(cols = starts_with("suitability_rcp"), 
                names_to = "scenario", 
                values_to = "suitability") %>%
-  mutate(scenario = gsub("suitability_", "", scenario)) %>%  # Remove "suitability_" prefix
+  mutate(scenario = gsub("suitability_", "", scenario)) #
+
+
+df_compare_future_species_long_full %>%  # Remove "suitability_" prefix
   group_by(suitability, scenario) %>% 
-# dplyr::filter(suitability == "not_suitable") %>%  
+  dplyr::filter(suitability == "not_suitable") %>%  
   summarize(sum = sum(sum_stem_density)) %>% 
     mutate(share = round(sum/total_stems*100,1))
  
-  
+  # suitability  scenario     sum share
+  # <chr>        <chr>      <dbl> <dbl>
+  # 1 not_suitable rcp26    3838375  62.2
+  # 2 not_suitable rcp45    4505375  73  
+  # 3 not_suitable rcp85    5172625  83.8
 
+
+# analysis over species: --------------------------
+# how many plots of piab swill not be climatically suitable?
+
+
+### across all species ---------------
+# Filter for species with stem density > 0
+species_suitability_summary <- df_compare_future_species_long_full %>%
+  dplyr::filter(sum_stem_density > 0) %>%
+  
+  # Count total number of unique sites per species
+  group_by(acc) %>%
+  mutate(total_sites = n_distinct(site)) %>%
+  
+  # Filter to only suitable cases
+  dplyr::filter(suitability == "suitable") %>%
+  
+  # Count number of suitable sites per species and scenario
+  distinct(site, scenario, acc, total_sites) %>%
+  count(acc, scenario, name = "n_suitable_sites") %>%
+  
+  # Join back total site counts
+  left_join(
+    df_compare_future_species_long_full %>%
+      dplyr::filter(sum_stem_density > 0) %>%
+      group_by(acc) %>%
+      summarise(n_sites_with_species = n_distinct(site), .groups = "drop"),
+    by = "acc"
+  ) %>%
+  
+  # Calculate share
+  mutate(n_unsuitable_sites = n_sites_with_species - n_suitable_sites,
+         share_suitable     = round(n_suitable_sites / n_sites_with_species * 100,1),
+         share_unsuitable   = round(n_unsuitable_sites / n_sites_with_species * 100,1),
+         share_overall      = round(n_sites_with_species / total_sites * 100,1)) %>%
+  dplyr::select(scenario, 
+                share_overall,
+                n_suitable_sites, 
+                n_unsuitable_sites,     
+                n_sites_with_species,   # number of sites that species occured on
+                share_suitable,         
+                share_unsuitable,
+                acc)
+
+# View result
+species_suitability_summary
+
+# identify the most affected species (highest share of unsuitable on plot in RCP45)
+species_suitability_summary %>%
+  dplyr::filter(scenario == "rcp45") %>%
+  #dplyr::filter(acc %in% top_species_site_share) %>% 
+  mutate(share_unsuitable = n_unsuitable_sites / n_sites_with_species * 100) %>%
+  arrange(desc(share_overall)) %>% # , share_unsuitable
+View()
+
+# the most affected species by cliamte change
+share_unsuitable_range <- species_suitability_summary %>%
+  group_by(acc) %>%
+  summarise(
+    min_unsuitable = min(share_unsuitable),
+    max_unsuitable = max(share_unsuitable),
+    range_unsuitable = max_unsuitable - min_unsuitable,
+    .groups = "drop"
+  ) %>%
+  arrange(desc(range_unsuitable))
+
+share_unsuitable_range
 
 
 ## Plot level : Get only counts per country and plot, no need for specific species : ------------
@@ -3313,6 +3387,20 @@ df_suitability_long <-
   dplyr::filter(suitability != 0) %>% 
   ungroup()
 
+# how many plots overall do not have any tree species currently present  climatically suitable? 
+df_suitability_long %>%
+    group_by(site, scenario) %>%
+    summarize(has_suitable = any(suitability == "suitable"), .groups = "drop") %>%
+    filter(!has_suitable) %>%
+    count(scenario, name = "n_clusters_without_suitable") %>% 
+    mutate(share = n_clusters_without_suitable/849)
+  
+# scenario n_clusters_without_suitable share
+# <chr>                          <int> <dbl>
+#   1 rcp26                            327 0.385
+# 2 rcp45                            433 0.510
+# 3 rcp85                            524 0.617 
+  
 df_suitability_summary_plot <- df_suitability_long %>% 
   group_by( country_pooled, suitability, scenario) %>% 
   dplyr::summarize(mean = mean(freq, na.rm = T),
@@ -3322,7 +3410,6 @@ df_suitability_summary_plot <- df_suitability_long %>%
   mutate(mean = ifelse(suitability == "not_suitable", -mean, mean)) %>% # change values to neagative for not_suitable species
   ungroup(.)
 
-test <-  df_suitability_summary_plot[order(levels(df_suitability_summary_plot$suitability)),]
 
 #df_suitability_summary_plot <- df_suitability_summary_plot[order(levels(df_suitability_summary_plot$suitability)),]
 # make a barplot like this :
