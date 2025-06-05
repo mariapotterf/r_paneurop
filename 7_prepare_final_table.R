@@ -372,7 +372,7 @@ anyNA(df_plot_veg)
 # rename not necessary predictors for climate clustering, rename veg variables
 df_plot_full <- 
   df_plot_veg %>% 
-  left_join(df_predictors_plot_upd_clim, join_by(cluster)) %>% #by = join_by(cluster)
+  left_join(df_predictors_plot, join_by(cluster, country)) %>% #by = join_by(cluster)
   ungroup() %>% 
   dplyr::select(-c(#disturbance_year, 
                   # disturbance_agent,
@@ -383,8 +383,9 @@ df_plot_full <-
   dplyr::rename(dominant_species = Species, 
                 stem_density     = sum_stems,
                 distance_edge    = distance,
-                n_vertical       = n_layers) %>% 
-  left_join(dat_manag_intensity_cl, join_by(cluster))# %>% , by = join_by(cluster, management_intensity
+                n_vertical       = n_layers)# %>% 
+  #left_join(dat_manag_intensity_cl, 
+  #          join_by(cluster))# %>% , by = join_by(cluster, management_intensity
   
 # set up proper structure (df) fr analysis  and claim characters as factors
 df_fin <- as.data.frame(df_plot_full) %>% 
@@ -437,8 +438,8 @@ df_fin <- df_fin %>%
 
 # Export tables --------------------------------------------------
 
-#fwrite(df_predictors_plot,          'outData/all_predictors_plot.csv')               # predictors from ERA (10 km res)
-fwrite(df_predictors_plot_upd_clim, 'outData/all_predictors_plot_upd_clim.csv')      # contains all predictors: ERA & DWD
+fwrite(df_predictors_plot,          'outData/all_predictors_plot.csv')               # predictors from ERA (10 km res)
+#fwrite(df_predictors_plot_upd_clim, 'outData/all_predictors_plot_upd_clim.csv')      # contains all predictors: ERA & DWD
 fwrite(df_fin,                      'outData/indicators_for_cluster_analysis.csv')   # contains all veg data (stem, regeneration) and all predictors 
 
 
