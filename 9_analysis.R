@@ -3115,7 +3115,7 @@ fwrite(df_delayed_advanced, 'outTable/df_delayed_advanced.csv')
 fwrite(df_stem_regeneration2, 'outTable/df_stem_regeneration2.csv')
 
 
-# 5. Species climate suitability  -------------------------------------------
+# 9. Species climate suitability  -------------------------------------------
 
 stem_dens_species_long_cluster %>% 
   dplyr::filter(stem_density > 0) %>% 
@@ -3182,8 +3182,7 @@ df_compare_future_species <- wide_future_species %>%
   dplyr::rename(current = presence)
 
 
-## check number of species from field observation, in Wessely database ---------
-anyNA(df_compare_future_species)
+## compare with vs Wessely species databases  ---------
 length(unique(df_compare_future_species$acc))  # final length is 30 species: corss between wessely and observed field database
 
 # how many species are present in my species database, but not in Wessely? 
@@ -3333,92 +3332,6 @@ share_unsuitable_range <- species_suitability_summary %>%
 share_unsuitable_range
 
 
-
-### Level: country: Prepare Table 1: share of climatically suitable tree species per plot/country ------------------
-
-# create a df that contains all clusters (also empty ones to calculate properly averages)
-df_master <- df_fin %>% 
-  dplyr::select(site, 
-                #country_full, 
-                country_pooled )
-
-
-# compare teh shares of species that are climatically suitable per plot
-df_species_clim_suitability <-   df_compare_future_species_regions %>% 
-  
-  group_by(site, country_pooled) %>%
-  mutate(
-    
-    # calculate number of species
-    richness_current = length(unique(acc[current == 1])),
-    richness26       = length(unique(acc[current == 1 & rcp26 == 1])),
-    richness45       = length(unique(acc[current == 1 & rcp45 == 1])),
-    richness85       = length(unique(acc[current == 1 & rcp85 == 1])),
-      
-    # get shares                     
-    rcp26_share = length(unique(acc[current == 1 & rcp26 == 1])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp45_share = length(unique(acc[current == 1 & rcp45 == 1])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp85_share = length(unique(acc[current == 1 & rcp85 == 1])) /
-      length(unique(acc[current == 1])) * 100
-  ) %>%
-  ungroup() %>% 
-  dplyr::select(site,   
-                acc,
-                richness_current,
-                richness26,
-                richness45,
-                richness85,
-                current, 
-                rcp26, rcp26_share, 
-                rcp45, rcp45_share, 
-                rcp85, rcp85_share ) %>%
-   # View()
-  # filter only present species
-  dplyr::filter(current == 1) %>%
-  #  View()
-  # merge back full table with empty plots
-  full_join(df_master) %>% 
-  replace_na(list(
-    current = 0,
-    rcp26_share = 0,
-    rcp45_share = 0,
-    rcp85_share = 0,
-    richness_current = 0,
-    richness26 = 0,
-    richness45 = 0,
-    richness85 = 0
-  ))# %>%
-
-
-#  Get 1/2 final table: species richness by climate suitability 
-summary_sp_suitability_country <- df_species_clim_suitability %>% #  View()
-  mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
-                                 as.character(country_pooled))) %>%
-  mutate(country_pooled = as.factor(country_pooled))  %>% # Optional: re-convert to factor if needed
-  group_by(country_pooled) %>% 
-  #  head()
-  summarize(richness   = mean(richness_current),
-            richness26 = mean(richness26),
-            richness45 = mean(richness45),
-            richness85 = mean(richness85),
-            mean_rcp26_share = mean(rcp26_share),
-            mean_rcp45_share = mean(rcp45_share),
-            mean_rcp85_share = mean(rcp85_share)) %>% 
-  mutate(
-    country_full = recode(as.character(country_pooled),
-                          "AT" = "Austria",
-                          "CH" = "Switzerland",
-                          "CZ" = "Czech Republic",
-                          "DE" = "Germany",
-                          "FR" = "France",
-                          "PL" = "Poland",
-                          "SI" = "Slovenia",
-                          "SK" = "Slovakia")
-  ) %>%
-  arrange(country_full)
-  
 
 
 ## Plot level : Get only counts per country and plot, no need for specific species : ------------
@@ -3639,7 +3552,137 @@ ggsave(
 
 
 ### Summary table per country -----------------------------
+#### Level: country: Prepare Table 1: share of climatically suitable tree species per plot/country ------------------
 
+# create a df that contains all clusters (also empty ones to calculate properly averages)
+df_master <- df_fin %>% 
+  dplyr::select(site, 
+                #country_full, 
+                country_pooled )
+
+
+# compare teh shares of species that are climatically suitable per plot
+df_species_clim_suitability <-   df_compare_future_species_regions %>% 
+  
+  group_by(site, country_pooled) %>%
+  mutate(
+    
+    # calculate number of species
+    richness_current = length(unique(acc[current == 1])),
+    richness26       = length(unique(acc[current == 1 & rcp26 == 1])),
+    richness45       = length(unique(acc[current == 1 & rcp45 == 1])),
+    richness85       = length(unique(acc[current == 1 & rcp85 == 1])),
+    
+    # get shares                     
+    rcp26_share = length(unique(acc[current == 1 & rcp26 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp45_share = length(unique(acc[current == 1 & rcp45 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp85_share = length(unique(acc[current == 1 & rcp85 == 1])) /
+      length(unique(acc[current == 1])) * 100
+  ) %>%
+  ungroup() %>% 
+  dplyr::select(site,   
+                acc,
+                richness_current,
+                richness26,
+                richness45,
+                richness85,
+                current, 
+                rcp26, rcp26_share, 
+                rcp45, rcp45_share, 
+                rcp85, rcp85_share ) %>%
+  # View()
+  # filter only present species
+  dplyr::filter(current == 1) %>%
+  #  View()
+  # merge back full table with empty plots
+  full_join(df_master) %>% 
+  replace_na(list(
+    current = 0,
+    rcp26_share = 0,
+    rcp45_share = 0,
+    rcp85_share = 0,
+    richness_current = 0,
+    richness26 = 0,
+    richness45 = 0,
+    richness85 = 0
+  ))# %>%
+
+
+#  Get 1/2 final table: species richness by climate suitability 
+summary_sp_suitability_country <- df_species_clim_suitability %>% #  View()
+  mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
+                                 as.character(country_pooled))) %>%
+  mutate(country_pooled = as.factor(country_pooled))  %>% # Optional: re-convert to factor if needed
+  group_by(country_pooled) %>% 
+  #  head()
+  summarize(richness   = mean(richness_current),
+            richness26 = mean(richness26),
+            richness45 = mean(richness45),
+            richness85 = mean(richness85),
+            mean_rcp26_share = mean(rcp26_share),
+            mean_rcp45_share = mean(rcp45_share),
+            mean_rcp85_share = mean(rcp85_share)) %>% 
+  mutate(
+    country_full = recode(as.character(country_pooled),
+                          "AT" = "Austria",
+                          "CH" = "Switzerland",
+                          "CZ" = "Czech Republic",
+                          "DE" = "Germany",
+                          "FR" = "France",
+                          "PL" = "Poland",
+                          "SI" = "Slovenia",
+                          "SK" = "Slovakia")
+  ) %>%
+  arrange(country_full)
+
+
+
+# !!! what is teh average share of plots that contain none of currently present species? 
+
+df_compare_future_species_regions %>% 
+  
+  group_by(site, country_pooled) %>%
+  mutate(
+    
+    # get shares                     
+    rcp26_share = length(unique(acc[current == 1 & rcp26 == 0])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp45_share = length(unique(acc[current == 1 & rcp45 == 0])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp85_share = length(unique(acc[current == 1 & rcp85 == 0])) /
+      length(unique(acc[current == 1])) * 100
+  ) %>%
+  ungroup() %>% 
+  dplyr::select(site,   
+                acc,
+                richness_current,
+                richness26,
+                richness45,
+                richness85,
+                current, 
+                rcp26, rcp26_share, 
+                rcp45, rcp45_share, 
+                rcp85, rcp85_share ) %>%
+  # View()
+  # filter only present species
+  dplyr::filter(current == 1) %>%
+  #  View()
+  # merge back full table with empty plots
+  full_join(df_master) %>% 
+  replace_na(list(
+    current = 0,
+    rcp26_share = 0,
+    rcp45_share = 0,
+    rcp85_share = 0,
+    richness_current = 0,
+    richness26 = 0,
+    richness45 = 0,
+    richness85 = 0
+  ))# %>%
+
+# !!! END
 
 # how many plots per cpuountry does not contain any currently present species??? ---------------
 # evaluate species on plot level: Share of plots where none of the currently present species 
@@ -3971,24 +4014,27 @@ print(species_counts)
 
 ### 20250604 NEW summary table ----------------------
 
-avg_richness_plot <- df_compare_future_species %>%
-  dplyr::filter(current == 1) %>%
-  group_by(country_pooled, site) %>%
-  summarise(
-    n_current_species = n_distinct(acc),
-    .groups = "drop"
-  ) %>% 
-  ungroup() %>% 
-  group_by(country_pooled) %>% 
-  summarize(mean = mean(n_current_species))
-
-
 # dummy example; 
-dd <- data.frame(cluster = rep(1:2, each = 3),
-                 species = c("a", "b", "c","a", "b", "c"),
-                 current = c(0,1,1,1,1,1),
-                 rcp26 = c(1,0,1,0,0,0))
+dd <- data.frame(country = rep('a', 9),
+                 cluster = rep(1:3, each = 3),
+                 species = c("a", "b", "c","a", "b", "c",
+                             "a", "b", "c"),
+                 current = c(0,1,1,1,1,1, 0,0,0),
+                 rcp26 = c(0,0,0,1,1,1,0,1,0))
 dd
+
+
+# how to figure this out?????!!!!!
+dd %>%
+  group_by(cluster, country) %>%
+  mutate(
+    rcp26_share = length(unique(cluster[current == 1 & rcp26 == 0])) /
+      length(unique(cluster[current == 1])) * 100
+  ) %>%
+  ungroup()
+
+
+
 dd %>%
   group_by(cluster) %>%
   mutate(
@@ -3997,6 +4043,12 @@ dd %>%
   ) %>%
   ungroup()
 
-
-# calculate the shares of persistent species per cluster
-
+dd %>%
+  group_by(country, cluster) %>%
+  summarise(has_current_species = any(current == 1), .groups = "drop") %>%
+  group_by(country) %>%
+  summarise(
+    n_clusters = n(),
+    n_without_current = sum(!has_current_species),
+    percent_without_current = (n_without_current / n_clusters) * 100
+  )
