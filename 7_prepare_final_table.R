@@ -37,8 +37,8 @@ soil              <- as.data.frame(terra::vect("rawData/extracted_soil_data/extr
 terrain           <- fread("outData/terrain.csv")
 
 # higher resolution climate data: germany (1 km res), calculated on cluster (plot) level across 5 subplots
-climate_de           <- fread("outData/xy_DE_clim_DWD_1980_2024.csv")
-spei_de              <- fread("outData/xy_DE_spei_DWD_1980_2024.csv")
+#climate_de           <- fread("outData/xy_DE_clim_DWD_1980_2024.csv")
+#spei_de              <- fread("outData/xy_DE_spei_DWD_1980_2024.csv")
 
 # correcpr precipitation ame
 climate <- climate %>% 
@@ -150,8 +150,11 @@ growth_anomalies_summary[var == "tp", var := "prcp"]
 # Convert to wide format after renaming
 growth_anomalies_wide <- dcast(growth_anomalies_summary, 
                                cluster ~ var, 
-                               value.var = c("mean_grw_anm", "sd_grw_anm", 
-                                             "median_grw_anm", "max_grw_anm", "min_grw_anm"))
+                               value.var = c("mean_grw_anm", 
+                                             "sd_grw_anm", 
+                                             "median_grw_anm", 
+                                             "max_grw_anm", 
+                                             "min_grw_anm"))
 
 
 ## Prepare veg data  -----------------------------------------------------------------
@@ -339,189 +342,6 @@ df_predictors_plot <-
   right_join(df_seasonality_med, by = join_by(cluster))                  # join seasonality indicator (CV, median)
 
 nrow(df_predictors_plot)
-
-### Improve climate resolution for Germany: ------------
-# - get clim anomalies
-# - get SPEI:1,3,12
-# - calculate medians over 2018-2023
-
-
-# Calculate temp and prcp anomalies
-climate_de_anom <- climate_de %>% 
-  group_by(cluster) %>%
-  mutate(tmp_mean = mean(tmp[year %in% reference_period]),
-         tmp_sd = sd(tmp[year %in% reference_period]),
-         tmp_z  = (tmp - mean(tmp[year %in% reference_period])) / sd(tmp[year %in% reference_period]),
-         prcp_z = (prcp - mean(prcp[year %in% reference_period])) / sd(prcp[year %in% reference_period]))
-
-# get sum of precipitation per year: 
-climate_de_prcp_sum <- climate_de %>% 
-  group_by(cluster, year) %>%
-  dplyr::summarize(prcp_sum = sum(prcp, na.rm = T))
-
-# merge precipitation sum back to original table
-climate_de_anom_18_23_avg <- climate_de_anom %>% 
-  left_join(climate_de_prcp_sum, by = join_by(cluster, year)) %>% 
-  dplyr::filter(year %in% study_period) %>% 
-  group_by(cluster) %>%
-  dplyr::summarise(across(where(is.numeric), \(x) median(x, na.rm = TRUE))) %>%  # Use lambda function for median
-  dplyr::select(cluster, tmp, prcp_sum, tmp_z, prcp_z) %>% 
-  rename(prcp = prcp_sum)
-
-
-
-head(spei_de)
-
-# Get SPEI from germany for study area, for drought - 2025/03/12 - SPEI from DWD seems a bit weird, go one with SPEI from ERA
-spei_de_18_23_avg <-
-  spei_de %>% 
-  dplyr::filter(year %in% study_period) %>% 
-  ungroup(.) %>% 
-  group_by( cluster,scale) %>% # scale 1,3,12
-  summarize(spei = median(spei, na.rm  = T)) %>% 
-  pivot_wider(names_from = scale, values_from = spei, names_prefix = 'spei')
-
-spei_de_drought_avg <- spei_de %>% 
-  dplyr::filter(year %in% drought_period) %>% 
-  ungroup(.) %>% 
-  group_by(cluster,scale) %>%
-  summarize(spei = median(spei, na.rm  = T)) %>% 
-  pivot_wider(names_from = scale, values_from = spei, names_prefix = 'drought_spei')
-
-
-#(spei_de_18_23_avg)
-
-# join spei to tmp and spei data
-clim_spei_de_upd <- climate_de_anom_18_23_avg %>% # prcp, tmp
-  full_join(spei_de_18_23_avg) %>%     # SPEIs over season
-  full_join(spei_de_drought_avg) # add SPEIs during drought
-  #mutate(source = "DWD")
-
-
-# Check how often i have clusters with teh same climate values? -------------------
-# Count unique clusters where tmp and prcp are identical
-identical_clusters_DWD_de <- clim_spei_de_upd %>%
-  group_by(tmp, prcp) %>%
-  summarise(count = n(), .groups = "drop") %>%  # Count occurrences of each (tmp, prcp) pair
-  filter(count > 1)  # Keep only those that appear more than once
-
-print(identical_clusters_DWD_de)
-
-identical_clusters_ERA <- df_predictors_plot %>% 
-  dplyr::filter(country == '11') %>% 
-  group_by(tmp, prcp) %>%
-  summarise(count = n(), .groups = "drop") %>%  # Count occurrences of each (tmp, prcp) pair
-  filter(count > 1)  # Keep only those that appear more than once
-
-print(identical_clusters_ERA)
-
-### calculate correlation between tmp and prcp for DWD (grmany) and ERA to make sure that i can replace values; -
-df_ERA_de <- df_predictors_plot %>% 
-  dplyr::filter(country == '11')   %>% 
-  mutate(source = 'ERA') %>% 
-  dplyr::select(cluster, tmp, prcp, spei12, drought_spei1) %>% 
-  rename(tmp_ERA = tmp,
-         prcp_ERA = prcp,
-         spei12_ERA = spei12,
-         drought_spei1_ERA = drought_spei1)
-
-df_de <- clim_spei_de_upd %>% 
-  dplyr::select(cluster, tmp, prcp, spei12, drought_spei1) %>% 
-  rename(tmp_DWD = tmp,
-         prcp_DWD = prcp,
-         spei12_DWD = spei12,
-         drought_spei1_DWD = drought_spei1) %>% 
-  left_join(df_ERA_de) %>% 
-  drop_na()
-# merge updated data (date with higher climate resolution with original ones): 
-
-### Corr plot DWD vs ERA ---------------
-
-#### Sample scatter plot: TMP 
-par(mfrow = c(1, 2))
-plot(df_de$drought_spei1_ERA, df_de$drought_spei1_DWD, 
-     main = "Scatter Plot with Correlation",
-     xlab = "drought_spei1_ERA", ylab = "drought_spei1_DWD",
-     pch = 19, col = "blue")
-
-
-
-
-#### Sample scatter plot: TMP 
-par(mfrow = c(1, 2))
-plot(df_de$spei12_ERA, df_de$spei12_DWD, 
-     main = "Scatter Plot with Correlation",
-     xlab = "spei12_ERA", ylab = "spei12_DWD",
-     pch = 19, col = "blue")
-
-
-
-
-#### Sample scatter plot: TMP 
-par(mfrow = c(1, 2))
-plot(df_de$tmp_DWD, df_de$tmp_ERA, 
-     main = "Scatter Plot with Correlation",
-     xlab = "tmp_DWD", ylab = "tmp_ERA",
-     pch = 19, col = "blue")
-
-# Add a regression line
-model <- lm(df_de$tmp_ERA ~ df_de$tmp_DWD)
-abline(model, col = "red", lwd = 2)
-
-# Compute correlation
-correlation <- cor(df_de$tmp_DWD, df_de$tmp_ERA, method = "spearman")
-
-# Add correlation text
-text(x = min(df_de$tmp_DWD), y = max(df_de$tmp_ERA), 
-     labels = paste("Correlation: ", round(correlation, 2)), 
-     pos = 4, col = "red", cex = 1.2)
-
-#### Sample scatter plot: PRCP 
-plot(df_de$prcp_DWD, df_de$prcp_ERA, 
-     main = "Scatter Plot with Correlation",
-     pch = 19, col = "blue")
-
-# Add a regression line
-model <- lm(df_de$prcp_DWD ~ df_de$prcp_ERA)
-abline(model, col = "red", lwd = 2)
-
-# Compute correlation
-correlation <- cor(df_de$prcp_DWD, df_de$prcp_ERA, method = "spearman")
-
-# Add correlation text
-text(x = min(df_de$prcp_DWD), y = max(df_de$prcp_ERA), 
-     labels = paste("Correlation: ", round(correlation, 2)), 
-     pos = 4, col = "red", cex = 1.2)
-
-
-### Merge new clim resolution data to ERA dataset ----
-
-
-# select only germny from old dataset, remove teh ERA columns to replace by DWD
-df_predictors_plot_de_extra_cols <- df_predictors_plot %>% 
-  dplyr::filter(country == '11') %>% 
-  dplyr::select(-tmp,  -prcp, -tmp_z, -prcp_z) #  -spei1, -spei3, -spei12, -drought_spei1, -drought_spei3, -drought_spei12 do not rep[lace spei values, somehow do not correlated with ERA data]
-
-# keep other countryies unchanged
-df_predictors_plot_no_de <- df_predictors_plot %>% 
-  dplyr::filter(country != '11')
-
-head(clim_spei_de_upd) # updated data, update to merge with additional columns
-
-clim_spei_de_upd_add_cols <- climate_de_anom_18_23_avg %>% #clim_spei_de_upd %>%  # do not update SPEI values from DWD, as they sees higher tehn 
-  #rename(spei12 = spei) %>% 
-  full_join(df_predictors_plot_de_extra_cols, by = join_by(cluster)) %>%
-  dplyr::select(all_of(names(df_predictors_plot_no_de))) #%>%   # change order to fit old data
-
-# bind tables together 
-df_predictors_plot_upd_clim <- rbind(clim_spei_de_upd_add_cols,
-                                     df_predictors_plot_no_de )
-
-df_predictors_plot_upd_clim <- df_predictors_plot_upd_clim %>% 
-  dplyr::select(-country)
-
-
-
 
 
 
