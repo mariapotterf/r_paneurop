@@ -3117,8 +3117,6 @@ fwrite(df_stem_regeneration2, 'outTable/df_stem_regeneration2.csv')
 
 # 5. Species climate suitability  -------------------------------------------
 
-# overall richness from field data?
-
 stem_dens_species_long_cluster %>% 
   dplyr::filter(stem_density > 0) %>% 
   distinct(Species) %>% 
@@ -3130,8 +3128,7 @@ stem_dens_species_long_cluster %>%
   # - eg we have besp, which can be betula pendula, betula pubescense
   # - same for populus (3), quercus (6), salix ...
 
-head(stem_dens_species_long_cluster)
-
+# read look up tables: 
 # get species merging table - acronyms from iLand
 species_look_up_simple<- read.csv("rawData/tree_sp_simple.csv", sep = ';')
 
@@ -3185,7 +3182,7 @@ df_compare_future_species <- wide_future_species %>%
   dplyr::rename(current = presence)
 
 
-# check number of species from field observation, in Wessely database ---------
+## check number of species from field observation, in Wessely database ---------
 anyNA(df_compare_future_species)
 length(unique(df_compare_future_species$acc))  # final length is 30 species: corss between wessely and observed field database
 
@@ -3233,71 +3230,7 @@ df_compare_future_species_regions <- df_compare_future_species_regions %>%
   )
 
 
-# START: !!!  share of species that remain climatically suitable 
-
-# create a df that contains all clusters (also empty ones to calculate properly averages)
-df_master <- df_fin %>% 
-  dplyr::select(site, 
-                #country_full, 
-                country_pooled )
-
-
-# compare teh shares of species that are climatically suitable per plot
-df_species_clim_suitability <- 
-  df_compare_future_species_regions %>% 
-  group_by(site, country_pooled) %>%
-  mutate(
-    rcp26_share = length(unique(acc[current == 1 & rcp26 == 1])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp45_share = length(unique(acc[current == 1 & rcp45 == 1])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp85_share = length(unique(acc[current == 1 & rcp85 == 1])) /
-      length(unique(acc[current == 1])) * 100
-  ) %>%
-  ungroup() %>% 
-  dplyr::select(site,   
-                acc,  
-                current, 
-                rcp26, rcp26_share, 
-                rcp45, rcp45_share, 
-                rcp85, rcp85_share ) %>%
-   # View()
-  # filter only present species
-  dplyr::filter(current == 1) %>%
-  #  View()
-  # merge back full table with empty plots
-  full_join(df_master) %>% 
-  replace_na(list(
-    current = 0,
-    rcp26_share = 0,
-    rcp45_share = 0,
-    rcp85_share = 0
-  ))# %>%
-
-
-species_suitability_country <- df_species_clim_suitability %>% #  View()
-  mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
-                                 as.character(country_pooled))) %>%
-  mutate(country_pooled = as.factor(country_pooled))  %>% # Optional: re-convert to factor if needed
-  group_by(country_pooled) %>% 
-  summarize(mean_rcp26_share = mean(rcp26_share),
-            mean_rcp45_share = mean(rcp45_share),
-            mean_rcp85_share = mean(rcp85_share)) %>% 
-  mutate(
-    country_full = recode(as.character(country_pooled),
-                          "AT" = "Austria",
-                          "CH" = "Switzerland",
-                          "CZ" = "Czech Republic",
-                          "DE" = "Germany",
-                          "FR" = "France",
-                          "PL" = "Poland",
-                          "SI" = "Slovenia",
-                          "SK" = "Slovakia")
-  ) %>%
-  arrange(country_full)
-  
-
-# Share of stems that is not suitable under CC scenarios?
+#### Share of stems that is not suitable under CC scenarios? --------------------------
 # Convert suitability columns to logical: TRUE if unsuitable ("0"), FALSE otherwise
 
 anyNA(df_compare_future_species)  
@@ -3309,7 +3242,7 @@ total_stems_wessely
 #6172500 - all stems, 6008250 over crossed databases 
 
 # now, it is only climate suitability for regeneration!
-df_compare_future_species_long_full <- df_compare_future_species %>%
+df_compare_future_species_long_full <- df_compare_future_species_regions %>%
   dplyr::select(site, 
                 acc,
                 sum_stem_density , 
@@ -3327,20 +3260,16 @@ df_compare_future_species_long_full %>%  # Remove "suitability_" prefix
   group_by(suitability, scenario) %>% 
   dplyr::filter(suitability == "not_suitable") %>%  
   summarize(sum = sum(sum_stem_density)) %>% 
-    mutate(share = round(sum/total_stems*100,1))
- 
-  # suitability  scenario     sum share
-  # <chr>        <chr>      <dbl> <dbl>
-  # 1 not_suitable rcp26    3838375  62.2
-  # 2 not_suitable rcp45    4505375  73  
-  # 3 not_suitable rcp85    5172625  83.8
+  mutate(share = round(sum/total_stems*100,1))
+
+# suitability  scenario     sum share
+# <chr>        <chr>      <dbl> <dbl>
+# 1 not_suitable rcp26    3838375  62.2
+# 2 not_suitable rcp45    4505375  73  
+# 3 not_suitable rcp85    5172625  83.8
 
 
-# analysis over species: --------------------------
-# how many plots of piab swill not be climatically suitable?
-
-
-### across all species ---------------
+#### MOst affected species  ---------------
 # Filter for species with stem density > 0
 species_suitability_summary <- df_compare_future_species_long_full %>%
   dplyr::filter(sum_stem_density > 0) %>%
@@ -3388,7 +3317,7 @@ species_suitability_summary %>%
   #dplyr::filter(acc %in% top_species_site_share) %>% 
   mutate(share_unsuitable = n_unsuitable_sites / n_sites_with_species * 100) %>%
   arrange(desc(share_overall)) %>% # , share_unsuitable
-View()
+  View()
 
 # the most affected species by cliamte change
 share_unsuitable_range <- species_suitability_summary %>%
@@ -3404,10 +3333,98 @@ share_unsuitable_range <- species_suitability_summary %>%
 share_unsuitable_range
 
 
+
+### Level: country: Prepare Table 1: share of climatically suitable tree species per plot/country ------------------
+
+# create a df that contains all clusters (also empty ones to calculate properly averages)
+df_master <- df_fin %>% 
+  dplyr::select(site, 
+                #country_full, 
+                country_pooled )
+
+
+# compare teh shares of species that are climatically suitable per plot
+df_species_clim_suitability <-   df_compare_future_species_regions %>% 
+  
+  group_by(site, country_pooled) %>%
+  mutate(
+    
+    # calculate number of species
+    richness_current = length(unique(acc[current == 1])),
+    richness26       = length(unique(acc[current == 1 & rcp26 == 1])),
+    richness45       = length(unique(acc[current == 1 & rcp45 == 1])),
+    richness85       = length(unique(acc[current == 1 & rcp85 == 1])),
+      
+    # get shares                     
+    rcp26_share = length(unique(acc[current == 1 & rcp26 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp45_share = length(unique(acc[current == 1 & rcp45 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp85_share = length(unique(acc[current == 1 & rcp85 == 1])) /
+      length(unique(acc[current == 1])) * 100
+  ) %>%
+  ungroup() %>% 
+  dplyr::select(site,   
+                acc,
+                richness_current,
+                richness26,
+                richness45,
+                richness85,
+                current, 
+                rcp26, rcp26_share, 
+                rcp45, rcp45_share, 
+                rcp85, rcp85_share ) %>%
+   # View()
+  # filter only present species
+  dplyr::filter(current == 1) %>%
+  #  View()
+  # merge back full table with empty plots
+  full_join(df_master) %>% 
+  replace_na(list(
+    current = 0,
+    rcp26_share = 0,
+    rcp45_share = 0,
+    rcp85_share = 0,
+    richness_current = 0,
+    richness26 = 0,
+    richness45 = 0,
+    richness85 = 0
+  ))# %>%
+
+
+#  Get 1/2 final table: species richness by climate suitability 
+summary_sp_suitability_country <- df_species_clim_suitability %>% #  View()
+  mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
+                                 as.character(country_pooled))) %>%
+  mutate(country_pooled = as.factor(country_pooled))  %>% # Optional: re-convert to factor if needed
+  group_by(country_pooled) %>% 
+  #  head()
+  summarize(richness   = mean(richness_current),
+            richness26 = mean(richness26),
+            richness45 = mean(richness45),
+            richness85 = mean(richness85),
+            mean_rcp26_share = mean(rcp26_share),
+            mean_rcp45_share = mean(rcp45_share),
+            mean_rcp85_share = mean(rcp85_share)) %>% 
+  mutate(
+    country_full = recode(as.character(country_pooled),
+                          "AT" = "Austria",
+                          "CH" = "Switzerland",
+                          "CZ" = "Czech Republic",
+                          "DE" = "Germany",
+                          "FR" = "France",
+                          "PL" = "Poland",
+                          "SI" = "Slovenia",
+                          "SK" = "Slovakia")
+  ) %>%
+  arrange(country_full)
+  
+
+
 ## Plot level : Get only counts per country and plot, no need for specific species : ------------
 # Convert to long format
 df_suitability_long <- 
-  df_compare_future_species %>%
+  df_compare_future_species_regions %>%
   dplyr::select(site, 
                 country_pooled, 
                 suitability_rcp26, 
@@ -3426,7 +3443,7 @@ df_suitability_long <-
 df_suitability_long %>%
     group_by(site, scenario) %>%
     summarize(has_suitable = any(suitability == "suitable"), .groups = "drop") %>%
-    filter(!has_suitable) %>%
+    dplyr::filter(!has_suitable) %>%
     count(scenario, name = "n_clusters_without_suitable") %>% 
     mutate(share = n_clusters_without_suitable/849)
   
@@ -3522,121 +3539,14 @@ p.species.suitability_country <-
   )  
 p.species.suitability_country
 
-#"#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" "#DA362A" "#A50026" 
-## Country level: identify species suitability on country level: calculate richness per country at current, at RCP45 and compare both ------
-
-df_suitab_sub45 <-df_compare_future_species %>% 
-  dplyr::select(acc, suitability_rcp45, country_pooled)
 
 
-df_species_current <- df_compare_future_species %>%
-  #dplyr::filter(country_pooled == "AT") %>% 
-  dplyr::filter(current == 1) %>% 
-  dplyr::select(acc, country_pooled) %>% 
-  distinct() %>% 
-  mutate(current = 1)
-
-df_species_rcp45 <- df_compare_future_species %>%
-  #dplyr::filter(country_pooled == "AT") %>% 
-  dplyr::filter(rcp45 == 1) %>% 
-  dplyr::select(acc, country_pooled) %>% 
-  distinct() %>% 
-  mutate(rcp45 = 1)
-
-df_species_comparison <- full_join(df_species_current, df_species_rcp45, 
-                                   by = c("acc", "country_pooled")) %>%
-  mutate(
-    current = ifelse(is.na(current), 0, current),  # Fill NA with 0
-    rcp45 = ifelse(is.na(rcp45), 0, rcp45)        # Fill NA with 0
-  ) %>%
-  mutate(  suitability_rcp45 = case_when(
-    current == 1 & rcp45 == 1 ~ "suitable",
-    current == 1 & rcp45 == 0 ~ "not_suitable",
-    current == 0 & rcp45 == 1 ~ "novel",
-    current == 0 & rcp45 == 0 ~ "0"
-  ))
-
-# summarize information fo species on country level: species counts
-# Count occurrences of "suitable" and "not_suitable" per country
-df_suitability_summary <- df_species_comparison %>%
-  group_by(country_pooled, suitability_rcp45) %>%
-  summarise(species_count = n(), .groups = "drop") #%>%
-  #tidyr::pivot_wider(names_from = suitability_rcp45, values_from = species_count, values_fill = 0)
 
 
-df_richness_country_simpl <- df_richness_country_current %>% 
-  dplyr::select(-acc) %>% 
-  distinct() %>% 
-  rename(current_richness = richness)
-
-# Rename columns for clarity
-df_suitability_summary <- df_suitability_summary %>%
-  left_join(df_richness_country_simpl) #%>% 
-  #dplyr::filter(suitability_rcp45 != 'novel')
 
 
-# Display result
-print(df_suitability_summary)
 
-ggplot(df_suitability_summary, aes(x = country_pooled, y = species_count, fill = suitability_rcp45)) +
-  geom_bar(stat = "identity", position = 'fill') +  # Stacked bar plot
-  theme_classic2() +
-  labs(title = "Species Suitability per Country under RCP45",
-       x = "",
-       y = "Share of species [%]",
-       fill = "") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels
-  scale_fill_manual(values = c("suitable" = "#006837", "not_suitable" = "#FDBE6E", "novel" = "#FEEDA2"))  # Custom colors
-
-
-# "#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" "#DA362A" "#A50026" 
-# get just list of unique species per country under scenarios ---------------
-
-
-# Convert to long format
-df_long_suitability <- df_compare_future_species %>%
-  pivot_longer(cols = starts_with("suitability_rcp"), 
-               names_to = "scenario", 
-               values_to = "suitability") %>%
-  mutate(scenario = dplyr::recode(scenario, 
-                           "suitability_rcp26" = "rcp26", 
-                           "suitability_rcp45" = "rcp45", 
-                           "suitability_rcp85" = "rcp85"))
-
-# get individual species and species richness per country: 
-df_richness_country_current <- df_compare_future_species %>% 
-  dplyr::filter(current == 1) %>% 
-  dplyr::select(acc, country_pooled) %>%
-  distinct() %>% 
-  group_by(country_pooled) %>% 
-  mutate(richness_current = n_distinct(acc)) #%>% 
-  #mutate(scenario == 'current')
-
-df_richness_country_rcp45 <- 
-  df_compare_future_species %>% 
-  dplyr::filter(rcp45 == 1) %>% 
-  dplyr::select(acc, country_pooled) %>%
-  distinct() %>% 
-  group_by(country_pooled) %>% 
-  mutate(richness_rcp45 = n_distinct(acc)) #%>% 
- # mutate(scenario = 'rcp45')
-
-df_suitab_countries <- df_richness_country_current %>% 
-  full_join(df_richness_country_rcp45)
-
-
-# Calculate frequency of occurrence per species, suitability, and scenario
-df_suitability_freq <- df_long_suitability %>%
-  group_by(acc, suitability, scenario) %>%
-  summarise(count = n(), .groups = "drop") %>%
-  arrange(acc, scenario, desc(count)) %>% 
-  dplyr::filter(suitability != 0) %>% 
-  mutate(acc = factor(acc),
-         suitability = factor(suitability),
-         scenario    = factor(scenario   ))
-
-
-### Sankey plot test: need to restructure data -----------------
+#### Sankey plot test: need to restructure data -----------------
 
 df_current <- df_compare_future_species %>% 
   dplyr::filter(current == 1) %>% 
@@ -3735,27 +3645,11 @@ ggsave(
 # evaluate species on plot level: Share of plots where none of the currently present species 
 # remain within their climate niche until the end of the 21st century
 
-# check for single country: how many plots are there without any current species present?
-
-# seems correct
-  df_compare_future_species %>%
-  dplyr::filter(country_pooled == "SK") %>% 
-  group_by(site, country_pooled) %>%
-    dplyr::filter(site == "16_115") %>% 
-    View()
-  # summarise(
-  #   # Species that remain present (presence == 1 and also present in any future scenario)
-  #   same_rcp26 = sum(current == 1 & rcp26 == 1, na.rm = T ), # some nAs can be preent if species was in the field (pseudotsusa mensioes : psme, but does not exists in Wesely database)
-  #   same_rcp45 = sum(current == 1 & rcp45 == 1, na.rm = T ),
-  #   same_rcp85 = sum(current == 1 & rcp85 == 1, na.rm = T ) #
-  # ) %>% 
-  # ungroup() 
-
 
 # get me an overview: what are the species that are mostly lost?
 # Find species not suitable under any RCP but present currently
 # Count how often each species is out of climatic suitability
-species_out_of_suitability_count <- df_compare_future_species %>%
+species_out_of_suitability_count <- df_compare_future_species_regions %>%
   ungroup() %>%
   dplyr::filter(current == 1 & rcp26 == 0 & rcp45 == 0 & rcp85 == 0) %>%
   dplyr::count(acc, name = "count") %>%
@@ -3785,12 +3679,12 @@ species_presence_proportion <- df_compare_future_species %>%
   arrange(desc(current_count))
 
 # Display the results
-View(species_presence_proportion)
+# View(species_presence_proportion)
 
 
 # Identify plots with no species presence under each RCP scenario
 plots_no_species <- 
-  df_compare_future_species %>%
+  df_compare_future_species_regions %>%
   group_by(site) %>%
   summarise(
     current_species_present = sum(current == 1, na.rm = TRUE),
