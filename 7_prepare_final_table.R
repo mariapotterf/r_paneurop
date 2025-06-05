@@ -339,8 +339,8 @@ df_predictors_plot <-
             aspect           = median(aspect, na.rm = T)
             ) %>% 
   right_join(growth_anomalies_wide, by = join_by(cluster)) %>%  # join tm,p and prco anomalies over gropwth season
-  right_join(df_seasonality_med, by = join_by(cluster))                  # join seasonality indicator (CV, median)
-
+  right_join(df_seasonality_med, by = join_by(cluster))  %>% # join seasonality indicator (CV, median)
+  rename(country_num = country)
 nrow(df_predictors_plot)
 
 
@@ -372,7 +372,7 @@ anyNA(df_plot_veg)
 # rename not necessary predictors for climate clustering, rename veg variables
 df_plot_full <- 
   df_plot_veg %>% 
-  left_join(df_predictors_plot, join_by(cluster, country)) %>% #by = join_by(cluster)
+  left_join(df_predictors_plot, by = join_by(cluster)) %>% 
   ungroup() %>% 
   dplyr::select(-c(#disturbance_year, 
                   # disturbance_agent,
@@ -384,8 +384,6 @@ df_plot_full <-
                 stem_density     = sum_stems,
                 distance_edge    = distance,
                 n_vertical       = n_layers)# %>% 
-  #left_join(dat_manag_intensity_cl, 
-  #          join_by(cluster))# %>% , by = join_by(cluster, management_intensity
   
 # set up proper structure (df) fr analysis  and claim characters as factors
 df_fin <- as.data.frame(df_plot_full) %>% 
