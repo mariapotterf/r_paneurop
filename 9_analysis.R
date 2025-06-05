@@ -24,15 +24,14 @@ library(MASS) #glm.nb for negative binomial models
 library(glmmTMB) #Salamanders dataset and lots of families
 
 
-library(lme4) #pseudo-R2 and and mixed model functionality
-library(MuMIn) #dredge function for comparing models, AIC, marginal R^2 for mixed models
-library(sjmisc) #pseudo R^2 - but I think gets loaded as a dependency
+#library(lme4) #pseudo-R2 and and mixed model functionality
+#library(MuMIn) #dredge function for comparing models, AIC, marginal R^2 for mixed models
+#library(sjmisc) #pseudo R^2 - but I think gets loaded as a dependency
 library(DHARMa) #model diagnostics
 library(effects) #what do my marginal effects look like?
-library(performance) #binomial model diagnostics
-library(emmeans) #post hoc for categorical predictors
+#library(performance) #binomial model diagnostics
+#library(emmeans) #post hoc for categorical predictors
 
-#library(AER)  # for hurdle model
 library(mgcv)
 library(gratia)
 library(ggeffects)
@@ -71,7 +70,7 @@ theme_set(
 )
 
 
-# update labels
+# update species labels
 species_labels <- c(
   "piab" = "Picea abies",
   "fasy" = "Fagus sylvatica",
@@ -129,7 +128,7 @@ load("outData/veg.Rdata")
 
 # final tables on site level
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
-nrow(df_fin) #854
+nrow(df_fin) #849
 
 # add manually created regions
 #regions_manual <- terra::vect('rawData/regions_manual2.gpkg')
@@ -186,10 +185,10 @@ df_fin <- df_fin %>%
 
 
 # Get unique regions for each country_pooled
-unique_regions_per_country <- df_fin %>%
-  group_by(country_pooled) %>%
-  summarise(unique_regions = list(unique(region))) %>% 
-  unnest(unique_regions)
+# unique_regions_per_country <- df_fin %>%
+#   group_by(country_pooled) %>%
+#   summarise(unique_regions = list(unique(region))) %>% 
+#   unnest(unique_regions)
 
 # categorize the clim clusters
 df_fin <- df_fin %>% 
@@ -210,9 +209,6 @@ df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))
 #  dplyr::select(site, clim_class)
 
 #fwrite(df_fin, 'outTable/df_fin.csv')
-
-prop.table(table(df_fin$disturbance_year))
-
 
 
 
@@ -3233,11 +3229,11 @@ species_out_of_wessely <- df_compare_future_species %>%
   distinct(acc)  # Optional, if you want all unique rows with NA acc
 
 # add country indication
-df_compare_future_species <- df_compare_future_species %>%
-  # Extract the first two characters of 'site' as 'region' and convert to integer
-  mutate(region = as.integer(substr(site, 1, 2))) %>%
-  # Left join with unique_regions_per_country to get country indication
-  left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
+# df_compare_future_species <- df_compare_future_species %>%
+#   # Extract the first two characters of 'site' as 'region' and convert to integer
+#   mutate(region = as.integer(substr(site, 1, 2))) %>%
+#   # Left join with unique_regions_per_country to get country indication
+#   left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
 
 # evaluate presence vs absence of species per cluster
 df_compare_future_species <- df_compare_future_species %>%
