@@ -129,14 +129,15 @@ load("outData/veg.Rdata")
 
 # final tables on site level
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
+nrow(df_fin) #854
 
 # add manually created regions
-regions_manual <- terra::vect('rawData/regions_manual2.gpkg')
-regions_manual_df <- as.data.frame(regions_manual)
+#regions_manual <- terra::vect('rawData/regions_manual2.gpkg')
+#regions_manual_df <- as.data.frame(regions_manual)
 
-df_fin <- df_fin %>% 
-  full_join(regions_manual_df) %>% 
-  rename(region_manual = name)
+# df_fin <- df_fin %>% 
+#   full_join(regions_manual_df) %>% 
+#   rename(region_manual = name)
 
 # ad disturbance severity based on presence/absence of mature trees 
 #df_mature_dist_severity <- fread('outData/disturb_severity_mature.csv')
@@ -150,7 +151,7 @@ df_fin <- df_fin %>%
 #  mutate(time_since_disturbance = 2023 - disturbance_year)
 
 ### get coordinates: to add XY coordinates to final model ---------------------
-# Replace "your_file.gpkg" with the path to your GPKG file
+# Replace "your_file.gpkg" with the path to your GPKG filev - reads subplots
 xy <- st_read("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg")
 
 # Step 1: Create 'site' column by removing last two characters from the 'ID'
@@ -173,8 +174,8 @@ xy_site <- xy %>%
 dim(xy_site)
 
 # check what is missing (i have already removed the erronerous sites having 3 subplots per plots)
-locations          <- unique(xy_site$site)
-veg_data_locations <- unique(df_fin$site)
+locations          <- unique(xy_site$site)  # 957
+veg_data_locations <- unique(df_fin$site)   # 849
 
 # ad xy coordinates in the final table
 df_fin <- df_fin %>% 
@@ -3558,11 +3559,6 @@ ggplot(df_suitability_summary, aes(x = country_pooled, y = species_count, fill =
 # get just list of unique species per country under scenarios ---------------
 
 
-
-
-
-
-
 # Convert to long format
 df_long_suitability <- df_compare_future_species %>%
   pivot_longer(cols = starts_with("suitability_rcp"), 
@@ -3610,22 +3606,22 @@ df_suitability_freq <- df_long_suitability %>%
 
 df_current <- df_compare_future_species %>% 
   dplyr::filter(current == 1) %>% 
-  dplyr::select(site, acc) %>% 
+  dplyr::select(site, acc,sum_stem_density ) %>% 
   mutate(scenario = 'current')
 
 df_rcp26 <- df_compare_future_species %>% 
   dplyr::filter(current == 1 & rcp26 == 1) %>% 
-  dplyr::select(site, acc) %>% 
+  dplyr::select(site, acc, sum_stem_density ) %>% 
   mutate(scenario = 'rcp26')
 
 df_rcp45 <- df_compare_future_species %>% 
   dplyr::filter(current == 1& rcp45 == 1) %>% 
-  dplyr::select(site, acc) %>% 
+  dplyr::select(site, acc,sum_stem_density ) %>% 
   mutate(scenario = 'rcp45')
 
 df_rcp85 <- df_compare_future_species %>% 
   dplyr::filter(current == 1& rcp85 == 1) %>% 
-  dplyr::select(site, acc) %>% 
+  dplyr::select(site, acc,sum_stem_density ) %>% 
   mutate(scenario = 'rcp85')
 
 df_rbind = rbind(df_current, df_rcp26, df_rcp45, df_rcp85)
@@ -3654,6 +3650,7 @@ species_order <- names(species_colors)
 df_alluvial_complete_freq$acc <- factor(df_alluvial_complete_freq$acc, levels = species_order)
 
 # Create the alluvial plot with ordered species and custom colors
+library(ggalluvial)
 p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
                                       aes(x = scenario, 
                                           y = sum_n,
@@ -3679,7 +3676,8 @@ p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
 
 p.species.clim.suitability
 
-p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country,nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
+p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country,
+                               nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
 
 # Save the combined plot as an image
 ggsave(
@@ -3821,10 +3819,10 @@ plot_summary_formatted_share <- plot_summary_share %>%
 
 print(plot_summary_formatted_share)
 
+# Table: sclimate suitability by country and plot ----------------------------------------
 # Evaluate by species: what species are present/ country? and how many of them are not clim suitbale?
 
 # Test for single country: 
-
 
 current_species<- 
   df_compare_future_species %>%  
@@ -4039,4 +4037,66 @@ species_counts <- species_current %>%
 
 # Display results
 print(species_counts)
+
+
+
+
+### 20250604 NEW summary table ----------------------
+
+avg_richness_plot <- df_compare_future_species %>%
+  dplyr::filter(current == 1) %>%
+  group_by(country_pooled, site) %>%
+  summarise(
+    n_current_species = n_distinct(acc),
+    .groups = "drop"
+  ) %>% 
+  ungroup() %>% 
+  group_by(country_pooled) %>% 
+  summarize(mean = mean(n_current_species))
+
+
+# dummy example; 
+dd <- data.frame(cluster = rep(1:2, each = 3),
+                 species = c("a", "b", "c","a", "b", "c"),
+                 current = c(0,1,1,1,1,1),
+                 rcp26 = c(1,0,1,0,0,0))
+dd
+dd %>%
+  group_by(cluster) %>%
+  mutate(
+    rcp26_share = length(unique(species[current == 1 & rcp26 == 1])) /
+      length(unique(species[current == 1])) * 100
+  ) %>%
+  ungroup()
+
+
+# calculate the shares of persistent species per cluster
+
+# create a df that contains all clusters (also empty ones to calculate properly averages)
+df_master <- df_fin %>% 
+  dplyr::select(site, country_full, 
+                country_pooled )
+  
+
+df_compare_future_species %>% 
+  group_by(site, country_pooled) %>%
+  mutate(
+    rcp26_share = length(unique(acc[current == 1 & rcp26 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp45_share = length(unique(acc[current == 1 & rcp45 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp85_share = length(unique(acc[current == 1 & rcp85 == 1])) /
+      length(unique(acc[current == 1])) * 100
+  ) %>%
+  ungroup() %>% 
+  dplyr::select(site,   
+                acc,  
+                current, 
+                rcp26, rcp26_share, 
+                rcp45, rcp45_share, 
+                rcp85, rcp85_share ) %>% 
+  dplyr::filter(current == 1) %>% 
+  distinct(site) %>% 
+  count()
+  #View()
 
