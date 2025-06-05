@@ -3611,7 +3611,7 @@ df_species_clim_suitability <-   df_compare_future_species_regions %>%
 
 
 #  Get 1/2 final table: species richness by climate suitability 
-summary_sp_suitability_country <- df_species_clim_suitability %>% #  View()
+df_clim_suitable_species_richness <- df_species_clim_suitability %>% #  View()
   mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
                                  as.character(country_pooled))) %>%
   mutate(country_pooled = as.factor(country_pooled))  %>% # Optional: re-convert to factor if needed
@@ -3639,52 +3639,7 @@ summary_sp_suitability_country <- df_species_clim_suitability %>% #  View()
 
 
 
-# !!! what is teh average share of plots that contain none of currently present species? 
-
-df_compare_future_species_regions %>% 
-  
-  group_by(site, country_pooled) %>%
-  mutate(
-    
-    # get shares                     
-    rcp26_share = length(unique(acc[current == 1 & rcp26 == 0])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp45_share = length(unique(acc[current == 1 & rcp45 == 0])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp85_share = length(unique(acc[current == 1 & rcp85 == 0])) /
-      length(unique(acc[current == 1])) * 100
-  ) %>%
-  ungroup() %>% 
-  dplyr::select(site,   
-                acc,
-                richness_current,
-                richness26,
-                richness45,
-                richness85,
-                current, 
-                rcp26, rcp26_share, 
-                rcp45, rcp45_share, 
-                rcp85, rcp85_share ) %>%
-  # View()
-  # filter only present species
-  dplyr::filter(current == 1) %>%
-  #  View()
-  # merge back full table with empty plots
-  full_join(df_master) %>% 
-  replace_na(list(
-    current = 0,
-    rcp26_share = 0,
-    rcp45_share = 0,
-    rcp85_share = 0,
-    richness_current = 0,
-    richness26 = 0,
-    richness45 = 0,
-    richness85 = 0
-  ))# %>%
-
-# !!! END
-
-# how many plots per cpuountry does not contain any currently present species??? ---------------
+# how many plots per country does not contain any currently present species??? ---------------
 # evaluate species on plot level: Share of plots where none of the currently present species 
 # remain within their climate niche until the end of the 21st century
 
@@ -3725,58 +3680,34 @@ species_presence_proportion <- df_compare_future_species %>%
 # View(species_presence_proportion)
 
 
-# Identify plots with no species presence under each RCP scenario
-plots_no_species <- 
-  df_compare_future_species_regions %>%
-  group_by(site) %>%
-  summarise(
-    current_species_present = sum(current == 1, na.rm = TRUE),
-    rcp26_species_present = sum(rcp26 == 1, na.rm = TRUE),
-    rcp45_species_present = sum(rcp45 == 1, na.rm = TRUE),
-    rcp85_species_present = sum(rcp85 == 1, na.rm = TRUE)
+
+
+df_clim_suitable_plots <- df_compare_future_species_regions %>%
+  group_by(country_pooled, site) %>%
+  mutate(
+    any_present = any(current == 1),
+    lost26 = if (any_present[1]) all(rcp26[current == 1] == 0) else FALSE,
+    lost45 = if (any_present[1]) all(rcp45[current == 1] == 0) else FALSE,
+    lost85 = if (any_present[1]) all(rcp85[current == 1] == 0) else FALSE
   ) %>%
-  summarise(
-    no_species_rcp26 = sum(rcp26_species_present == 0),
-    no_species_rcp45 = sum(rcp45_species_present == 0),
-    no_species_rcp85 = sum(rcp85_species_present == 0)
-  )
-
-# Display the number of plots with no species under each scenario
-plots_no_species
-
-
-
-# Compare presence with future scenarios: count the number of plots that have not a single species spared between curremt and future scenarios
-df_compare_future_species_summary <-
-  df_compare_future_species %>%
-  group_by(site, country_pooled) %>%
-  summarise(
-    # Species that remain present (presence == 1 and also present in any future scenario)
-    same_rcp26 = sum(current == 1 & rcp26 == 1, na.rm = T ), # some nAs can be preent if species was in the field (pseudotsusa mensioes : psme, but does not exists in Wesely database)
-    same_rcp45 = sum(current == 1 & rcp45 == 1, na.rm = T ),
-    same_rcp85 = sum(current == 1 & rcp85 == 1, na.rm = T ) #
-  ) %>% 
-    ungroup() 
-
-# Print the result
-head(df_compare_future_species_summary)
-
-
-plot_summary_share <- 
-  df_compare_future_species_summary %>%
+  ungroup() %>%
   group_by(country_pooled) %>%
-  summarize(
-    total_plots = n(),
-    plots_none_present_rcp26 = sum(same_rcp26 < 1, na.rm = TRUE),
-    plots_none_present_rcp45 = sum(same_rcp45 < 1, na.rm = TRUE),
-    plots_none_present_rcp85 = sum(same_rcp85 < 1, na.rm = TRUE)
+  mutate(
+    n_sites_total = n_distinct(site),
+    n_lost_26 = n_distinct(site[lost26]),
+    n_lost_45 = n_distinct(site[lost45]),
+    n_lost_85 = n_distinct(site[lost85]),
+    share_lost_26 = n_lost_26 / n_sites_total * 100,
+    share_lost_45 = n_lost_45 / n_sites_total * 100,
+    share_lost_85 = n_lost_85 / n_sites_total * 100
   ) %>% 
-  mutate(share_none_present26 = plots_none_present_rcp26/total_plots*100,
-         share_none_present45 = plots_none_present_rcp45/total_plots*100,
-         share_none_present85 = plots_none_present_rcp85/total_plots*100)
+  dplyr::select(country_pooled,
+                n_sites_total,
+                n_lost_26,
+                share_lost_26)
 
-# View the result
-print(plot_summary_share)
+
+
 
 # Calculate shares (percentages) and format output for each RCP scenario
 plot_summary_formatted_share <- plot_summary_share %>%
@@ -3790,7 +3721,7 @@ plot_summary_formatted_share <- plot_summary_share %>%
 
 print(plot_summary_formatted_share)
 
-# Table: sclimate suitability by country and plot ----------------------------------------
+# Table: climate suitability by country and plot ----------------------------------------
 # Evaluate by species: what species are present/ country? and how many of them are not clim suitbale?
 
 # Test for single country: 
@@ -4016,23 +3947,50 @@ print(species_counts)
 
 # dummy example; 
 dd <- data.frame(country = rep('a', 9),
-                 cluster = rep(1:3, each = 3),
-                 species = c("a", "b", "c","a", "b", "c",
+                 site = rep(1:3, each = 3),
+                 species = c("a", "b", "c",
+                             "a", "b", "c",
                              "a", "b", "c"),
-                 current = c(0,1,1,1,1,1, 0,0,0),
-                 rcp26 = c(0,0,0,1,1,1,0,1,0))
+                 current = c(0,1,1,0,1,1, 0,0,0),
+                 rcp26 = c(0,0,0,1,1,0,0,1,0) #,
+                 #rcp45 = c(0,0,0,1,1,0,0,1,0),
+                 #rcp85 = c(0,0,0,0,0,0,0,0,0)
+                 )
 dd
 
 
-# how to figure this out?????!!!!!
+# Get number of clusters that will have none of currenntly present species
+#how to figure this out?????!!!!!
 dd %>%
-  group_by(cluster, country) %>%
-  mutate(
-    rcp26_share = length(unique(cluster[current == 1 & rcp26 == 0])) /
-      length(unique(cluster[current == 1])) * 100
-  ) %>%
-  ungroup()
+  group_by(country) %>%
+  mutate(n_clst = length(unique(site[current == 1])),
+         n_clstr26 = length(unique(site[current == 1 & rcp26 == 0])),
+         share26 =n_clstr26/ n_clst*100
+         #n_clstr45 = length(unique(cluster[current == 1 & rcp45 == 0])),
+         #n_clstr85 = length(unique(cluster[current == 1 & rcp85 == 0]))
+  )#
 
+library(dplyr)
+
+# For each site, check if any species are currently present and if all of those are gone under rcp26
+loss_by_site <- dd %>%
+  group_by(site, country) %>%
+  summarise(
+    any_present = any(current == 1),
+    all_lost = all(rcp26[current == 1] == 0),
+    .groups = "drop"
+  )
+
+# Now calculate
+n_total_sites <- n_distinct(dd$site)  # total clusters
+n_sites_lost <- sum(loss_by_site$any_present & loss_by_site$all_lost)  # only count those that had species
+
+share_lost <- n_sites_lost / n_total_sites * 100
+
+# Result
+data.frame(n_total_sites = n_total_sites,
+           n_sites_lost = n_sites_lost,
+           share_lost = share_lost)
 
 
 dd %>%
