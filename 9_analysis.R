@@ -130,25 +130,6 @@ load("outData/veg.Rdata")
 df_fin <- fread('outData/indicators_for_cluster_analysis.csv')
 nrow(df_fin) #849
 
-# add manually created regions
-#regions_manual <- terra::vect('rawData/regions_manual2.gpkg')
-#regions_manual_df <- as.data.frame(regions_manual)
-
-# df_fin <- df_fin %>% 
-#   full_join(regions_manual_df) %>% 
-#   rename(region_manual = name)
-
-# ad disturbance severity based on presence/absence of mature trees 
-#df_mature_dist_severity <- fread('outData/disturb_severity_mature.csv')
-
-# Create the opposite vector: listing residual trees
-#df_mature_dist_severity$residual_mature_trees <- 1 - df_mature_dist_severity$mature_dist_severity
-
-
-#df_fin <- df_fin %>% 
-#  left_join(df_mature_dist_severity, by = c('site' = 'cluster')) %>% 
-#  mutate(time_since_disturbance = 2023 - disturbance_year)
-
 ### get coordinates: to add XY coordinates to final model ---------------------
 # Replace "your_file.gpkg" with the path to your GPKG filev - reads subplots
 xy <- st_read("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg")
@@ -208,7 +189,33 @@ df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))
 #clim_cluster_indicator <- df_fin %>% 
 #  dplyr::select(site, clim_class)
 
-#fwrite(df_fin, 'outTable/df_fin.csv')
+## Prep final table --------------
+
+df_fin <- df_fin %>% 
+  mutate(country_full    = factor(country_full),
+         country_abbr    = factor(country_abbr),
+         country_pooled  = factor(country_pooled),
+         region          = factor(region) #,
+        # region_manual   = factor(region_manual)
+  )
+
+# account for climatic variables - aggregated on 9 km resolution:
+df_fin <- df_fin %>%
+  mutate(clim_grid = factor(paste(round(tmp,3), round(prcp,3), sep = "_")))  # Create a unique identifier for temp/precip combinations
+
+
+# Make sure df_fin has no missing values, if necessary
+df_fin <- na.omit(df_fin)
+
+# make  regeneration classes: advanced vs delayed
+df_fin <- df_fin %>% 
+  mutate(adv_delayed = factor(ifelse(stem_regeneration <= 50, "Delayed", 
+                                     ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
+                              levels = c("Delayed", "Other", "Advanced")))
+
+# include mature trees: present/absent
+#df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
+
 
 
 
@@ -1152,35 +1159,6 @@ p_upset_test
 # for all regeneration (juveniles and saplings)
 # split table in two: drivers for advanced (> 1000 stems of juveniles/ha)
 #                     drivers for delayed regeneration (<50 stems/ha: saplings  + juveniles)  
-
-## Prep final table --------------
-
-df_fin <- df_fin %>% 
-  mutate(country_full    = factor(country_full),
-         country_abbr    = factor(country_abbr),
-         country_pooled  = factor(country_pooled),
-         region          = factor(region),
-         region_manual   = factor(region_manual)
-         )
-
-# account for climatic variables - aggregated on 9 km resolution:
-df_fin <- df_fin %>%
-  mutate(clim_grid = factor(paste(round(tmp,3), round(prcp,3), sep = "_")))  # Create a unique identifier for temp/precip combinations
-
-
-
-# Make sure df_fin has no missing values, if necessary
-df_fin <- na.omit(df_fin)
-
-# make  regeneration classes: advanced vs delayed
-df_fin <- df_fin %>% 
-  mutate(adv_delayed = factor(ifelse(stem_regeneration <= 50, "Delayed", 
-                                     ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
-                               levels = c("Delayed", "Other", "Advanced")))
-
-# include mature trees: present/absent
-#df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
-
 
 
 
