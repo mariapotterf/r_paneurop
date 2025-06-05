@@ -134,11 +134,7 @@ nrow(df_fin) #849
 # Replace "your_file.gpkg" with the path to your GPKG filev - reads subplots
 xy <- st_read("rawData/extracted_soil_data/extracted_soil_data_completed.gpkg")
 
-# Step 1: Create 'site' column by removing last two characters from the 'ID'
-#xy <- xy %>%
-#  mutate(site = substr(ID, 4, nchar(ID) - 2))
-
-# Step 2: Extract x and y coordinates into separate columns
+# Extract x and y coordinates into separate columns
 xy <- xy %>%
   mutate(x = st_coordinates(geom)[, 1],   # Extract x coordinates
          y = st_coordinates(geom)[, 2])   # Extract y coordinates
@@ -165,12 +161,6 @@ df_fin <- df_fin %>%
                                    TRUE~country_abbr))
 
 
-# Get unique regions for each country_pooled
-# unique_regions_per_country <- df_fin %>%
-#   group_by(country_pooled) %>%
-#   summarise(unique_regions = list(unique(region))) %>% 
-#   unnest(unique_regions)
-
 # categorize the clim clusters
 df_fin <- df_fin %>% 
    mutate(stem_regeneration = sum_stems_juvenile + sum_stems_sapling)
@@ -179,9 +169,6 @@ df_fin <- df_fin %>%
 # export as xy coordinates climate cluster categorized 
 df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))  
 
-# Step 2: Check the structure of the sf object to ensure everything is correct
-#print(df_fin_clim_clust_xy)
-
 # Step 3: Export the data as a GeoPackage (GPKG)
 #st_write(df_fin_clim_clust_xy, "outData/xy_clim_cluster.gpkg", layer = "df_fin", driver = "GPKG", append = FALSE)
 
@@ -189,8 +176,7 @@ df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))
 #clim_cluster_indicator <- df_fin %>% 
 #  dplyr::select(site, clim_class)
 
-## Prep final table --------------
-
+## properly format table: --------------
 df_fin <- df_fin %>% 
   mutate(country_full    = factor(country_full),
          country_abbr    = factor(country_abbr),
@@ -200,8 +186,8 @@ df_fin <- df_fin %>%
   )
 
 # account for climatic variables - aggregated on 9 km resolution:
-df_fin <- df_fin %>%
-  mutate(clim_grid = factor(paste(round(tmp,3), round(prcp,3), sep = "_")))  # Create a unique identifier for temp/precip combinations
+#df_fin <- df_fin %>%
+#  mutate(clim_grid = factor(paste(round(tmp,3), round(prcp,3), sep = "_")))  # Create a unique identifier for temp/precip combinations
 
 
 # Make sure df_fin has no missing values, if necessary
@@ -1517,7 +1503,7 @@ summary(m_soil_protect)
 
 
 
-# 20250401 - completely remove management, also protection and salvage intensity ------------
+### 20250401 - completely remove management, also protection and salvage intensity ------------
 
 m_rnd <- gam(
   stem_regeneration ~ 
@@ -1595,7 +1581,7 @@ m_rnd_ti_fixed <- gam(
 )
 
 
-# complete altarnative based on univariate AIC ---------
+### complete altarnative based on univariate AIC ---------
 m_alt <- gam(
   stem_regeneration ~ 
     s(drought_prcp, k = 5) + s(tmp_z, k = 5) +
@@ -1622,7 +1608,7 @@ summary(m_rnd_te)
 summary(m_rnd_ti)
 summary(m_rnd_ti_fixed)
 
-# 20250603 add tmp anomalies into model: ----------------
+### 20250603 add tmp anomalies into model: ----------------
 # add tmp_z
 m_rnd_ti_fixed_anm <- gam(
   stem_regeneration ~ 
@@ -1768,7 +1754,7 @@ summary(pred_terms)
 hist(pred_terms["s(prcp)",])
 
 vis.gam(m_rnd_ti, view = c("prcp", "tmp"), plot.type = "contour")
-# quick plotting ---------------------------
+#### quick plotting ---------------------------
 plot(m_rnd_ti_fixed, page = 1, shade = T)
 
 m<- m_alt #m_rnd_ti         
@@ -2086,7 +2072,7 @@ moran_test <- moran.test(model_residuals, listw)
 print(moran_test)
 
 
-# 7.  Plot: Drivers  ---------------------------------------------------------------------------
+## 7.  Plot: Drivers  ---------------------------------------------------------------------------
 y_lab = expression("Stem density [1000 n ha"^{-1}*"]")
 
 summary(fin.m.reg.density)
@@ -2422,7 +2408,7 @@ ggsave('outFigs/fig_p_combined_int_no_points_supplem.png', plot = p_combined_int
 
 
 
-## 6. Wilcox: Boxplot sites differences: delayed vs advaced ----------------------------
+## 8. Wilcox: Boxplot sites differences: delayed vs advaced ----------------------------
 
 # two categories: count how many plots i have?
 
@@ -3198,6 +3184,8 @@ df_compare_future_species <- wide_future_species %>%
   left_join(present_species) %>%   # use left join to explude species that are recorded in field, but not present in Wessely database
   dplyr::rename(current = presence)
 
+
+# check number of species from field observation, in Wessely database ---------
 anyNA(df_compare_future_species)
 length(unique(df_compare_future_species$acc))  # final length is 30 species: corss between wessely and observed field database
 
@@ -3206,15 +3194,23 @@ species_out_of_wessely <- df_compare_future_species %>%
   dplyr::filter(is.na(rcp26)) %>%
   distinct(acc)  # Optional, if you want all unique rows with NA acc
 
+# create country naming from regions
+unique_regions_per_country <- df_fin %>%
+   group_by(country_pooled) %>%
+   dplyr::summarise(unique_regions = list(unique(region))) %>% 
+   unnest(unique_regions) %>% 
+  mutate(unique_regions = as.integer(as.character(unique_regions)))
+
+
 # add country indication
-# df_compare_future_species <- df_compare_future_species %>%
-#   # Extract the first two characters of 'site' as 'region' and convert to integer
-#   mutate(region = as.integer(substr(site, 1, 2))) %>%
-#   # Left join with unique_regions_per_country to get country indication
-#   left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
+df_compare_future_species_regions <- df_compare_future_species %>%
+  #   # Extract the first two characters of 'site' as 'region' and convert to integer
+  mutate(region = as.integer(substr(site, 1, 2))) %>%
+  #   # Left join with unique_regions_per_country to get country indication
+  left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
 
 # evaluate presence vs absence of species per cluster
-df_compare_future_species <- df_compare_future_species %>%
+df_compare_future_species_regions <- df_compare_future_species_regions %>%
   mutate(
     suitability_rcp26 = case_when(
       current == 1 & rcp26 == 1 ~ "suitable",
@@ -3236,6 +3232,70 @@ df_compare_future_species <- df_compare_future_species %>%
     )
   )
 
+
+# START: !!!  share of species that remain climatically suitable 
+
+# create a df that contains all clusters (also empty ones to calculate properly averages)
+df_master <- df_fin %>% 
+  dplyr::select(site, 
+                #country_full, 
+                country_pooled )
+
+
+# compare teh shares of species that are climatically suitable per plot
+df_species_clim_suitability <- 
+  df_compare_future_species_regions %>% 
+  group_by(site, country_pooled) %>%
+  mutate(
+    rcp26_share = length(unique(acc[current == 1 & rcp26 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp45_share = length(unique(acc[current == 1 & rcp45 == 1])) /
+      length(unique(acc[current == 1])) * 100,
+    rcp85_share = length(unique(acc[current == 1 & rcp85 == 1])) /
+      length(unique(acc[current == 1])) * 100
+  ) %>%
+  ungroup() %>% 
+  dplyr::select(site,   
+                acc,  
+                current, 
+                rcp26, rcp26_share, 
+                rcp45, rcp45_share, 
+                rcp85, rcp85_share ) %>%
+   # View()
+  # filter only present species
+  dplyr::filter(current == 1) %>%
+  #  View()
+  # merge back full table with empty plots
+  full_join(df_master) %>% 
+  replace_na(list(
+    current = 0,
+    rcp26_share = 0,
+    rcp45_share = 0,
+    rcp85_share = 0
+  ))# %>%
+
+
+species_suitability_country <- df_species_clim_suitability %>% #  View()
+  mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
+                                 as.character(country_pooled))) %>%
+  mutate(country_pooled = as.factor(country_pooled))  %>% # Optional: re-convert to factor if needed
+  group_by(country_pooled) %>% 
+  summarize(mean_rcp26_share = mean(rcp26_share),
+            mean_rcp45_share = mean(rcp45_share),
+            mean_rcp85_share = mean(rcp85_share)) %>% 
+  mutate(
+    country_full = recode(as.character(country_pooled),
+                          "AT" = "Austria",
+                          "CH" = "Switzerland",
+                          "CZ" = "Czech Republic",
+                          "DE" = "Germany",
+                          "FR" = "France",
+                          "PL" = "Poland",
+                          "SI" = "Slovenia",
+                          "SK" = "Slovakia")
+  ) %>%
+  arrange(country_full)
+  
 
 # Share of stems that is not suitable under CC scenarios?
 # Convert suitability columns to logical: TRUE if unsuitable ("0"), FALSE otherwise
@@ -4045,32 +4105,4 @@ dd %>%
 
 
 # calculate the shares of persistent species per cluster
-
-# create a df that contains all clusters (also empty ones to calculate properly averages)
-df_master <- df_fin %>% 
-  dplyr::select(site, country_full, 
-                country_pooled )
-  
-
-df_compare_future_species %>% 
-  group_by(site, country_pooled) %>%
-  mutate(
-    rcp26_share = length(unique(acc[current == 1 & rcp26 == 1])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp45_share = length(unique(acc[current == 1 & rcp45 == 1])) /
-      length(unique(acc[current == 1])) * 100,
-    rcp85_share = length(unique(acc[current == 1 & rcp85 == 1])) /
-      length(unique(acc[current == 1])) * 100
-  ) %>%
-  ungroup() %>% 
-  dplyr::select(site,   
-                acc,  
-                current, 
-                rcp26, rcp26_share, 
-                rcp45, rcp45_share, 
-                rcp85, rcp85_share ) %>% 
-  dplyr::filter(current == 1) %>% 
-  distinct(site) %>% 
-  count()
-  #View()
 
