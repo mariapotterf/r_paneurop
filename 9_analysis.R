@@ -3460,8 +3460,44 @@ p.species.suitability_country
 
 
 #### Sankey plot test: need to restructure data -----------------
+# update naming and coloring
+species_colors_grey <- c(
+  piab = "#006837",
+  fasy = "#229C52",
+  quro = "#74C364",
+  pisy = "#B7E075",
+  soau = "#E9F6A2",
+  acps = "#FEEDA2",
+  potr = "#FDBE6E",
+  abal = "#F67B49",
+  besp = "#DA362A",
+  lade = "#A50026",
+  other = "#D3D3D3"  # light grey
+)
+
+species_labels_grey <- c(
+  piab = "Picea abies",
+  fasy = "Fagus sylvatica",
+  quro = "Quercus robur/petraea",
+  pisy = "Pinus sylvestris",
+  soau = "Sorbus aucuparia",
+  acps = "Acer pseudoplatanus",
+  potr = "Populus tremula",
+  abal = "Abies alba",
+  besp = "Betula sp.",
+  lade = "Larix decidua",
+  other = "Other species"
+)
+
+
+
+
+# make a table for sankey plot: merge all of non top 10 species as 'other'
 df_top_species <- df_compare_future_species_regions %>% 
-  dplyr::filter(acc %in% top_species_site_share) %>% 
+  dplyr::mutate(
+    acc = ifelse(acc %in% top_species_site_share, acc, "other")  # relabel all others
+  ) %>%
+  #dplyr::filter(acc %in% top_species_site_share) %>% 
   dplyr::filter(current == 1) %>% 
   dplyr::select(
     site,
@@ -3502,14 +3538,19 @@ df_alluvial_stem_density <- df_top_species %>%
                       "avg_stem_dens_rcp26" = "RCP2.6",
                       "avg_stem_dens_rcp45" = "RCP4.5",
                       "avg_stem_dens_rcp85" = "RCP8.5"),
-    acc = factor(acc, levels = top_species_site_share)  # Set desired order
+    acc = factor(acc, levels = c(top_species_site_share, 'other'))  # Set desired order
   )
 
+
+
 # Create the alluvial plot
-#p_species_stem_density <- 
+
+library(ggalluvial)
+
+p_species_stem_density <- 
   ggplot(df_alluvial_stem_density,
                                  aes(x = scenario,
-                                     y = stem_density,
+                                     y = stem_density/1000,
                                      stratum = acc,
                                      alluvium = acc,
                                      fill = acc)) +
@@ -3518,10 +3559,11 @@ df_alluvial_stem_density <- df_top_species %>%
   theme_classic2(base_size = 8) +
   labs(title = "",
        x = "Scenario",
-       y = expression("Stem density per species [stems "*ha^{-1}*"]"),
+       y = expression("Stem density per species [n × 10"^3*" "*ha^{-1}*"]"),
+       #y = expression("Stem density per species [n "*ha^{-1}*"]"),
        fill = "Species") +
-  scale_fill_manual(values = species_colors,
-                    labels = species_labels) +
+  scale_fill_manual(values = species_colors_grey,
+                    labels = species_labels_grey) +
   theme(
     legend.position = "right",
     legend.text = element_text(face = "italic", size = 8),
@@ -3531,114 +3573,13 @@ df_alluvial_stem_density <- df_top_species %>%
 
 p_species_stem_density
 
-library(ggalluvial)
-
-ggplot(df_long,
-       aes(x = scenario, stratum = acc, alluvium = acc,
-           y = stem_density, fill = acc, label = acc)) +
-  geom_flow(stat = "alluvium", lode.guidance = "frontback", alpha = 0.8) +
-  geom_stratum() +
-  theme_minimal() +
-  ylab("Average Stem Density") +
-  xlab("Scenario") +
-  theme(legend.position = "none") +
-  ggtitle("Change in Average Stem Density per Species Across Climate Scenarios")
-
-
-# !!!! END
- 
-df_current <- df_top_species %>% 
-  dplyr::filter(current == 1) %>% 
-  dplyr::select(site, acc,sum_stem_density ) %>% 
-  mutate(scenario = 'current') %>% 
-  group_by(acc) %>% 
-  summarize(n_sites = avg_density = mean(sum_stem_density))
-
-df_rcp26 <- df_top_species %>% 
-  dplyr::filter(current == 1 & rcp26 == 1) %>% 
-  dplyr::select(site, acc, sum_stem_density ) %>% 
-  mutate(scenario = 'rcp26') %>% 
-  group_by(acc) %>% 
-  summarize(avg_density = mean(sum_stem_density))
-
-
-df_rcp45 <- df_top_species %>% 
-  dplyr::filter(current == 1& rcp45 == 1) %>% 
-  dplyr::select(site, acc,sum_stem_density ) %>% 
-  mutate(scenario = 'rcp45') %>% 
-  group_by(acc) %>% 
-  summarize(avg_density = mean(sum_stem_density))
-
-
-df_rcp85 <- df_top_species %>% 
-  dplyr::filter(current == 1& rcp85 == 1) %>% 
-  dplyr::select(site, acc,sum_stem_density ) %>% 
-  mutate(scenario = 'rcp85') %>% 
-  group_by(acc) %>% 
-  summarize(avg_density = mean(sum_stem_density))
-
-
-df_rbind = rbind(df_current, df_rcp26, df_rcp45, df_rcp85)
-
-# each species needs to exist across all scenarios
-df_alluvial_complete <- df_rbind %>%
-  dplyr::filter(acc %in% top_species_site_share) %>% 
-  count(site, scenario, acc) %>%  # Count occurrences of each species per site per scenario
-  complete(site, scenario, acc, fill = list(n = 0)) %>%  # Ensure all combinations exist
-  rename(freq = n) %>%  # Rename count column for clarity
-  arrange(site, acc, scenario) #%>% 
-#dplyr::filter(freq !=0)
-
-# calculate frequency across species and scenarios
-df_alluvial_complete_freq <- df_alluvial_complete %>%
-  mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
-         acc = factor(acc),
-         site = factor(site)) %>% 
-  group_by(scenario, acc) %>% 
-  dplyr::summarise(sum_n = sum(freq, na.rm = T))
-
-# Define species order based on species_colors
-species_order <- names(species_colors)
-
-# Convert acc to a factor with the specified order
-df_alluvial_complete_freq$acc <- factor(df_alluvial_complete_freq$acc, levels = species_order)
-
-# Create the alluvial plot with ordered species and custom colors
-library(ggalluvial)
-p.species.clim.suitability <-  ggplot(df_alluvial_complete_freq,
-                                      aes(x = scenario, 
-                                          y = sum_n,
-                                          stratum = acc,
-                                          alluvium = acc,
-                                          fill = acc)) +  
-  geom_flow() +               
-  geom_stratum() +  
-  theme_classic2(base_size = 8) +
-  labs(title = "",
-       x = "Scenario",
-       y = "Counts of plots with respective species [#]",
-       fill = "Species") +
-  scale_fill_manual(values = species_colors,
-                    labels = species_labels) +
-  #scale_fill_manual() +# Replace y-axis labels with full Latin names
-  theme(legend.position = "right", #c(0.75,0.7),
-    legend.text = element_text(face = "italic", size = 8), # Italicize only legend items
-    axis.text.y = element_text(size = 8),  # Keep y-axis labels non-italic
-    axis.text.x = element_text(size = 8),  # Adjust x-axis label size
-    axis.title = element_text(size = 8)    # Adjust axis title size
-  )
-
-p.species.clim.suitability
-
-p.clim.suitab.fin <- ggarrange(p.species.clim.suitability, p.species.suitability_country,
-                               nrow = 2, ncol = 1, labels = c("[a]", "[b]") )
 
 # Save the combined plot as an image
 ggsave(
-  filename = "outFigs/p.clim.suitab.fin.png",    # File name (change extension for different formats, e.g., .pdf)
-  plot = p.clim.suitab.fin,             # Plot object to save
+  filename = "outFigs/p.sankey.png",    # File name (change extension for different formats, e.g., .pdf)
+  plot = p_species_stem_density,             # Plot object to save
   width = 5,                       # Width of the saved plot in inches
-  height = 7,                       # Height of the saved plot in inches
+  height = 3,                       # Height of the saved plot in inches
   dpi = 300,                        # Resolution (dots per inch)
   units = "in"                      # Units for width and height
 )
@@ -3959,6 +3900,18 @@ species_presence_proportion <- df_compare_future_species %>%
 
 # Display the results
 View(species_presence_proportion)
+
+
+# how may plots have ONLY piab??
+sites_with_only_piab <- df_compare_future_species %>%
+  dplyr::filter(sum_stem_density > 0) %>%
+  group_by(site) %>%
+  summarise(only_piab = all(acc == "piab"), .groups = "drop") %>%
+  dplyr::filter(only_piab) %>%
+  pull(site)  
+
+length(sites_with_only_piab)
+# 48 from 849, 5.7%
 
 
 #### identify teh most affected species --------------------------------
