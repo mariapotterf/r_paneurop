@@ -3198,12 +3198,15 @@ unique_regions_per_country <- df_fin %>%
   mutate(unique_regions = as.integer(as.character(unique_regions)))
 
 
+# Merge field observations with Wesseley database 
 # add country indication
 df_compare_future_species_regions <- df_compare_future_species %>%
   #   # Extract the first two characters of 'site' as 'region' and convert to integer
   mutate(region = as.integer(substr(site, 1, 2))) %>%
   #   # Left join with unique_regions_per_country to get country indication
   left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
+
+
 
 # evaluate presence vs absence of species per cluster
 df_compare_future_species_regions <- df_compare_future_species_regions %>%
@@ -3228,7 +3231,7 @@ df_compare_future_species_regions <- df_compare_future_species_regions %>%
     )
   )
 
-
+###  Overall analysis --------------------------
 #### Share of stems that is not suitable under CC scenarios? --------------------------
 # Convert suitability columns to logical: TRUE if unsuitable ("0"), FALSE otherwise
 
