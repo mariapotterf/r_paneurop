@@ -3549,10 +3549,8 @@ ggsave(
 
 
 
-
-
 ### Summary table per country -----------------------------
-#### Level: country: Prepare Table 1: share of climatically suitable tree species per plot/country ------------------
+#### Prepare Table 1: share of climatically suitable tree species per plot/country ------------------
 
 # create a df that contains all clusters (also empty ones to calculate properly averages)
 df_master <- df_fin %>% 
@@ -3592,7 +3590,6 @@ df_species_clim_suitability <-   df_compare_future_species_regions %>%
                 rcp26, rcp26_share, 
                 rcp45, rcp45_share, 
                 rcp85, rcp85_share ) %>%
-  # View()
   # filter only present species
   dplyr::filter(current == 1) %>%
   #  View()
@@ -3610,7 +3607,7 @@ df_species_clim_suitability <-   df_compare_future_species_regions %>%
   ))# %>%
 
 
-#  Get 1/2 final table: species richness by climate suitability 
+#  Calculate shares 
 df_clim_suitable_species_richness <- df_species_clim_suitability %>% #  View()
   mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
                                  as.character(country_pooled))) %>%
@@ -3621,9 +3618,9 @@ df_clim_suitable_species_richness <- df_species_clim_suitability %>% #  View()
             richness26 = mean(richness26),
             richness45 = mean(richness45),
             richness85 = mean(richness85),
-            mean_rcp26_share = mean(rcp26_share),
-            mean_rcp45_share = mean(rcp45_share),
-            mean_rcp85_share = mean(rcp85_share)) %>% 
+            richness26_share = mean(rcp26_share),
+            richness45_share = mean(rcp45_share),
+            richness85_share = mean(rcp85_share)) %>% 
   mutate(
     country_full = recode(as.character(country_pooled),
                           "AT" = "Austria",
@@ -3639,48 +3636,7 @@ df_clim_suitable_species_richness <- df_species_clim_suitability %>% #  View()
 
 
 
-# how many plots per country does not contain any currently present species??? ---------------
-# evaluate species on plot level: Share of plots where none of the currently present species 
-# remain within their climate niche until the end of the 21st century
-
-
-# get me an overview: what are the species that are mostly lost?
-# Find species not suitable under any RCP but present currently
-# Count how often each species is out of climatic suitability
-species_out_of_suitability_count <- df_compare_future_species_regions %>%
-  ungroup() %>%
-  dplyr::filter(current == 1 & rcp26 == 0 & rcp45 == 0 & rcp85 == 0) %>%
-  dplyr::count(acc, name = "count") %>%
-  mutate(proportion = count / total_sites*100) %>%
-  arrange(desc(count))
-
-# Display the results
-species_out_of_suitability_count
-
-
-# which species will remain?
-# Calculate the presence proportion for each scenario
-species_presence_proportion <- df_compare_future_species %>%
-  ungroup() %>%
-  dplyr::filter(current == 1) %>%
-  dplyr::group_by(acc) %>%
-  dplyr::summarise(
-    current_count = sum(current == 1, na.rm = T),
-    rcp26_count = sum(rcp26 == 1, na.rm = T),
-    rcp45_count = sum(rcp45 == 1, na.rm = T),
-    rcp85_count = sum(rcp85 == 1, na.rm = T),
-    current_proportion = (current_count / total_sites) * 100,
-    rcp26_proportion = (rcp26_count / total_sites) * 100,
-    rcp45_proportion = (rcp45_count / total_sites) * 100,
-    rcp85_proportion = (rcp85_count / total_sites) * 100
-  ) %>%
-  arrange(desc(current_count))
-
-# Display the results
-# View(species_presence_proportion)
-
-
-
+#### Lost plots:  how many plots per country does not contain any currently present species??? ---------------
 
 df_clim_suitable_plots <- df_compare_future_species_regions %>%
   group_by(country_pooled, site) %>%
@@ -3704,11 +3660,212 @@ df_clim_suitable_plots <- df_compare_future_species_regions %>%
   dplyr::select(country_pooled,
                 n_sites_total,
                 n_lost_26,
-                share_lost_26)
+                n_lost_45,
+                n_lost_85,
+                share_lost_26,
+                share_lost_45,
+                share_lost_85) %>% 
+  distinct() %>% 
+  mutate(
+    country_full = recode(as.character(country_pooled),
+                          "AT" = "Austria",
+                          "CH" = "Switzerland",
+                          "CZ" = "Czech Republic",
+                          "DE" = "Germany",
+                          "FR" = "France",
+                          "PL" = "Poland",
+                          "SI" = "Slovenia",
+                          "SK" = "Slovakia")
+  ) %>%
+  arrange(country_full) 
+
+
+
+#### merge climate suitability tables: richenss and lost plots  ----------------------------
+df_out <- full_join(df_clim_suitable_species_richness,
+                    df_clim_suitable_plots)
+
+##### simpler version for MS
+df_out_MS <- df_out %>% 
+  dplyr::select(country_full,
+                #n_sites_total,
+                richness26_share,
+                richness45_share, 
+                richness85_share,
+                share_lost_26,
+                share_lost_45,
+                share_lost_85)
+
+##### Full version for Supplement 
+df_out_supplement <- df_out %>% 
+  dplyr::select(-country_pooled) %>% 
+  dplyr::select(country_full,
+                richness,  # average number of species per plot/country
+                richness26,
+                richness26_share,
+                richness45,
+                richness45_share, 
+                richness85,
+                richness85_share,
+                n_sites_total,
+                n_lost_26,
+                share_lost_26,
+                n_lost_45,
+                share_lost_45,
+                n_lost_85,
+                share_lost_85)
 
 
 
 
+### Get Summary row: bottom: Totals : values for richness and lost plots across all values:  -----------
+#### Richness
+total_richness_full <- df_compare_future_species_regions %>% 
+  summarize(
+    # calculate number of species
+    richness = length(unique(acc[current == 1])),
+    richness26       = length(unique(acc[current == 1 & rcp26 == 1])),
+    richness45       = length(unique(acc[current == 1 & rcp45 == 1])),
+    richness85       = length(unique(acc[current == 1 & rcp85 == 1]))
+  ) %>% 
+  mutate(country_full = "Total",
+         richness26_share = richness26/richness*100,
+         richness45_share = richness45/richness*100,
+         richness85_share = richness85/richness*100) %>% 
+  dplyr::select(country_full,
+                richness,
+                richness26,
+                richness26_share,
+                richness45,
+                richness45_share,
+                richness85,
+                richness85_share)
+
+# make simpler version for MS
+total_richness_MS <- total_richness_full %>% 
+  dplyr::select(country_full,
+                richness26_share,
+                richness45_share,
+                richness85_share)
+
+
+#### Summary row: Total loss -----------------------
+total_lost_full <- 
+  df_compare_future_species_regions %>%
+  group_by(site) %>%
+  mutate(
+    any_present = any(current == 1),
+    lost26 = if (any_present[1]) all(rcp26[current == 1] == 0) else FALSE,
+    lost45 = if (any_present[1]) all(rcp45[current == 1] == 0) else FALSE,
+    lost85 = if (any_present[1]) all(rcp85[current == 1] == 0) else FALSE
+  ) %>%
+  ungroup() %>%
+  #group_by(country_pooled) %>%
+  summarize(
+    n_sites_total = n_distinct(site),
+    n_lost_26 = n_distinct(site[lost26]),
+    n_lost_45 = n_distinct(site[lost45]),
+    n_lost_85 = n_distinct(site[lost85]),
+    share_lost_26 = n_lost_26 / n_sites_total * 100,
+    share_lost_45 = n_lost_45 / n_sites_total * 100,
+    share_lost_85 = n_lost_85 / n_sites_total * 100
+  ) %>% 
+  dplyr::select(
+                n_sites_total,
+                n_lost_26,
+                share_lost_26,
+                n_lost_45,
+                share_lost_45,
+                n_lost_85,
+                share_lost_85) %>% 
+  distinct() 
+
+
+total_lost_MS <- total_lost_full %>% 
+  dplyr::select(
+   # n_sites_total,
+    share_lost_26,
+    share_lost_45,
+    share_lost_85) 
+
+##### bind total rows for richness and lost plots: for MS and full for supplement 
+# total row for MS:  (only percentages)
+# full total rown for supplemnt 
+total_row_MS         <- cbind(total_richness_MS, total_lost_MS)
+total_row_supplement <- cbind(total_richness_full, total_lost_full)
+
+                
+#### Add total rowns to MS and supplement tables: 
+
+# bind the total rows to the original tables: for MS, for Supplement
+df_out_MS_with_total         <- bind_rows(df_out_MS, 
+                                          total_row_MS) 
+df_out_supplement_with_total <- bind_rows(df_out_supplement, 
+                                          total_row_supplement)
+
+# format supplement table nicely
+df_out_supplement_formatted <- df_out_supplement_with_total %>%
+  mutate(
+    lost_26 = paste0(n_lost_26, " (", round(share_lost_26, 1), ")"),
+    lost_45 = paste0(n_lost_45, " (", round(share_lost_45, 1), ")"),
+    lost_85 = paste0(n_lost_85, " (", round(share_lost_85, 1), ")"),
+    
+    richness = round(richness, 1),
+    richness26_fmt = paste0(round(richness26, 1), " (", round(richness26_share, 1), ")"),
+    richness45_fmt = paste0(round(richness45, 1), " (", round(richness45_share, 1), ")"),
+    richness85_fmt = paste0(round(richness85, 1), " (", round(richness85_share, 1), ")")
+  ) %>%
+  dplyr::select(
+    country_full,
+    richness,
+    richness26_fmt,
+    richness45_fmt,
+    richness85_fmt,
+    n_sites_total,
+    lost_26,
+    lost_45,
+    lost_85
+  )
+
+View(df_out_supplement_formatted)
+
+sjPlot::tab_df(df_out_MS_with_total,
+               show.rownames = FALSE,
+               file="outTable/MS_clim_suitability_country.doc",
+               digits = 1) 
+
+
+
+sjPlot::tab_df(df_out_supplement_formatted,
+               show.rownames = FALSE,
+               file="outTable/Supplement_clim_suitability_country.doc",
+               digits = 1) 
+
+
+# which species will remain?
+# Calculate the presence proportion for each scenario
+species_presence_proportion <- df_compare_future_species %>%
+  ungroup() %>%
+  dplyr::filter(current == 1) %>%
+  dplyr::group_by(acc) %>%
+  dplyr::summarise(
+    current_count = sum(current == 1, na.rm = T),
+    rcp26_count = sum(rcp26 == 1, na.rm = T),
+    rcp45_count = sum(rcp45 == 1, na.rm = T),
+    rcp85_count = sum(rcp85 == 1, na.rm = T),
+    current_proportion = (current_count / total_sites) * 100,
+    rcp26_proportion = (rcp26_count / total_sites) * 100,
+    rcp45_proportion = (rcp45_count / total_sites) * 100,
+    rcp85_proportion = (rcp85_count / total_sites) * 100
+  ) %>%
+  arrange(desc(current_count))
+
+# Display the results
+View(species_presence_proportion)
+
+
+
+# !!!
 # Calculate shares (percentages) and format output for each RCP scenario
 plot_summary_formatted_share <- plot_summary_share %>%
   mutate(
