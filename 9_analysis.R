@@ -3460,26 +3460,123 @@ p.species.suitability_country
 
 
 #### Sankey plot test: need to restructure data -----------------
+df_top_species <- df_compare_future_species_regions %>% 
+  dplyr::filter(acc %in% top_species_site_share) %>% 
+  dplyr::filter(current == 1) %>% 
+  dplyr::select(
+    site,
+    acc,
+    current,
+    rcp26,
+    rcp45, 
+    rcp85,
+    sum_stem_density,
+    country_pooled
+      ) %>% 
+  group_by(acc) %>% 
+  summarize( n_sites_present = n_distinct(site),
+             avg_stem_dens_current = sum(sum_stem_density)/n_sites_present,
+             avg_stem_dens_rcp26 = sum(sum_stem_density[rcp26 == 1]) / n_sites_present,
+             avg_stem_dens_rcp45 = sum(sum_stem_density[rcp45 == 1]) / n_sites_present,
+             avg_stem_dens_rcp85 = sum(sum_stem_density[rcp85 == 1]) / n_sites_present,
+             .groups = "drop") #%>% 
+  #dplyr::select(-)
 
-df_current <- df_compare_future_species %>% 
+
+# Start from your existing summary
+# Prepare long-format data
+df_alluvial_stem_density <- df_top_species %>%
+  dplyr::select(acc, 
+                avg_stem_dens_current, 
+                avg_stem_dens_rcp26, 
+                avg_stem_dens_rcp45,
+                avg_stem_dens_rcp85) %>%
+  pivot_longer(
+    cols = starts_with("avg_stem_dens"),
+    names_to = "scenario",
+    values_to = "stem_density"
+  ) %>%
+  mutate(
+    scenario = recode(scenario,
+                      "avg_stem_dens_current" = "Current",
+                      "avg_stem_dens_rcp26" = "RCP2.6",
+                      "avg_stem_dens_rcp45" = "RCP4.5",
+                      "avg_stem_dens_rcp85" = "RCP8.5"),
+    acc = factor(acc, levels = top_species_site_share)  # Set desired order
+  )
+
+# Create the alluvial plot
+#p_species_stem_density <- 
+  ggplot(df_alluvial_stem_density,
+                                 aes(x = scenario,
+                                     y = stem_density,
+                                     stratum = acc,
+                                     alluvium = acc,
+                                     fill = acc)) +
+  geom_flow(alpha = 0.85) +
+  geom_stratum() +
+  theme_classic2(base_size = 8) +
+  labs(title = "",
+       x = "Scenario",
+       y = expression("Stem density per species [stems "*ha^{-1}*"]"),
+       fill = "Species") +
+  scale_fill_manual(values = species_colors,
+                    labels = species_labels) +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(face = "italic", size = 8),
+    axis.text = element_text(size = 8),
+    axis.title = element_text(size = 8)
+  )
+
+p_species_stem_density
+
+library(ggalluvial)
+
+ggplot(df_long,
+       aes(x = scenario, stratum = acc, alluvium = acc,
+           y = stem_density, fill = acc, label = acc)) +
+  geom_flow(stat = "alluvium", lode.guidance = "frontback", alpha = 0.8) +
+  geom_stratum() +
+  theme_minimal() +
+  ylab("Average Stem Density") +
+  xlab("Scenario") +
+  theme(legend.position = "none") +
+  ggtitle("Change in Average Stem Density per Species Across Climate Scenarios")
+
+
+# !!!! END
+ 
+df_current <- df_top_species %>% 
   dplyr::filter(current == 1) %>% 
   dplyr::select(site, acc,sum_stem_density ) %>% 
-  mutate(scenario = 'current')
+  mutate(scenario = 'current') %>% 
+  group_by(acc) %>% 
+  summarize(n_sites = avg_density = mean(sum_stem_density))
 
-df_rcp26 <- df_compare_future_species %>% 
+df_rcp26 <- df_top_species %>% 
   dplyr::filter(current == 1 & rcp26 == 1) %>% 
   dplyr::select(site, acc, sum_stem_density ) %>% 
-  mutate(scenario = 'rcp26')
+  mutate(scenario = 'rcp26') %>% 
+  group_by(acc) %>% 
+  summarize(avg_density = mean(sum_stem_density))
 
-df_rcp45 <- df_compare_future_species %>% 
+
+df_rcp45 <- df_top_species %>% 
   dplyr::filter(current == 1& rcp45 == 1) %>% 
   dplyr::select(site, acc,sum_stem_density ) %>% 
-  mutate(scenario = 'rcp45')
+  mutate(scenario = 'rcp45') %>% 
+  group_by(acc) %>% 
+  summarize(avg_density = mean(sum_stem_density))
 
-df_rcp85 <- df_compare_future_species %>% 
+
+df_rcp85 <- df_top_species %>% 
   dplyr::filter(current == 1& rcp85 == 1) %>% 
   dplyr::select(site, acc,sum_stem_density ) %>% 
-  mutate(scenario = 'rcp85')
+  mutate(scenario = 'rcp85') %>% 
+  group_by(acc) %>% 
+  summarize(avg_density = mean(sum_stem_density))
+
 
 df_rbind = rbind(df_current, df_rcp26, df_rcp45, df_rcp85)
 
