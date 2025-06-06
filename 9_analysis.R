@@ -3864,21 +3864,7 @@ species_presence_proportion <- df_compare_future_species %>%
 View(species_presence_proportion)
 
 
-
-# !!!
-# Calculate shares (percentages) and format output for each RCP scenario
-plot_summary_formatted_share <- plot_summary_share %>%
-  mutate(
-    rcp26 = paste0(plots_none_present_rcp26, " (", round((plots_none_present_rcp26 / total_plots) * 100, 1), "%)"),
-    rcp45 = paste0(plots_none_present_rcp45, " (", round((plots_none_present_rcp45 / total_plots) * 100, 1), "%)"),
-    rcp85 = paste0(plots_none_present_rcp85, " (", round((plots_none_present_rcp85 / total_plots) * 100, 1), "%)")
-  ) %>%
-  dplyr::select(country_pooled, total_plots, rcp26, rcp45, rcp85)
-
-
-print(plot_summary_formatted_share)
-
-# Table: climate suitability by country and plot ----------------------------------------
+#### identify teh most affected species --------------------------------
 # Evaluate by species: what species are present/ country? and how many of them are not clim suitbale?
 
 # Test for single country: 
@@ -3955,7 +3941,7 @@ print(species_comparison)
 
 
 
-# run for all species: -----------------------------------------------------
+##### run for all species: -----------------------------------------------------
 
 
 
@@ -4042,12 +4028,12 @@ sjPlot::tab_df(df_species_by_climate,
 
 ### Barplot of species suitability -------------
 # seems wrong ---
-df_species_presence <- df_compare_future_species %>%
+df_species_presence <- df_compare_future_species_regions %>%
   pivot_longer(cols = c(current, rcp26, rcp45, rcp85), 
                names_to = "scenario", 
                values_to = "presence") %>%
-  filter(presence == 1) %>%  # Keep only species that are present
-  select(country_pooled, acc, scenario) %>%
+  dplyr::filter(presence == 1) %>%  # Keep only species that are present
+  dplyr::select(country_pooled, acc, scenario) %>%
   distinct() %>%  # Remove duplicates
   mutate(presence = acc) %>%  # Rename `acc` column for clarity
   pivot_wider(names_from = scenario, values_from = presence, values_fill = "0") 
@@ -4061,7 +4047,7 @@ df_species_presence <- df_compare_future_species %>%
   
   
   # Calculate frequency of occurrence grouped by species, scenario, and presence
-  df_freq <- df_compare_future_species %>%
+  df_freq <- df_compare_future_species_regions %>%
     dplyr::filter(current == 1) %>%
     pivot_longer(cols = c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>%
     mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
@@ -4100,70 +4086,3 @@ print(species_counts)
 
 
 
-### 20250604 NEW summary table ----------------------
-
-# dummy example; 
-dd <- data.frame(country = rep('a', 9),
-                 site = rep(1:3, each = 3),
-                 species = c("a", "b", "c",
-                             "a", "b", "c",
-                             "a", "b", "c"),
-                 current = c(0,1,1,0,1,1, 0,0,0),
-                 rcp26 = c(0,0,0,1,1,0,0,1,0) #,
-                 #rcp45 = c(0,0,0,1,1,0,0,1,0),
-                 #rcp85 = c(0,0,0,0,0,0,0,0,0)
-                 )
-dd
-
-
-# Get number of clusters that will have none of currenntly present species
-#how to figure this out?????!!!!!
-dd %>%
-  group_by(country) %>%
-  mutate(n_clst = length(unique(site[current == 1])),
-         n_clstr26 = length(unique(site[current == 1 & rcp26 == 0])),
-         share26 =n_clstr26/ n_clst*100
-         #n_clstr45 = length(unique(cluster[current == 1 & rcp45 == 0])),
-         #n_clstr85 = length(unique(cluster[current == 1 & rcp85 == 0]))
-  )#
-
-library(dplyr)
-
-# For each site, check if any species are currently present and if all of those are gone under rcp26
-loss_by_site <- dd %>%
-  group_by(site, country) %>%
-  summarise(
-    any_present = any(current == 1),
-    all_lost = all(rcp26[current == 1] == 0),
-    .groups = "drop"
-  )
-
-# Now calculate
-n_total_sites <- n_distinct(dd$site)  # total clusters
-n_sites_lost <- sum(loss_by_site$any_present & loss_by_site$all_lost)  # only count those that had species
-
-share_lost <- n_sites_lost / n_total_sites * 100
-
-# Result
-data.frame(n_total_sites = n_total_sites,
-           n_sites_lost = n_sites_lost,
-           share_lost = share_lost)
-
-
-dd %>%
-  group_by(cluster) %>%
-  mutate(
-    rcp26_share = length(unique(species[current == 1 & rcp26 == 1])) /
-      length(unique(species[current == 1])) * 100
-  ) %>%
-  ungroup()
-
-dd %>%
-  group_by(country, cluster) %>%
-  summarise(has_current_species = any(current == 1), .groups = "drop") %>%
-  group_by(country) %>%
-  summarise(
-    n_clusters = n(),
-    n_without_current = sum(!has_current_species),
-    percent_without_current = (n_without_current / n_clusters) * 100
-  )
