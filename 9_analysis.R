@@ -1153,7 +1153,7 @@ p_upset_test
 predictor_vars_sub <- c(
   
   "spei1",
-  "spei3",
+ # "spei3",
   "spei12",
   "tmp", 
   "prcp", 
@@ -1166,7 +1166,7 @@ predictor_vars_sub <- c(
   
   # get drorught indiced : spei in 2018-2019
   "drought_spei1",
-  "drought_spei3",
+ # "drought_spei3",
   "drought_spei12",
   
   # 
@@ -1194,12 +1194,12 @@ predictor_vars_sub <- c(
  # "time_since_disturbance",
   
   # anomalies per growing season for tmp and prcp
-  "mean_grw_anm_prcp" ,        
-  "mean_grw_anm_tmp"  ,        
-  "max_grw_anm_prcp" ,        
-  "max_grw_anm_tmp",
-  "sd_grw_anm_prcp",           
-  "sd_grw_anm_tmp" ,           
+  # "mean_grw_anm_prcp" ,        
+  # "mean_grw_anm_tmp"  ,        
+  # "max_grw_anm_prcp" ,        
+  # "max_grw_anm_tmp",
+  # "sd_grw_anm_prcp",           
+  # "sd_grw_anm_tmp" ,           
 
 
   # seasonality: CV - over year
@@ -1261,13 +1261,6 @@ sjPlot::tab_df(AIC_results_univariate,
                digits = 1) 
 
 
-
-library(corrplot)
-cor_matrix <- cor(df_fin[, ..predictor_vars], use = "complete.obs")
-corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.7)
-
-
-
 ## Models: simplify table just for stem_regeneration  ---------------------------------------------------------------------------------
 # test drivers: simplify the analysis:
 # Subset the data
@@ -1275,7 +1268,9 @@ corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.7)
 df_stem_regeneration2 <- df_fin %>% 
   dplyr::select(all_of(c("site", "stem_regeneration", predictor_vars_sub,
                          
-                         "country_pooled","region", "region_manual", "clim_grid",  "x", "y")))
+                         "country_pooled", #"region", "region_manual", 
+                         #"clim_grid",  
+                         "x", "y")))
 
 
 summary(df_stem_regeneration2)
@@ -1314,28 +1309,29 @@ library(corrplot)
 # Select the relevant predictors from your data frame
 predictors <- df_stem_regeneration2 %>%
  # dplyr::select(where(is.numeric))
-  dplyr::select(prcp, 
-                tmp, 
-                #spei12,
-                drought_prcp, 
-                drought_tmp, 
-                #drought_spei12, 
-                #drought_spei1,
-                drought_spei3,
-                sd_grw_anm_prcp,
-                sd_grw_anm_tmp,
-                #tmp_z, 
-                #prcp_z,
-                #cv_t2m,
-                #cv_tp,
-                #distance_edge, 
-                depth_extract,
-                disturbance_severity, #mature_dist_severity ,
-                #sum_stems_mature ,
-                depth_extract , 
-                clay_extract, 
-                av.nitro, #management_intensity
-                )
+  dplyr::select(all_of(predictor_vars_sub))
+  # dplyr::select(prcp, 
+  #               tmp, 
+  #               #spei12,
+  #               drought_prcp, 
+  #               drought_tmp, 
+  #               #drought_spei12, 
+  #               #drought_spei1,
+  #               drought_spei3,
+  #               sd_grw_anm_prcp,
+  #               sd_grw_anm_tmp,
+  #               #tmp_z, 
+  #               #prcp_z,
+  #               #cv_t2m,
+  #               #cv_tp,
+  #               #distance_edge, 
+  #               depth_extract,
+  #               disturbance_severity, #mature_dist_severity ,
+  #               #sum_stems_mature ,
+  #               depth_extract , 
+  #               clay_extract, 
+  #               av.nitro, #management_intensity
+  #               )
 
 # Calculate the correlation matrix
 correlation_matrix <- cor(predictors, use = "complete.obs")
@@ -1343,17 +1339,10 @@ correlation_matrix <- cor(predictors, use = "complete.obs")
 # Plot using corrplot
 corrplot(correlation_matrix, method = "color", type = "upper",
          col = colorRampPalette(c("blue", "white", "red"))(200),
-         #addCoef.col = 
-         , 
-         tl.col = 
-           , tl.srt = 45)
-
-par(mfrow = c(1, 2))
-plot(df_fin$prcp, df_fin$clim_grid)
-plot(df_fin$tmp, df_fin$clim_grid )
-dev.off()
-
-
+         addCoef.col = 'black', 
+         tl.col = 'black', 
+         #  , 
+         tl.srt = 90)
 
 # Export as a PNG
 png("outFigs/correlation_matrix_plot.png", width = 800, height = 800, res = 300)
