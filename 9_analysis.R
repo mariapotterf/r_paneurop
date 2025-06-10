@@ -1312,7 +1312,7 @@ predictors <- df_stem_regeneration2 %>%
   dplyr::select(all_of(predictor_vars_sub))
   
 # Calculate the correlation matrix
-correlation_matrix <- cor(predictors, use = "complete.obs")
+correlation_matrix <- cor(predictors, use = "complete.obs", method = "spearman")
 
 library(corrplot)
 
