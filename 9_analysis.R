@@ -1310,54 +1310,29 @@ library(corrplot)
 predictors <- df_stem_regeneration2 %>%
  # dplyr::select(where(is.numeric))
   dplyr::select(all_of(predictor_vars_sub))
-  # dplyr::select(prcp, 
-  #               tmp, 
-  #               #spei12,
-  #               drought_prcp, 
-  #               drought_tmp, 
-  #               #drought_spei12, 
-  #               #drought_spei1,
-  #               drought_spei3,
-  #               sd_grw_anm_prcp,
-  #               sd_grw_anm_tmp,
-  #               #tmp_z, 
-  #               #prcp_z,
-  #               #cv_t2m,
-  #               #cv_tp,
-  #               #distance_edge, 
-  #               depth_extract,
-  #               disturbance_severity, #mature_dist_severity ,
-  #               #sum_stems_mature ,
-  #               depth_extract , 
-  #               clay_extract, 
-  #               av.nitro, #management_intensity
-  #               )
-
+  
 # Calculate the correlation matrix
 correlation_matrix <- cor(predictors, use = "complete.obs")
 
-# Plot using corrplot
-corrplot(correlation_matrix, method = "color", type = "upper",
+library(corrplot)
+
+
+# Export with high resolution and clearer layout
+png("outFigs/correlation_matrix_plot2.png", width = 2000, height = 2000, res = 300)
+
+corrplot(correlation_matrix, 
+         method = "color",
+         type = "upper",
          col = colorRampPalette(c("blue", "white", "red"))(200),
-         addCoef.col = 'black', 
-         tl.col = 'black', 
-         #  , 
-         tl.srt = 90)
+         tl.col = "black",         # Label color
+         tl.cex = 0.8,             # Smaller label font
+         tl.srt = 45,              # Diagonal tilt (more readable)
+         #addCoef.col = NA,         # Omit numbers for clarity
+        # number.cex = 0.6,         # If you later add coefficients
+         mar = c(0, 0, 1, 0)       # Reduce margins
+)
 
-# Export as a PNG
-png("outFigs/correlation_matrix_plot.png", width = 800, height = 800, res = 300)
-plot.new()
-corrplot(correlation_matrix, method = "color", type = "upper",
-         tl.col = 'black' ,
-         tl.srt = 45, 
-         title = "Correlation Matrix of Predictors",
-         #addCoef.col = 
-        #   , 
-         number.cex = 0.7)
-dev.off()#summary(interaction_model_4)
-
-
-
+dev.off()
 # DRivers: models: -----------------------------------------------------------
 
 
