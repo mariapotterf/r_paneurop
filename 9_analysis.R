@@ -1348,16 +1348,17 @@ corrplot(correlation_matrix, method = "color", type = "upper",
 png("outFigs/correlation_matrix_plot.png", width = 800, height = 800, res = 300)
 plot.new()
 corrplot(correlation_matrix, method = "color", type = "upper",
-         tl.col = 
-           , tl.srt = 45, 
+         tl.col = 'black' ,
+         tl.srt = 45, 
          title = "Correlation Matrix of Predictors",
-         addCoef.col = 
-           , number.cex = 0.7)
+         #addCoef.col = 
+        #   , 
+         number.cex = 0.7)
 dev.off()#summary(interaction_model_4)
 
 
 
-
+# DRivers: models: -----------------------------------------------------------
 
 
 ### keep only teh most meaningful model: 03192025 -----------
