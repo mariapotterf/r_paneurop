@@ -484,33 +484,43 @@ ggplot(df_summary, aes(x = year, y = median_density, color = ext_seed, fill = ex
         plot.title = element_text(size = 8)        # Plot title)
 )
 
+
+reg_colors <- c(
+  "Delayed" = "#A50026",   # reddish
+  "Other"   = "#FDAE61",   # yellowish
+  "Advanced"= "#006837"    # green
+)
+  
+
+df_summary_simpl <- df_summary_simpl %>% 
+  mutate(adv_delayed = factor(adv_delayed, 
+                              levels = c("Delayed", "Other", "Advanced")))# %>%  # Ensure correct order
   
 p_simulated_stem_dens <- 
    df_sim_indicators %>% 
     dplyr::filter(ext_seed == 'seed') %>%  # seelct only seeds scenario - more realistic than no seed
-    ggplot(aes(x = year, y = stem_density, 
+  mutate(adv_delayed = factor(adv_delayed, 
+                              levels = c("Delayed", "Other", "Advanced"))) %>%  # Ensure correct order
+  ggplot(aes(x = year, y = stem_density/1000, 
                group = adv_delayed , 
                color = adv_delayed)) + 
     # Add IQR ribbon
-    geom_ribbon(data = df_summary_simpl, aes(x = year, ymin = Q1, ymax = Q3, fill = adv_delayed), 
+    geom_ribbon(data = df_summary_simpl, aes(x = year, ymin = Q1/1000, ymax = Q3/1000, 
+                                             fill = adv_delayed), 
                 alpha = 0.2, inherit.aes = FALSE) +  # Adjust transparency for the ribbon
     # Add median line
-    geom_line(data = df_summary_simpl, aes(x = year, y = median_density, 
+    geom_line(data = df_summary_simpl, aes(x = year, y = median_density/1000, 
                                      group = adv_delayed,
                                      color = adv_delayed,
                                      linetype = adv_delayed), 
               linewidth = 1, inherit.aes = FALSE) + 
     facet_grid(.~adv_delayed) +
-  scale_color_manual(values = c("#A50026", 
-                                "#FDAE61",
-                                "#006837")) +
-    scale_fill_manual(values = c("#A50026", 
-                                 "#FDAE61",
-                                 "#006837")) +
-    
-    labs(title = "",
+  scale_color_manual(values = reg_colors) +
+  scale_fill_manual(values = reg_colors)+
+  labs(title = "",
          x = "Year",
-         y = "Stem Density",
+         #y = "Stem Density",
+         y = expression("Stem density [1000 n ha"^{-1}*"]"),
          color = "",
          linetype = "",#Reg. status
          fill = "") +#Reg. status
