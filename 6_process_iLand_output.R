@@ -492,6 +492,25 @@ reg_colors <- c(
 )
   
 
+# Manually define lighter versions for 'no seed' scenario
+reg_colors_pale <- c(
+  "Delayed" = "#F4A6A6",    # pale red
+  "Other"   = "#FDD9A0",    # pale yellow-orange
+  "Advanced"= "#A6D8A8"     # pale green
+)
+
+# Create a combined fill vector based on both ext_seed and adv_delayed
+fill_values <- c(
+  "seed_Delayed"     = reg_colors[["Delayed"]],
+  "seed_Other"       = reg_colors[["Other"]],
+  "seed_Advanced"    = reg_colors[["Advanced"]],
+  "noseed_Delayed"   = reg_colors_pale[["Delayed"]],
+  "noseed_Other"     = reg_colors_pale[["Other"]],
+  "noseed_Advanced"  = reg_colors_pale[["Advanced"]]
+)
+
+
+# get simple summary -------------------
 df_summary_simpl <- df_summary_simpl %>% 
   mutate(adv_delayed = factor(adv_delayed, 
                               levels = c("Delayed", "Other", "Advanced")))# %>%  # Ensure correct order
@@ -536,13 +555,56 @@ p_simulated_stem_dens <-
           plot.title = element_text(size = 8)        # Plot title)
     )
   
-  
-  
-  
-
 p_simulated_stem_dens
 ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png', 
        plot = p_simulated_stem_dens, width = 6.5, height = 3, dpi = 300, bg = 'white')
+
+
+# plot alternative : seed and no seed ---------------------------------------
+
+
+
+# Test --------
+p_simulated_sensitivity <- df_sim_indicators %>% 
+  filter(year %in% 25:30) %>%
+  mutate(
+    adv_delayed = factor(adv_delayed, levels = c("Delayed", "Other", "Advanced")),
+    fill_group = paste(ext_seed, adv_delayed, sep = '_')
+  ) %>%
+  ggplot(aes(x = ext_seed, y = stem_density/1000,
+             group = ext_seed,
+             fill = fill_group)) +
+  geom_violin(color = NA) +
+  geom_boxplot(width = 0.1, outlier.size = 0.5, 
+               position = position_dodge(0.9), fill = "white") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
+  # annotate("text", x = 0.5, y = 1.05, label = "Fully stocked stand", 
+  #          color = "grey50", size = 2.5, hjust = 0.5) +
+    facet_grid(. ~ adv_delayed) +
+  scale_fill_manual(values = fill_values) +
+  labs(x = NULL,
+       y = expression("Stem density n ha"^{-1})) +
+  theme_classic2() +
+  theme(
+    legend.position = 'none',
+    panel.border = element_rect(color = "black", linewidth = 0.7, fill = NA),
+    text = element_text(size = 8),
+    axis.text = element_text(size = 8),
+    axis.title = element_text(size = 8),
+    strip.text = element_text(size = 8),
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 8),
+    plot.title = element_text(size = 8)
+  )
+
+p_simulated_sensitivity
+
+ggsave(filename = 'outFigs/p_simulated_sensitivity.png', 
+       plot = p_simulated_sensitivity, width = 6.5, height = 3, dpi = 300, bg = 'white')
+
+
+
+
 
 ## Evaluate initial state : for all clusters   -------------------------
 # filter initial state: year == 1
