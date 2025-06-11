@@ -858,11 +858,49 @@ ggsave(
 
 ## Tableplot:  Stem density per species and vertical class (): --------------------------------
 
+species_lookup <- c(
+  abal = "Abies alba",
+  acca = "Acer campestre",
+  acpl = "Acer platanoides",
+  acps = "Acer pseudoplatanus",
+  algl = "Alnus glutinosa",
+  alin = "Alnus incana",
+  besp = "Betula sp.",
+  cabe = "Carpinus betulus",
+  casa = "Castanea sativa",
+  fasy = "Fagus sylvatica",
+  frex = "Fraxinus excelsior",
+  fror = "Fraxinus ornus",
+  ilaq = "Ilex aquifolium",
+  juni = "Juniperus sp.",
+  jure = "Juglans regia",
+  lade = "Larix decidua",
+  osca = "Ostrya carpinifolia",
+  piab = "Picea abies",
+  pist = "Pinus strobus",
+  pisy = "Pinus sylvestris",
+  posp = "Populus sp.",
+  potr = "Populus tremula",
+  prav = "Prunus avium",
+  psme = "Pseudotsuga menziesii",
+  quro = "Quercus robur/rubra",
+  qusp = "Quercus sp.",
+  rops = "Robinia pseudoacacia",
+  saca = "Salix caprea",
+  sasp = "Salix sp.",
+  soar = "Sorbus aria",
+  soau = "Sorbus aucuparia",
+  soto = "Sorbus torminalis",
+  taba = "Tilia cordata",
+  tisp = "Tilia sp.",
+  ulsp = "Ulmus sp."
+)
+
 # Get a summary table if species is present:
 summary_stem_dens_VegType <- stem_dens_species_long_cluster %>%
-  dplyr::filter(Species %in% top_species_site_share$Species) %>%
+#  dplyr::filter(Species %in% top_species_site_share$Species) %>%
   dplyr::filter(stem_density > 0) %>%
-  mutate(Species = factor(Species, levels = top_species_site_share$Species)) %>%
+#  mutate(Species = factor(Species, levels = top_species_site_share$Species)) %>%
   group_by(Species, VegType_acc) %>%
   summarise(min = min(stem_density, na.rm =T),
             max = max(stem_density, na.rm =T),
@@ -879,9 +917,9 @@ summary_stem_dens_VegType
 
 # # Get a summary table:
 summary_stem_dens_spec <- stem_dens_species_long_cluster %>%
-  dplyr::filter(Species %in% top_species_site_share$Species) %>%
+#  dplyr::filter(Species %in% top_species_site_share$Species) %>%
   dplyr::filter(stem_density > 0) %>%
-  mutate(Species = factor(Species, levels = top_species_site_share$Species)) %>%
+ # mutate(Species = factor(Species, levels = top_species_site_share$Species)) %>%
   group_by(Species) %>%
   summarise(
     min = min(stem_density, na.rm =T),
@@ -892,10 +930,13 @@ summary_stem_dens_spec <- stem_dens_species_long_cluster %>%
     IQR = IQR(stem_density)#,
     
   ) %>%
+  mutate(Species = recode(Species, !!!species_lookup)) %>% 
   arrange(Species)
 
 summary_stem_dens_spec %>% 
   arrange()
+
+
 
 
 # Display the summary table
