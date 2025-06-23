@@ -219,7 +219,7 @@ length(unique(dat2$cluster)) # 849
 
 ## get individual management types ---------------------------
 df_individual_management <- dat2 %>% 
-  filter(dist == TRUE) %>% # remove the plot if not disturbed
+  dplyr::filter(dist == TRUE) %>% # remove the plot if not disturbed
   mutate(cluster = paste(region, group, sep = '_')) %>% 
   mutate(
     logging_trail = ifelse(!is.na(logging_trail) & logging_trail == TRUE, 1, 0),
