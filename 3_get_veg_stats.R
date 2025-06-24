@@ -146,7 +146,7 @@ d2_select_opocno <- dat2 %>%
   dplyr::filter(Variable == "n") %>% 
   na.omit()
 
-View(d2_select_opocno)
+#View(d2_select_opocno)
 
 # filter sub-plots that are misplaced/double recorded
 # visually checked on May 8th, 2024
@@ -212,7 +212,7 @@ cluster_6_plots
 # remove if there is less records
 dat2 <- dat2 %>% 
   right_join(df_master, by = join_by(country, region, group, cluster)) %>%
-  filter(n_plots > 3)
+  dplyr::filter(n_plots > 3)
 
 
 length(unique(dat2$cluster)) # 849
@@ -543,7 +543,7 @@ stem_dens_species_long<-
                values_to = "stem_density") #%>%  #, manag, manag_intensity
 
 
-
+fwrite(stem_dens_species_long, 'outData/df_stem_density_long.csv')
 
 # calculate density per plot&species, add management intensity
 stem_dens_species_long_cluster<- 
