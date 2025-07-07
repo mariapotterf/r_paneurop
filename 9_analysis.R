@@ -195,7 +195,7 @@ df_fin <- na.omit(df_fin)
 
 # make  regeneration classes: advanced vs delayed
 df_fin <- df_fin %>% 
-  mutate(adv_delayed = factor(ifelse(stem_regeneration <= 50, "Delayed", 
+  mutate(adv_delayed = factor(ifelse(stem_regeneration <= 0, "Delayed", 
                                      ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
                               levels = c("Delayed", "Other", "Advanced")))
 
@@ -767,7 +767,7 @@ dd <- data.frame(cluster = rep(1:3, each = 3),
                                   0,0,0,
                                   10,0,0))
 
-# include zeros or not?? -------------------------------------------------------------
+# include zeros or not?? 
 
 # Summary Table
 # Metric                                 | Include Zeros? | When to Use
@@ -1587,6 +1587,110 @@ m_rnd_ti_fixed <- gam(
 )
 
 
+# test the pattern for low severity sites; ----------------------------
+
+# how to choose threshols? 
+
+ggplot(df_stem_regeneration2, aes(x = disturbance_severity, y = stem_regeneration)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth()
+quantile(df_stem_regeneration2$disturbance_severity, probs = 0.90)
+
+# Calculate the percentage of plots with >90% severity
+prop_high_severity <- mean(df_stem_regeneration2$disturbance_severity > 0.9, na.rm = TRUE) * 100
+prop_high_severity
+# Subset: Only plots with disturbance severity < 90%
+df_low_severity <- df_stem_regeneration2 %>%
+  dplyr::filter(disturbance_severity < 0.7)
+
+nrow(df_low_severity)
+
+# Refit the same GAM on this subset
+m_lowsev <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5) +
+    ti(prcp, tmp, k = 5) +
+    s(x, y),
+  family = tw(),
+  method = "REML",
+  select = TRUE,
+  data = df_low_severity
+)
+plot(m_lowsev, pages = 1)
+plot(m_rnd_ti_fixed, pages = 1)
+
+
+summary(m_lowsev)
+summary(m_rnd_ti_fixed)
+
+
+
+# 3. Prediction data
+newdata <- data.frame(
+  prcp = mean(df_stem_regeneration2$prcp, na.rm = TRUE),
+  tmp = mean(df_stem_regeneration2$tmp, na.rm = TRUE),
+  distance_edge = mean(df_stem_regeneration2$distance_edge, na.rm = TRUE),
+  disturbance_severity = seq(0.1, 1, by = 0.01),
+  clay_extract = mean(df_stem_regeneration2$clay_extract, na.rm = TRUE),
+  av.nitro = mean(df_stem_regeneration2$av.nitro, na.rm = TRUE),
+  x = mean(df_stem_regeneration2$x, na.rm = TRUE),
+  y = mean(df_stem_regeneration2$y, na.rm = TRUE)
+)
+
+# 4. Predict with confidence intervals
+pred_full <- predict(m_rnd_ti_fixed, newdata, type = "response", se.fit = TRUE)
+pred_low <- predict(m_lowsev, newdata, type = "response", se.fit = TRUE)
+
+# 5. Combine predictions
+df_pred <- newdata %>%
+  mutate(
+    fit_full = pred_full$fit,
+    upper_full = pred_full$fit + 2 * pred_full$se.fit,
+    lower_full = pred_full$fit - 2 * pred_full$se.fit,
+    fit_low = pred_low$fit,
+    upper_low = pred_low$fit + 2 * pred_low$se.fit,
+    lower_low = pred_low$fit - 2 * pred_low$se.fit
+  )
+
+df_pred$disturbance_severity_pct <- df_pred$disturbance_severity * 100
+
+# 6. Plot
+p_low_high_severity <- ggplot(df_pred, aes(x = disturbance_severity_pct)) +
+  geom_ribbon(aes(ymin = lower_full, ymax = upper_full), fill = "steelblue", alpha = 0.2) +
+  geom_line(aes(y = fit_full, color = "Full model (n = 846)"), size = 1.2) +
+  geom_ribbon(aes(ymin = lower_low, ymax = upper_low), fill = "darkorange", alpha = 0.2) +
+  geom_line(aes(y = fit_low, color = "Low-severity subset (n = 133)"), size = 1.2, linetype = "dashed") +
+ # geom_vline(xintercept = 90, linetype = "dotted", color = "grey40") +
+  labs(
+    title = "", # Effect of disturbance severity on tree regeneration
+    x = "Disturbance severity [%]",
+    y = expression("Predicted stem regeneration density [n ha"^-1*"]"),
+    color = ""
+  ) +
+  scale_color_manual(values = c("Full model (n = 846)" = "steelblue", 
+                                "Low-severity subset (n = 133)" = "darkorange")) +
+  theme_bw(base_size = 8) + 
+  theme(legend.position = 'bottom')
+
+
+
+p_low_high_severity
+
+# Save the last plot
+ggsave(p_low_high_severity,
+  filename = "outFigs/figS_disturbance_severity_effects.png",
+  width = 4,
+  height = 4,
+  units = "in",
+  dpi = 300  # High resolution for publication
+)
+
+
 ### complete altarnative based on univariate AIC ---------
 m_alt <- gam(
   stem_regeneration ~ 
@@ -1788,9 +1892,14 @@ plot(tmp_prcp_effect)
 
 # Identify random effects using the model's "smooth" component
 smooth_terms <- summary(fin.m.reg.density)$s.table
+# Identify random effects using the model's "smooth" component
+smooth_terms_lowsev <- summary(m_lowsev)$s.table
+
 
 # Extract the smooth terms labels and check which ones are random effects
 random_effects_labels <- rownames(smooth_terms)[str_detect(rownames(smooth_terms), "country_pooled|clim_grid")]
+random_effects_labels_lowsev <- rownames(smooth_terms_lowsev)[str_detect(rownames(smooth_terms_lowsev), "country_pooled|clim_grid")]
+
 
 # Create a function to automatically label the terms in the summary output
 create_labels <- function(term) {
@@ -1803,6 +1912,7 @@ create_labels <- function(term) {
 
 # Apply the labeling function
 pred_labels <- sapply(rownames(smooth_terms), create_labels)
+pred_labels_lowsev <- sapply(rownames(smooth_terms_lowsev), create_labels)
 
 # Display the tab_model with automatic labeling
 sjPlot::tab_model(fin.m.reg.density,
@@ -1810,6 +1920,14 @@ sjPlot::tab_model(fin.m.reg.density,
                   pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
                   dv.labels = paste0("Explained Deviance: ", round(100 * summary(fin.m.reg.density)$dev.expl, 2), "%"), 
                   file = "outTable/full_drivers_reg_stem_density_fixed.doc")
+
+
+# Display the tab_model with automatic labeling
+sjPlot::tab_model( m_lowsev,
+                  show.re.var = TRUE,        # Show the variance components
+                  pred.labels = c("Intercept", pred_labels_lowsev), # Replace smooth term labels
+                  dv.labels = paste0("Explained Deviance: ", round(100 * summary(m_lowsev)$dev.expl, 2), "%"), 
+                  file = "outTable/m_low_severity.doc")
 
 
 #### with random effects ------------------
