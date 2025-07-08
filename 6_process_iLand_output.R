@@ -95,7 +95,7 @@ df_vegetation_sub <- df_fin %>%
                 sum_stems_sapling, 
                 sum_stems_mature) %>% 
   mutate(stem_regeneration = sum_stems_juvenile + sum_stems_sapling) %>% 
-  mutate(adv_delayed = ifelse(stem_regeneration <= 50, "Delayed", 
+  mutate(adv_delayed = ifelse(stem_regeneration <= 0, "Delayed", 
                               ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other"))) %>% # Add the 3rd category
   right_join(df_sites_clusters)
 
@@ -121,12 +121,8 @@ table(df_vegetation_sub$adv_delayed)
 # name the clusters from Kilian: if cluster analysis is run separately, the numbers do not fit! therefore,
 # check the naming from plots (boxplot) an rename them to fit
 df_sim_class <- df_sim %>%
-  # mutate(clim_class = case_when(
-  #   clim_cluster == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-  #   clim_cluster == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
-  #   clim_cluster == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-  # ))  %>% 
-  mutate(landscape_run = paste(env_stnd_clust, run_nr))  # yunique run per lanscape scenario
+  mutate(landscape_run = paste(env_stnd_clust, run_nr, sep = '_'),
+         seed_comb = paste(seed_flag, seed_sensitivity, sep = "_"))  # yunique run per lanscape scenario
 
 str(df_sim_class)
 head(df_sim_class)
@@ -135,7 +131,7 @@ head(df_sim_class)
 # add delayed vs advanced regeneration indication ------------------------------
 # simulated 
 df_sim_class <- df_sim_class %>% 
-  mutate(unique_sim_run = paste(clim_model, clim_scenario, ext_seed, env_stnd_clust, run_nr, sep = "_")) %>%  # yunique run per lanscape scenario
+  mutate(unique_sim_run = paste(clim_model, clim_scenario, env_stnd_clust, run_nr, seed_flag, seed_sensitivity, sep = "_")) %>%  # yunique run per lanscape scenario
   right_join(df_delayed_advanced_sub, by = join_by(env_stnd_clust))
 
 
@@ -152,7 +148,7 @@ my_cluster_test = '3_1'
 # check per one clutsre! 1_2
 simulated_test <- df_sim_class %>% 
   dplyr::filter(env_stnd_clust == my_cluster_test) %>% 
-  dplyr::filter(clim_model == "ICHEC", clim_scenario == "HISTO", ext_seed == "noseed" &
+  dplyr::filter( clim_model == "ICHEC" & clim_scenario == "HISTO" &
                   year == 1)
 
 df_field_test <- df_field_sub %>% 
@@ -202,25 +198,6 @@ df_field_ind_sub <- df_indicators %>%
 
 # chcek composite score: try to order variables ----
 
-# Standardize the variables
-# df_field_ind_sub <- df_field_ind_sub %>%
-#   mutate(
-#     scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
-#     scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
-#     scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
-#     scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
-#   ) %>%
-#   # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
-#   mutate(
-#     composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)#,
-#    # cluster = factor(cluster, levels = cluster[order(composite_score, decreasing = TRUE)])
-#   ) %>% 
-#   mutate(composite_class = factor(composite_score)) %>% 
-#   mutate(clim_class = case_when(
-#     clim_cluster_spei3  == 1 ~ "wet-warm-clay",  # Cluster 1: wet, cold, clay
-#     clim_cluster_spei3  == 2 ~ "hot-dry-clay",  # Cluster 2: hot, dry, clay (more sand, less clay, more av.nitro than cluster 3)
-#     clim_cluster_spei3  == 3 ~ "hot-dry-sand"    # Cluster 3: hot, dry, more sand
-#   ))  #%>% 
 
 
 
@@ -267,14 +244,14 @@ df_field_ind_sub <- df_indicators %>%
 
 # Get grouping table : 1380 unique simulations combination
 df_simulations_groups <- df_sim_class %>% 
-  dplyr::select(year, clim_model, ext_seed,landscape_run, unique_sim_run) %>% 
+  dplyr::select(year, clim_model, seed_comb,landscape_run, unique_sim_run) %>% 
   distinct() #%>%  # remove duplicated rows
   #mutate(landscape = paste(clim_cluster,str_cluster, sep = "_"))
 # nrows with years: 42720
   
   
 df_simulations_groups_simple <- df_sim_class %>% 
-    dplyr::select(clim_model,ext_seed,landscape_run, unique_sim_run) %>% 
+    dplyr::select(clim_model,seed_comb,landscape_run, unique_sim_run) %>% 
     distinct() #%>%  
   
 # Richness
@@ -365,18 +342,6 @@ df_sim_indicators <- df_sim_indicators %>%
     n_vertical = ifelse(is.na(n_vertical), 0, n_vertical)
   )
 
-# 
-# get a composite index to order the landscapes
-# df_sim_indicators <- df_sim_indicators %>% 
-#   mutate(
-#     scaled_stem_density = (stem_density - min(stem_density)) / (max(stem_density) - min(stem_density)),
-#     scaled_n_vertical = (n_vertical - min(n_vertical)) / (max(n_vertical) - min(n_vertical)),
-#     scaled_richness = (richness - min(richness)) / (max(richness) - min(richness)),
-#     scaled_rIVI = (rIVI - min(rIVI)) / (max(rIVI) - min(rIVI))
-#   ) %>%
-#   # Calculate composite score: higher values for stem_density, n_vertical, richness; lower values for rIVI
-#   mutate(
-#     composite_score = round(scaled_stem_density + scaled_n_vertical + scaled_richness - scaled_rIVI, 2)) 
 
 
 # add indication of advanced vs delayed vegetation: advanced >1000 juveniles, delayed < 50 stems/ha
@@ -385,7 +350,7 @@ df_sim_indicators <- df_sim_indicators %>%
 
 # get stem density stats in year 30: keeps seeds in, as it is more realistic scenario that no seeds at all
 df_sim_indicators %>% 
-  dplyr::filter(ext_seed == 'seed') %>% 
+ # dplyr::filter(ext_seed == 'seed') %>% 
   dplyr::filter(year == 30) %>% 
   group_by(adv_delayed) %>% 
   summarise(median = median(stem_density),
@@ -416,22 +381,28 @@ df_sim_indicators %>%
   ) +
   theme_classic()
 
+# separate again inndividual categories: seed availability for sensitivuty analyssis
+
 
 
 ##  with shaded zones ------------------
 
 # Calculate IQR for each year and adv_delayed group
 df_summary <- df_sim_indicators %>%
-  #dplyr::filter(ext_seed == 'seed') %>% 
-  group_by(year, adv_delayed,ext_seed) %>%
+  dplyr::filter(!str_detect(seed_comb, "noseed")) %>% 
+  group_by(year, adv_delayed,seed_comb ) %>%
   summarize(
     median_density = median(stem_density, na.rm = TRUE),
     Q1 = quantile(stem_density, 0.25, na.rm = TRUE),
     Q3 = quantile(stem_density, 0.75, na.rm = TRUE)
-  )
+  ) %>% 
+  mutate(adv_delayed = factor(adv_delayed,
+                              levels = c("Delayed",  "Other","Advanced" )))  
+
 
 df_summary_simpl <- df_sim_indicators %>%
-  dplyr::filter(ext_seed == 'seed') %>% 
+  #dplyr::filter(ext_seed == 'seed') %>%
+  dplyr::filter(!str_detect(seed_comb, "noseed")) %>% 
   group_by(year, adv_delayed) %>%
   summarize(
     median_density = median(stem_density, na.rm = TRUE),
@@ -439,33 +410,29 @@ df_summary_simpl <- df_sim_indicators %>%
     Q3 = quantile(stem_density, 0.75, na.rm = TRUE)
   )
 
-
-
-df_summary <- df_summary %>% 
-  mutate(adv_delayed = factor(adv_delayed,
-                              levels = c("Delayed",  "Other","Advanced" )))  #%>% 
-  
 # Ensure the levels of adv_delayed are in the desired order
 df_sim_indicators <- df_sim_indicators %>%
-  
-  mutate(adv_delayed = factor(adv_delayed, levels = c("Delayed",  "Other","Advanced" )))
+    mutate(adv_delayed = factor(adv_delayed, levels = c("Delayed",  "Other","Advanced" )))
 
 # Plot with median line and IQR ribbon
 #p_simulated_stem_dens <- 
  # df_sim_indicators %>% 
-
+my_colors <- c(
+  "seed_-50" = "#313695",
+  "seed_-25" = "#4575b4",
+  "seed_-10" = "#74add1",
+  "seed_0"   = "#f7f7f7",
+  "seed_10"  = "#fdae61",
+  "seed_25"  = "#f46d43",
+  "seed_50"  = "#a50026"
+)
 # Create the plot
-ggplot(df_summary, aes(x = year, y = median_density, color = ext_seed, fill = ext_seed)) +
+ggplot(df_summary, aes(x = year, y = median_density, color = seed_comb, fill = seed_comb)) +
   geom_line(size = 1) +  # Line for the median
   geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.2) +  # Ribbon for Q1-Q3
   facet_wrap(~ adv_delayed) +  # Facet by adv_delayed 
- # scale_color_manual(values = c("#A50026", 
- #                               "#FDAE61",
- #                               "#006837")) +
- # scale_fill_manual(values = c("#A50026", 
- #                               "#FDAE61",
- #                               "#006837")) +
- 
+  scale_color_manual(values = my_colors) +
+  scale_fill_manual(values = my_colors) +
   labs(title = "",
        x = "Year",
        y = "Stem Density",
@@ -517,7 +484,7 @@ df_summary_simpl <- df_summary_simpl %>%
   
 p_simulated_stem_dens <- 
    df_sim_indicators %>% 
-    dplyr::filter(ext_seed == 'seed') %>%  # seelct only seeds scenario - more realistic than no seed
+  dplyr::filter(!str_detect(seed_comb, "noseed")) %>% 
   mutate(adv_delayed = factor(adv_delayed, 
                               levels = c("Delayed", "Other", "Advanced"))) %>%  # Ensure correct order
   ggplot(aes(x = year, y = stem_density/1000, 
@@ -562,31 +529,53 @@ ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png',
 
 # plot alternative : seed and no seed ---------------------------------------
 
+df_sim_indicators <- df_sim_indicators %>%
+  mutate(
+    # extract numeric seed level from string like "seed_-25"
+    seed_level_num = as.integer(str_extract(seed_comb, "-?\\d+")),
+    seed_comb = factor(seed_comb, levels = paste0("seed_", sort(unique(seed_level_num))))
+  )
+
+
 
 
 # Test --------
-p_simulated_sensitivity <- df_sim_indicators %>% 
-  filter(year %in% 25:30) %>%
+
+df_sens_plot <- df_sim_indicators %>% 
+  dplyr::filter(!str_detect(seed_comb, "noseed")) %>% 
+  dplyr::filter(year %in% 25:30) %>%
   mutate(
-    adv_delayed = factor(adv_delayed, levels = c("Delayed", "Other", "Advanced")),
-    fill_group = paste(ext_seed, adv_delayed, sep = '_')
-  ) %>%
-  ggplot(aes(x = ext_seed, y = stem_density/1000,
-             group = ext_seed,
-             fill = fill_group)) +
-  geom_violin(color = NA) +
-  geom_boxplot(width = 0.1, outlier.size = 0.5, 
-               position = position_dodge(0.9), fill = "white") +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
-  # annotate("text", x = 0.5, y = 1.05, label = "Fully stocked stand", 
-  #          color = "grey50", size = 2.5, hjust = 0.5) +
-    facet_grid(. ~ adv_delayed) +
-  scale_fill_manual(values = fill_values) +
-  labs(x = NULL,
-       y = expression("Stem density n ha"^{-1})) +
+    seed_level_num = as.integer(str_extract(seed_comb, "-?\\d+")),
+    seed_comb = factor(seed_comb, levels = paste0("seed_", sort(unique(seed_level_num)))),
+    adv_delayed = factor(adv_delayed, levels = c("Delayed", "Other", "Advanced"))
+  )
+
+group_medians <- df_sens_plot %>%
+  dplyr::group_by(adv_delayed) %>%
+  dplyr::summarize(median_density = median(stem_density / 1000, na.rm = TRUE))
+
+p_simulated_stem_sensitivity <- df_sens_plot %>%
+  ggplot(aes(y = seed_comb, x = stem_density / 1000,
+             color = adv_delayed, group = adv_delayed)) +
+  stat_summary(fun = median, geom = "point",
+               position = position_dodge(width = 0.6), size = 2) +
+  stat_summary(fun.data = ~ {
+    q <- quantile(.x, probs = c(0.25, 0.5, 0.75))
+    data.frame(y = q[2], ymin = q[1], ymax = q[3])
+  }, geom = "linerange",
+  position = position_dodge(width = 0.6)) +
+  scale_color_manual(values = reg_colors) +
+  geom_vline(data = group_medians,
+             aes(xintercept = median_density, color = adv_delayed),
+             linetype = "dashed", show.legend = FALSE) +
   theme_classic2() +
+  scale_x_continuous(limits = c(0, 13))+
+  scale_y_discrete(labels = ~ str_remove(., "seed_"))+
+  labs(y = expression("Change in seeds availability [%]") ,
+       x = expression("Stem density [" * 1000 *~ n~ha^{-1} * "]"),
+       color = "") +
   theme(
-    legend.position = 'none',
+    legend.position = 'bottom',
     panel.border = element_rect(color = "black", linewidth = 0.7, fill = NA),
     text = element_text(size = 8),
     axis.text = element_text(size = 8),
@@ -597,10 +586,10 @@ p_simulated_sensitivity <- df_sim_indicators %>%
     plot.title = element_text(size = 8)
   )
 
-p_simulated_sensitivity
+p_simulated_stem_sensitivity
 
 ggsave(filename = 'outFigs/p_simulated_sensitivity.png', 
-       plot = p_simulated_sensitivity, width = 6.5, height = 3, dpi = 300, bg = 'white')
+       plot = p_simulated_sensitivity, width = 4, height = 3, dpi = 300, bg = 'white')
 
 
 
