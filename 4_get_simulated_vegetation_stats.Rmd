@@ -31,7 +31,7 @@ With the necessary libraries loaded, the data can be assessed. First a connectio
 #setwd('C:/Users/ge45lep/Documents/2023_PanEuropean/r_paneurop/rawData/iLand/iLand_output')
 #getwd()
 # Define the path to your data using the here() function
-data_path <- here("rawData/iLand/iLand_output")
+data_path <- here("rawData/iLand/iLand_output_seeds_scenarios/20241112")
 print(data_path)
 
 # Get output dirs and run through them
@@ -113,6 +113,7 @@ For further processing it might be useful to split the filename into a few piece
 -   Climate model
 -   Cluster
 -   With or without external seed
+-   seed input: +- % 
 
 Organization of the iLand outputs:
 
@@ -153,13 +154,42 @@ in Sapling table: counts_ha and count_small_ha are calculated from the n_represe
 
 
 # 1. stand table
+# big_data <- 
+#   OG_big_data |>
+#   separate_wider_delim(filenm, delim = "_", names = c("clim_model",
+#                                                       "clim_scenario",
+#                                                       "env_clst",
+#                                                       "stnd_clst",
+#                                                       "ext_seed")) #%>% 
+
+
 big_data <- OG_big_data |>
-  separate_wider_delim(filenm, delim = "_", names = c("clim_model",
-                                                      "clim_scenario",
-                                                      "env_clst",
-                                                      "stnd_clst",
-                                                      "ext_seed"))
-big_data <- big_data %>% dplyr::select(!ext_seed)
+ mutate(
+    # Standardize: add _0 to "noseed" cases
+    filenm = if_else(str_detect(filenm, "noseed$"), paste0(filenm, "_0"), filenm)
+  ) |>
+  separate_wider_delim(
+    filenm,
+    delim = "_",
+    names = c("clim_model", "clim_scenario", "env_clst", "stnd_clst", "seed_flag", "seed_level")
+  ) |>
+  mutate(
+    seed_sensitivity = case_when(
+      seed_flag == "noseed" ~ 0,
+      seed_level == "0" ~ 0,
+      TRUE ~ as.numeric(str_remove(seed_level, "%"))
+    ),
+    seed_scenario = case_when(
+      seed_flag == "noseed" ~ "no_seed",
+      seed_level == "0" ~ "baseline",
+      str_detect(seed_level, "^\\+\\d+%$") ~ "increased_seed",
+      str_detect(seed_level, "^\\-\\d+%$") ~ "decreased_seed",
+      TRUE ~ "unknown"
+    )
+  )
+
+
+big_data         <- big_data %>% dplyr::select(!external_seed)
 big_data$cluster <- paste(big_data$env_clst, big_data$stnd_clst, sep = "_")
 big_data$clim_scenario <- as.factor(big_data$clim_scenario)
 big_data$clim_model <- as.factor(big_data$clim_model)
@@ -202,12 +232,41 @@ big_data <- big_data %>%
 #   dplyr::summarise(across(strCols, list(mean = mean, sd = sd)),.groups = "drop")
 
 # 3. sapling details table
-big_sapD <- OG_sapd |>
-  separate_wider_delim(filenm, delim = "_", names = c("clim_model",
-                                                      "clim_scenario",
-                                                      "env_clst",
-                                                      "stnd_clst",
-                                                      "ext_seed"))
+# big_sapD <- OG_sapd |>
+#   separate_wider_delim(filenm, delim = "_", names = c("clim_model",
+#                                                       "clim_scenario",
+#                                                       "env_clst",
+#                                                       "stnd_clst",
+#                                                       "ext_seed"))
+
+big_sapD <- 
+  OG_sapd |>
+ mutate(
+    # Standardize: add _0 to "noseed" cases
+    filenm = if_else(str_detect(filenm, "noseed$"), paste0(filenm, "_0"), filenm)
+  ) |>
+  separate_wider_delim(
+    filenm,
+    delim = "_",
+    names = c("clim_model", "clim_scenario", "env_clst", "stnd_clst", "seed_flag", "seed_level")
+  ) |>
+  mutate(
+    seed_sensitivity = case_when(
+      seed_flag == "noseed" ~ 0,
+      seed_level == "0" ~ 0,
+      TRUE ~ as.numeric(str_remove(seed_level, "%"))
+    ),
+    seed_scenario = case_when(
+      seed_flag == "noseed" ~ "no_seed",
+      seed_level == "0" ~ "baseline",
+      str_detect(seed_level, "^\\+\\d+%$") ~ "increased_seed",
+      str_detect(seed_level, "^\\-\\d+%$") ~ "decreased_seed",
+      TRUE ~ "unknown"
+    )
+  )
+
+
+
 big_sapD$cluster        <- paste(big_sapD$env_clst, big_sapD$stnd_clst, sep = "_")
 big_sapD$clim_model     <- as.factor(big_sapD$clim_model)
 big_sapD$clim_scenario  <- as.factor(big_sapD$clim_scenario)
