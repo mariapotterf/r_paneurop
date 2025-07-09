@@ -589,7 +589,7 @@ p_simulated_stem_sensitivity <- df_sens_plot %>%
 p_simulated_stem_sensitivity
 
 ggsave(filename = 'outFigs/p_simulated_sensitivity.png', 
-       plot = p_simulated_sensitivity, width = 4, height = 3, dpi = 300, bg = 'white')
+       plot = p_simulated_stem_sensitivity, width = 3, height = 3.5, dpi = 300, bg = 'white')
 
 
 
