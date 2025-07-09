@@ -3012,23 +3012,42 @@ df_long_narrow_sub2 <- df_long_narrow_sub %>%
   droplevels()
 
 
-# > species_colors
-# piab      fasy      quro      pisy      soau      acps      potr      abal 
-# "#006837" "#229C52" "#74C364" "#B7E075" "#E9F6A2" "#FEEDA2" "#FDBE6E" "#F67B49" 
-# besp      lade 
- #"#DA362A" "#A50026" 
-# 
-# make a function  # "#FDAE61", 
-plot_variable_box <- function(var_name, 
-                              y_label, 
-                              y_limits, 
-                              label_y_values, 
-                              palette = c(  "#F67B49", "#74C364")) {
+
+# Update the function to exclude "Intermediate" and use full labels
+plot_variable_box_fin <- function(var_name, 
+                                  y_label, 
+                                  y_limits, 
+                                  label_y_values, 
+                                  tick_height = 0.02, 
+                                  text_offset = 0.02, 
+                                  palette = c("#F67B49", "#74C364")) {
   
+  # Filter data and exclude Intermediate
   data_filtered <- df_long_narrow_sub2 %>%
-    dplyr::filter(Variable == var_name)
+    filter(Variable == var_name, adv_delayed %in% c("Delayed", "Advanced"))
   
-  # Base plot
+  # Summary stats
+  summary_data <- subset(summary_stats_narrow_sub2, 
+                         Variable == var_name & adv_delayed %in% c("Delayed", "Advanced"))
+  
+  # Compute Wilcoxon p-value
+  pval <- compare_means(Value ~ adv_delayed, 
+                        data = data_filtered, 
+                        method = "wilcox.test") %>%
+    pull(p) %>%
+    formatC(digits = 3, format = "f")
+  
+  # Prepare bracket layer
+  bracket <- data.frame(
+    x = 1,
+    xend = 2,
+    y = label_y_values,
+    tick = tick_height,
+    text_offset = text_offset,
+    label = pval
+  )
+  
+  # Create plot
   p <- ggboxplot(data_filtered,
                  x = "adv_delayed", 
                  y = "Value", 
@@ -3039,56 +3058,65 @@ plot_variable_box <- function(var_name,
                  outlier.shape = NA,
                  size = 0.2) +
     
-    # Jittered raw data points
-    # geom_jitter(data = data_filtered,
-    #             aes(x = adv_delayed, y = Value),
-    #            color = 'gray30',
-    #              width = 0.2,
-    #             alpha = 0.4,
-    #             size = 0.8,
-    #             inherit.aes = FALSE) +
-    # 
-    # Wilcoxon comparison
-    stat_compare_means(comparisons = comparisons_2grps, 
-                       method = "wilcox.test", 
-                       label = 'p.format',
-                       size = 3,
-                       label.y = label_y_values) +
-    
-    # Theme
-    my_theme() +
-    
-    # Red mean points
-    geom_point(data = subset(summary_stats_narrow_sub2, Variable == var_name), 
-               aes(x = adv_delayed, y = Mean, group = adv_delayed), 
+    # Mean dots
+    geom_point(data = summary_data, 
+               aes(x = adv_delayed, y = Mean), 
                shape = 21, fill = "black", color = "black", size = 1.5, inherit.aes = FALSE) +
     
-    # Zoomed y-axis
+    # Bracket line
+    geom_segment(data = bracket, 
+                 aes(x = x, xend = xend, y = y, yend = y), size = 0.3) +
+    
+    # Ticks
+    geom_segment(data = bracket, 
+                 aes(x = x, xend = x, y = y, yend = y - tick), size = 0.3) +
+    geom_segment(data = bracket, 
+                 aes(x = xend, xend = xend, y = y, yend = y - tick), size = 0.3) +
+    
+    # P-value text (no "p =")
+    geom_text(data = bracket, 
+              aes(x = (x + xend) / 2, y = y + text_offset, label = label), size = 3) +
+    
+    my_theme() +
     coord_cartesian(ylim = y_limits)
   
   return(p)
 }
 
-p.spei1.fin <- plot_variable_box(
+
+
+# SPEI-1
+p.spei1.fin <- plot_variable_box_fin(
   var_name = "drought_spei1",
   y_label = "SPEI-1 [dim.]",
-  y_limits = c(-1.2, -0.6),
-  label_y_values = c( -0.62, -0.6)
+  y_limits = c(-1.15, -0.65),
+  label_y_values = c(-0.75),
+  tick_height = 0.009,
+  text_offset = 0.02
 )
 
-p.prcp.fin <- plot_variable_box(
+# Precipitation
+p.prcp.fin <- plot_variable_box_fin(
   var_name = "prcp",
   y_label = "Precipitation [mm]",
-  y_limits = c(300, 1600),
-  label_y_values = c(1500, 1400, 1300)
+  y_limits = c(300, 1530),
+  label_y_values = c(1370),
+  tick_height = 20,
+  text_offset = 35
 )
 
-p.clay.fin <- plot_variable_box(
+# Clay
+p.clay.fin <- plot_variable_box_fin(
   var_name = "clay_extract",
   y_label = "Clay [%]",
-  y_limits = c(0, 45),
-  label_y_values = c(42, 38, 35)
+  y_limits = c(5, 45),
+  label_y_values = c(42),
+  tick_height = 1.2,
+  text_offset = 1.7
 )
+
+
+
 
 # Combine all plots into a single figure
 wilcox_fin <- ggarrange(p.prcp.fin,
