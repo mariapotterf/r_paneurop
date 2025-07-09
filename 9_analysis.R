@@ -1601,6 +1601,99 @@ m_rnd_ti_fixed <- gam(
 )
 
 
+# which factors are most important?  ------------------------------------
+
+mgcv::summary.gam(m_rnd_ti_fixed)
+gratia::appraise(m_rnd_ti_fixed)
+
+
+# drop one variable at time:  ---------------------------------------------------
+
+# Fit full model
+m_full <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5) +
+    ti(prcp, tmp, k = 5) +
+    s(x, y),
+  family = tw(),
+  method = "REML", select = TRUE,
+  data = df_stem_regeneration2
+)
+# Store logLik and AIC
+loglik_full <- logLik(m_full)
+aic_full <- AIC(m_full)
+
+# Build and compare models one by one
+m_drop_prcp <- gam(stem_regeneration ~ 
+                     s(tmp, k = 5) + s(distance_edge, k = 5) +
+                     s(disturbance_severity, k = 5) + s(clay_extract, k = 5) +
+                     s(av.nitro, k = 5) + ti(disturbance_severity, distance_edge, k = 5) +
+                     ti(prcp, tmp, k = 5) + s(x, y),
+                   family = tw(), method = "REML",  select = TRUE, data = df_stem_regeneration2)
+
+m_drop_tmp <- gam(stem_regeneration ~ 
+                    s(prcp, k = 5) + s(distance_edge, k = 5) +
+                    s(disturbance_severity, k = 5) + s(clay_extract, k = 5) +
+                    s(av.nitro, k = 5) + ti(disturbance_severity, distance_edge, k = 5) +
+                    ti(prcp, tmp, k = 5) + s(x, y),
+                  family = tw(), method = "REML",  select = TRUE,data = df_stem_regeneration2)
+
+m_drop_dist_edge <- gam(stem_regeneration ~ 
+                          s(prcp, k = 5) + s(tmp, k = 5) +
+                          s(disturbance_severity, k = 5) + s(clay_extract, k = 5) +
+                          s(av.nitro, k = 5) + ti(disturbance_severity, distance_edge, k = 5) +
+                          ti(prcp, tmp, k = 5) + s(x, y),
+                        family = tw(), method = "REML",  select = TRUE, data = df_stem_regeneration2)
+
+m_drop_dist_sev <- gam(stem_regeneration ~ 
+                         s(prcp, k = 5) + s(tmp, k = 5) +
+                         s(distance_edge, k = 5) + s(clay_extract, k = 5) +
+                         s(av.nitro, k = 5) + ti(prcp, tmp, k = 5) + s(x, y),
+                       family = tw(), method = "REML",  select = TRUE, data = df_stem_regeneration2)
+
+m_drop_prcp_tmp <- gam(
+  stem_regeneration ~ 
+    s(prcp, k = 5) + s(tmp, k = 5) +
+    s(distance_edge, k = 5) +
+    s(disturbance_severity, k = 5) +
+    s(clay_extract, k = 5) +
+    s(av.nitro, k = 5) +
+    ti(disturbance_severity, distance_edge, k = 5) +
+   # ti(prcp, tmp, k = 5) +
+    s(x, y),
+  family = tw(),
+  method = "REML",
+  select = TRUE,
+  data = df_stem_regeneration2
+)
+
+# Compare models
+results <- data.frame(
+  model = c("m_rnd_ti_fixed", "drop_prcp", "drop_tmp", "drop_dist_edge", "drop_dist_sev", 'm_drop_prcp_tmp'),
+  AIC = c(AIC(m_rnd_ti_fixed), AIC(m_drop_prcp), AIC(m_drop_tmp), AIC(m_drop_dist_edge), AIC(m_drop_dist_sev), AIC(m_drop_prcp_tmp)),
+  logLik = c(logLik(m_rnd_ti_fixed), logLik(m_drop_prcp), logLik(m_drop_tmp), logLik(m_drop_dist_edge), logLik(m_drop_dist_sev), logLik(m_drop_prcp_tmp)),
+  R2_adj = c(summary(m_rnd_ti_fixed)$r.sq, summary(m_drop_prcp)$r.sq, summary(m_drop_tmp)$r.sq,
+             summary(m_drop_dist_edge)$r.sq, summary(m_drop_dist_sev)$r.sq, summary(m_drop_prcp_tmp)$r.sq),
+  deviance_expl = c(summary(m_rnd_ti_fixed)$dev.expl, summary(m_drop_prcp)$dev.expl, summary(m_drop_tmp)$dev.expl,
+                    summary(m_drop_dist_edge)$dev.expl, summary(m_drop_dist_sev)$dev.expl, summary(m_drop_prcp_tmp)$dev.expl)
+)
+
+results
+# 
+# > results
+# model      AIC    logLik     R2_adj deviance_expl
+# 1  m_rnd_ti_fixed 16069.08 -8013.875 0.09310789    0.10887421
+# 2       drop_prcp 16072.64 -8011.886 0.09795147    0.11237287
+# 3        drop_tmp 16070.49 -8013.018 0.09464378    0.11037273
+# 4  drop_dist_edge 16073.63 -8015.650 0.09262081    0.10577277
+# 5   drop_dist_sev 16076.56 -8019.264 0.09183355    0.09942951
+# 6 m_drop_prcp_tmp 16070.75 -8015.014 0.09329267    0.10687028
+
 ## test the pattern for low severity sites; ----------------------------
 
 # how to choose threshols? 
