@@ -196,8 +196,8 @@ df_fin <- na.omit(df_fin)
 # make  regeneration classes: advanced vs delayed
 df_fin <- df_fin %>% 
   mutate(adv_delayed = factor(ifelse(stem_regeneration <= 0, "Delayed", 
-                                     ifelse(sum_stems_juvenile >= 1000, "Advanced", "Other")),
-                              levels = c("Delayed", "Other", "Advanced")))
+                                     ifelse(sum_stems_juvenile >= 1000, "Advanced", "Intermediate")),
+                              levels = c("Delayed", "Intermediate", "Advanced")))
 
 # include mature trees: present/absent
 #df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
@@ -2638,9 +2638,9 @@ print(summary_stats_narrow_sub)
 
 
 # list groups to pairwise comparison
-comparisons_3grps <- list(c("Delayed", "Other"), 
+comparisons_3grps <- list(c("Delayed", "Intermediate"), 
                           c("Delayed", "Advanced"), 
-                          c("Other", "Advanced"))
+                          c("Intermediate", "Advanced"))
 
 comparisons_2grps <- list(c("Delayed", "Advanced"))
 
@@ -2953,15 +2953,15 @@ ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_suppl
 
 
 
-### FINAL wilcox: remove 'other' category -----
+### FINAL wilcox: remove 'Intermediate' category -----
 # filter the tables
 # !!! START
 summary_stats_narrow_sub2 <- summary_stats_narrow_sub %>%
-  dplyr::filter(adv_delayed != "Other") %>%
+  dplyr::filter(adv_delayed != "Intermediate") %>%
   droplevels()
 
 df_long_narrow_sub2 <- df_long_narrow_sub %>%
-  dplyr::filter(adv_delayed != "Other") %>%
+  dplyr::filter(adv_delayed != "Intermediate") %>%
   droplevels()
 
 
