@@ -508,7 +508,7 @@ p_stem_density_species <- df_stem_sp_sum_ordered %>%
   theme_classic() +
   labs(
     title = "",
-    x = expression("\nStem density(log"[10]*") [n ha"^-1*"]"),
+    x = expression("\nStem density (log"[10]*") [n ha"^-1*"]"),
    # x = "\nStem density (log10) [#/ha]",
     y = ""
   ) +
@@ -671,7 +671,7 @@ p_share_vertical_species <-
   annotate("text", x = -60, 
            #y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
            y = 1,
-           label = "Sapling", color = "gray30", size = 3, fontface = "plain") + # Add Saplings label
+           label = "Saplings", color = "gray30", size = 3, fontface = "plain") + # Add Saplings label
   annotate("text", x = 50, 
            #y = length(levels(species_composition_sapl_juv_summary$Species)) + 0.5,
            y = 1,
@@ -1355,13 +1355,27 @@ predictors <- df_stem_regeneration2 %>%
 # Calculate the correlation matrix
 correlation_matrix <- cor(predictors, use = "complete.obs", method = "spearman")
 
+# Rename variables in the correlation matrix
+correlation_matrix_renamed <- correlation_matrix
+
+# Rename rows
+rownames(correlation_matrix_renamed) <- rownames(correlation_matrix_renamed) %>%
+  stringr::str_replace("^cv_t2m$", "cv_tmp") %>%
+  stringr::str_replace("^cv_tp$", "cv_prcp")
+
+# Rename columns
+colnames(correlation_matrix_renamed) <- colnames(correlation_matrix_renamed) %>%
+  stringr::str_replace("^cv_t2m$", "cv_tmp") %>%
+  stringr::str_replace("^cv_tp$", "cv_prcp") %>% 
+  stringr::str_replace("_extract$", "_content")
+
 library(corrplot)
 
 
 # Export with high resolution and clearer layout
-png("outFigs/correlation_matrix_plot2.png", width = 2000, height = 2000, res = 300)
+png("outFigs/correlation_matrix_plot_renamed.png", width = 2000, height = 2000, res = 300)
 
-corrplot(correlation_matrix, 
+corrplot(correlation_matrix_renamed, 
          method = "color",
          type = "upper",
          col = colorRampPalette(c("blue", "white", "red"))(200),
@@ -1587,7 +1601,7 @@ m_rnd_ti_fixed <- gam(
 )
 
 
-# test the pattern for low severity sites; ----------------------------
+## test the pattern for low severity sites; ----------------------------
 
 # how to choose threshols? 
 
