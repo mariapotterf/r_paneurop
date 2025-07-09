@@ -368,7 +368,9 @@ my_colors <- c(
   "seed_50"  = "#a50026"
 )
 # Create the plot
-ggplot(df_summary, aes(x = year, y = median_density, color = seed_comb, fill = seed_comb)) +
+ggplot(df_summary, aes(x = year, y = median_density, 
+                       color = seed_comb, 
+                       fill = seed_comb)) +
   geom_line(size = 1) +  # Line for the median
   geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.2) +  # Ribbon for Q1-Q3
   facet_wrap(~ adv_delayed) +  # Facet by adv_delayed 
@@ -410,19 +412,19 @@ reg_colors_pale <- c(
 # Create a combined fill vector based on both ext_seed and adv_delayed
 fill_values <- c(
   "seed_Delayed"     = reg_colors[["Delayed"]],
-  "seed_Other"       = reg_colors[["Intermediate"]],
+  "seed_Intermediate"       = reg_colors[["Intermediate"]],
   "seed_Advanced"    = reg_colors[["Advanced"]],
   "noseed_Delayed"   = reg_colors_pale[["Delayed"]],
-  "noseed_Other"     = reg_colors_pale[["Intermediate"]],
+  "noseed_Intermediate"     = reg_colors_pale[["Intermediate"]],
   "noseed_Advanced"  = reg_colors_pale[["Advanced"]]
 )
 
 
 # get simple summary -------------------
 df_summary_simpl <- df_summary_simpl %>% 
-  mutate(
-    adv_delayed = recode(adv_delayed, "Other" = "Intermediate")
-  ) %>% 
+  # mutate(
+  #   adv_delayed = recode(adv_delayed, "Other" = "Intermediate")
+  # ) %>% 
   mutate(adv_delayed = factor(adv_delayed, 
                               levels = c("Delayed", "Intermediate", "Advanced")))# %>%  # Ensure correct order
   
@@ -471,7 +473,7 @@ ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png',
        plot = p_simulated_stem_dens, width = 6.5, height = 3, dpi = 300, bg = 'white')
 
 
-# plot alternative : seed and no seed ---------------------------------------
+# Sensitivity analysis : seed and no seed range ---------------------------------------
 
 df_sim_indicators <- df_sim_indicators %>%
   mutate(
@@ -481,17 +483,13 @@ df_sim_indicators <- df_sim_indicators %>%
   )
 
 
-
-
-# Test --------
-
 df_sens_plot <- df_sim_indicators %>% 
  # dplyr::filter(!str_detect(seed_comb, "noseed")) %>% 
   dplyr::filter(year %in% 25:30) %>%
   mutate(
-    seed_comb = ifelse(is.na(seed_comb), "no seed", as.character(seed_comb)),
+    seed_comb = ifelse(is.na(seed_comb), "No seed", as.character(seed_comb)),
     seed_level_num = as.integer(str_extract(seed_comb, "-?\\d+")),
-    seed_comb = factor(seed_comb, levels = c("no seed", paste0("seed_", 
+    seed_comb = factor(seed_comb, levels = c("No seed", paste0("seed_", 
                                                                sort(unique(seed_level_num))))),
     adv_delayed = factor(adv_delayed, levels = c("Delayed", "Intermediate", "Advanced"))
   )
