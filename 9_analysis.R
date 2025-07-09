@@ -1601,13 +1601,13 @@ m_rnd_ti_fixed <- gam(
 )
 
 
-# which factors are most important?  ------------------------------------
+## which factors are most important?  ------------------------------------
 
 mgcv::summary.gam(m_rnd_ti_fixed)
 gratia::appraise(m_rnd_ti_fixed)
 
 
-# drop one variable at time:  ---------------------------------------------------
+### drop one variable at time:  ---------------------------------------------------
 
 # Fit full model
 m_full <- gam(
@@ -2679,25 +2679,13 @@ df_long_narrow <- df_fin %>%
                 sd_grw_anm_tmp,
                 tmp_z,
                 prcp_z,
-                #max_grw_anm_prcp,
-               # max_grw_anm_tmp,
+              
                 av.nitro, 
                depth_extract,
                slope, 
                elevation,
                sand_extract,
                clay_extract,
-               
-               #management_intensity,
-               #salvage_intensity,
-               #protection_intensity,
-              # sapl_juv_ratio,
-                #cv_t2m, 
-               # cv_tp,
-                
-                #spei12,
-                #spei1,
-                #spei6,
                 drought_spei1,
                 drought_spei3,
                 drought_spei12,
@@ -2705,7 +2693,6 @@ df_long_narrow <- df_fin %>%
                 drought_prcp,
                 disturbance_severity,
                 distance_edge, 
-              #  time_since_disturbance,
                 adv_delayed) %>% 
   #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
   gather(key = "Variable", value = "Value", -adv_delayed) %>% 
@@ -2863,174 +2850,128 @@ p.prcp <-   df_long_narrow_sub %>%
                      method = "wilcox.test", 
                      label =  'p.format', #"p.signif",  
                      size = 3,
-                     label.y = c(1500, 
-                                 1400, 
-                                 1300)) +  # Standard Wilcoxon test comparison lines
+                     digits = 3,    
+                     label.y = c(1430, 
+                                 1350, 
+                                 1280)) +  # Standard Wilcoxon test comparison lines
   my_theme() +
   # Add mean dots
   geom_point(data =  subset(summary_stats_narrow_sub, Variable == "prcp"), 
              aes(x = adv_delayed, y = Mean, group = adv_delayed), 
              shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(300,1600))  #
+  coord_cartesian(ylim = c(300,1500))  #
 
 p.prcp
 
+# test  -------------------
 
-p.tmp <- 
+# for all of predictors: 
 
-    df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "tmp") %>% 
-    ggboxplot(x = "adv_delayed", 
-              y = "Value", 
-                   fill = "adv_delayed", 
-                   palette = c("#A50026", "#FDAE61", "#006837"),
-                   ylab = "Temperature [°C]",
-                   xlab = "",
-                   outlier.shape = NA,
-                   #outlier.size = .2,
-                   size = 0.2) +
-      stat_compare_means(comparisons = comparisons_3grps,
-                         method = "wilcox.test",
-                         label =  'p.format', #"p.signif",
-                         size = 3,
-                         label.y = c(13.4,
-                                     12.8,
-                                     12.2)) +
-  my_theme() +
-      # Add mean dots
-      geom_point(data =  subset(summary_stats_narrow_sub, Variable == "tmp"), 
-                 aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-                 shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-    coord_cartesian(ylim = c(7,14)) 
+# Define short labels
+label_map <- c("Delayed" = "Del.", "Intermediate" = "Int.", "Advanced" = "Adv.")
+
+# Function to generate one plot with custom p-value brackets
+make_boxplot_with_pvals <- function(var_name, y_label, y_limits, bracket_heights, tick_height = 0.2, text_offset = 0.2) {
   
-p.tmp
-
-p.spei1 <-
-  df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "drought_spei1") %>% 
-  ggboxplot(x = "adv_delayed", 
-            y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("#A50026", "#FDAE61", "#006837"),
-            ylab = "SPEI-1 Drought Index [dim.]", 
-            xlab = "",
-            outlier.shape = NA,
-            #outlier.size = .2,
-            size = 0.2) +
-  stat_compare_means(comparisons = comparisons_3grps, 
-                     method = "wilcox.test", 
-                     label =  'p.format', #"p.signif",  
-                     size = 3,
-                     label.y = c(-0.7, 
-                                 -0.75, 
-                                 -0.8)) +  # Standard Wilcoxon test comparison lines
-  my_theme() +
-  # Add mean dots
-  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "drought_spei1"), 
-             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-
-  coord_cartesian(ylim = c(-1.15,-0.65)) 
-
-p.spei1
-
-
-
-
-# Example: Create individual plots
-p.clay <-   
-  df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "clay_extract") %>% 
-  ggboxplot(x = "adv_delayed", 
-            y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("#A50026", "#FDAE61", "#006837"),
-            ylab = "Clay [%]", 
-            xlab = "",
-            outlier.shape = NA,
-            #outlier.size = .2,
-            size = 0.2) +
-  stat_compare_means(comparisons = comparisons_3grps, 
-                     method = "wilcox.test", 
-                     label =  'p.format', #"p.signif",  
-                     size = 3,
-                     label.y = c(42, 
-                                 38, 
-                                 35)) +  # Standard Wilcoxon test comparison lines
-  my_theme() +
-  # Add mean dots
-  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "clay_extract"), 
-             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(0,45))  #
-
-p.clay
-
-# Example: Create individual plots
-p.disturbance <-   df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "disturbance_severity") %>% 
-  ggboxplot(x = "adv_delayed", 
-            y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("#A50026", "#FDAE61", "#006837"),
-            ylab = "Disturbance severity [dim.]", 
-            xlab = "",
-            outlier.shape = NA,
-            #outlier.size = .2,
-            size = 0.2) +
-  stat_compare_means(comparisons = comparisons_3grps, 
-                     method = "wilcox.test", 
-                     label =  'p.format', #"p.signif",  
-                     size = 3,
-                     label.y = c(1.2, 
-                                 1.1, 
-                                 1)) +  # Standard Wilcoxon test comparison lines
-  my_theme() +
-  # Add mean dots
-  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "disturbance_severity"), 
-             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(0,1.3))  #
-
-p.disturbance
+  # Filter data
+  df_sub <- df_long_narrow_sub %>% filter(Variable == var_name)
+  
+  # Compute p-values
+  pvals <- compare_means(Value ~ adv_delayed, data = df_sub,
+                         method = "wilcox.test", comparisons = comparisons_3grps) %>%
+    mutate(p_rounded = formatC(p, digits = 3, format = "f"))
+  
+  # Calculate dynamic tick height and text offset based on y-axis range
+  y_range <- diff(range(y_limits))
+  tick_height_scaled <- tick_height * y_range
+  text_offset_scaled <- text_offset * y_range
+  
+  
+  # Bracket data
+  brackets <- data.frame(
+    x = c(1, 1, 2),
+    xend = c(2, 3, 3),
+    y = bracket_heights,
+    label = pvals$p_rounded,
+    tick = tick_height,
+    text_offset = text_offset
+  )
+  
+  # Mean summary
+  summary_data <- subset(summary_stats_narrow_sub, Variable == var_name)
+  
+  # Boxplot
+  p <- ggboxplot(df_sub, x = "adv_delayed", y = "Value",
+                 fill = "adv_delayed",
+                 palette = c("#A50026", "#FDAE61", "#006837"),
+                 ylab = y_label, xlab = "", outlier.shape = NA, size = 0.2) +
+    scale_x_discrete(labels = label_map) +
+    geom_point(data = summary_data,
+               aes(x = adv_delayed, y = Mean),
+               shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
+    coord_cartesian(ylim = y_limits) +
+    my_theme() +
+    
+    # Bracket lines and ticks
+    geom_segment(data = brackets, aes(x = x, xend = xend, y = y, yend = y), size = 0.3) +
+    geom_segment(data = brackets, aes(x = x, xend = x, y = y, yend = y - tick), size = 0.3) +
+    geom_segment(data = brackets, aes(x = xend, xend = xend, y = y, yend = y - tick), size = 0.3) +
+    geom_text(data = brackets, aes(x = (x + xend) / 2, y = y + text_offset, label = label), size = 3)
+  
+  return(p)
+}
 
 
-# Example: Create individual plots
-p.distance_edge <-   
-  df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "distance_edge") %>% 
-  ggboxplot(x = "adv_delayed", 
-            y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("#A50026", "#FDAE61", "#006837"),
-            ylab = "Distance to edge [m]", 
-            xlab = "",
-            outlier.shape = NA,
-            #outlier.size = .2,
-            size = 0.2) +
-  stat_compare_means(comparisons = comparisons_3grps, 
-                     method = "wilcox.test", 
-                     label =  'p.format', #"p.signif",  
-                     size = 3,
-                     label.y = c(140, 
-                                 130, 
-                                 120)) +  # Standard Wilcoxon test comparison lines
-  my_theme() +
-  # Add mean dots
-  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "distance_edge"), 
-             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(0,150))  #
+p1 <- make_boxplot_with_pvals(
+  "prcp", "Precipitation [mm]", 
+  c(300, 1530), c(1270, 1370, 1490),
+  tick_height = 20,       # ~1.7% of y-range
+  text_offset = 35        # ~2.5% of y-range
+)
+p1
+p2 <- make_boxplot_with_pvals(
+  "tmp", "Temperature [°C]", 
+  c(6.2, 14.2), c(12.6, 13.2, 14),
+  tick_height = 0.2,       # ~2.5%
+  text_offset = 0.25       # ~3%
+)
+p2
 
-p.distance_edge
-
-
+p3 <- make_boxplot_with_pvals(
+  "drought_spei1", "SPEI-1 Drought Index [dim.]", 
+  c(-1.15, -0.65), c(-0.8, -0.75, -0.7),
+  tick_height = 0.009,     # ~3%
+  text_offset = 0.02       # ~4%
+)
+p3
+p4 <- make_boxplot_with_pvals(
+  "clay_extract", "Clay [%]", 
+  c(5, 55), c(42, 47, 53),
+  tick_height = 1.2,       # ~2.7%
+  text_offset = 1.7        # ~3.3%
+)
+p4
+p5 <- make_boxplot_with_pvals(
+  "disturbance_severity", "Disturbance severity [dim.]", 
+  c(0, 1.5), c(1.1, 1.25, 1.4),
+  tick_height = 0.03,      # ~2%
+  text_offset = 0.04       # ~2.7%
+)
+p5
+p6 <- make_boxplot_with_pvals(
+  "distance_edge", "Distance to edge [m]", 
+  c(0, 155), c(120, 133, 147),
+  tick_height = 1.9,       # ~2.2%
+  text_offset = 4          # ~2.5%
+)
+p6
 
 # Combine all plots into a single figure
-wilcox_plot_out_clay <- ggarrange(p.prcp, p.tmp, p.spei1,p.clay,
+wilcox_plot_out_clay <- ggarrange(p1, p2, p3,p4,
                         ncol = 2, 
                         nrow = 2, 
-                        labels = c("[a]", "[b]","[c]","[d]"), font.label = list(size = 8, face = "plain"))
+                        labels = c("[a]", "[b]","[c]","[d]"), 
+                        font.label = list(size = 8, face = "plain"))
 
 # Display the final merged plot
 wilcox_plot_out_clay
@@ -3049,14 +2990,13 @@ ggsave(filename = "outFigs/wilcox_plot_out_clay.svg", plot = wilcox_plot_out_cla
 # Wilcox supplement ------------------
 # alternative Wilcopx with protection intensity
 # Combine all plots into a single figure
-wilcox_plot_supplement<- ggarrange(p.prcp, p.tmp, p.spei1, p.clay, #p.manag, p.protection,
-                                   p.disturbance, p.distance_edge,
+wilcox_plot_supplement<- ggarrange(p1, p2, p3,p4,p5, p6,
                               ncol = 3, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]'), #'[g]','[h]'
                               font.label = list(size = 8, face = "plain"))
 
 # Save the plot as an SVG file
 ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_supplement, 
-       device = "png", width = 5.5, height = 4, dpi = 300, bg = 'white')
+       device = "png", width = 7, height = 5.5, dpi = 300, bg = 'white')
 
 
 
