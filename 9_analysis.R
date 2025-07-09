@@ -3084,35 +3084,36 @@ plot_variable_box_fin <- function(var_name,
 }
 
 
+# Precipitation
+p.prcp.fin <- plot_variable_box_fin(
+  var_name = "prcp",
+  y_label = "Precipitation [mm]",
+  y_limits = c(300, 1500),
+  label_y_values = c(1400),
+  tick_height = 20,
+  text_offset = 35
+)
 
 # SPEI-1
 p.spei1.fin <- plot_variable_box_fin(
   var_name = "drought_spei1",
   y_label = "SPEI-1 [dim.]",
   y_limits = c(-1.15, -0.65),
-  label_y_values = c(-0.75),
+  label_y_values = c(-0.7),
   tick_height = 0.009,
   text_offset = 0.02
 )
 
-# Precipitation
-p.prcp.fin <- plot_variable_box_fin(
-  var_name = "prcp",
-  y_label = "Precipitation [mm]",
-  y_limits = c(300, 1530),
-  label_y_values = c(1370),
-  tick_height = 20,
-  text_offset = 35
-)
+
 
 # Clay
 p.clay.fin <- plot_variable_box_fin(
   var_name = "clay_extract",
   y_label = "Clay [%]",
-  y_limits = c(5, 45),
-  label_y_values = c(42),
-  tick_height = 1.2,
-  text_offset = 1.7
+  y_limits = c(5,40),
+  label_y_values = c(37),
+  tick_height = 0.6,
+  text_offset = 1
 )
 
 
