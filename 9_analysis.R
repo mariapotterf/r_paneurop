@@ -1826,7 +1826,7 @@ cat(sprintf(
 ))
 
 
-### distrubanec severity and distance edge -------------------------------------
+### distrubanec severity and distance edge ---------------
 
 # Predict effect of distance from edge
 distance_pred <- ggpredict(fin.m.reg.density, terms = "distance_edge [50,250]")
@@ -1852,7 +1852,7 @@ cat(sprintf(
 ))
 
 
-### Predict stem density at disturbance severity levels 0.3 and 0.9 ---------------
+### Predict stem density at disturbance severity levels 0.3 and 0.9 
 severity_pred <- ggpredict(fin.m.reg.density, terms = "disturbance_severity [0.3,0.9]")
 
 # Extract predicted values and confidence intervals
@@ -1884,7 +1884,7 @@ cat(sprintf(
 
 
 
-### test for spatial autocorrelation: ------------------------------------------
+### Test for spatial autocorrelation: ------------------------------------------
 
 # 
 
@@ -2073,7 +2073,6 @@ ggsave('outFigs/fig_p_combined_int_no_points_supplem.png', plot = p_combined_int
 
 
 
-## 8. Wilcox: Boxplot sites differences: delayed vs advaced ----------------------------
 
 # two categories: count how many plots i have?
 
@@ -2082,9 +2081,9 @@ prop.table(table(df_fin$adv_delayed))
 table(df_fin$adv_delayed)
 
 
+# 6. Wilcox text: delayed vs advanced -----------------------------------------------
 
-
-### get indicators for delayed/advanced: ------------------------------------------
+##  get indicators for delayed/advanced: 
 df_delayed_advanced <- df_fin %>% 
   dplyr::select(site, country, adv_delayed)
 
@@ -2297,8 +2296,6 @@ p.prcp <-   df_long_narrow_sub %>%
 
 p.prcp
 
-# test  -------------------
-
 # for all of predictors: 
 
 # Define short labels
@@ -2416,8 +2413,8 @@ ggsave(filename = "outFigs/wilcox_plot_out_clay.png", plot = wilcox_plot_out_cla
        device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_plot_out_clay.svg", plot = wilcox_plot_out_clay, 
-       device = "svg", width = 5, height = 5.5, dpi = 300, bg = 'white')
+# ggsave(filename = "outFigs/wilcox_plot_out_clay.svg", plot = wilcox_plot_out_clay, 
+#        device = "svg", width = 5, height = 5.5, dpi = 300, bg = 'white')
 
 
 
@@ -2820,11 +2817,6 @@ df_compare_future_species <- wide_future_species %>%
 ## compare with vs Wessely species databases  ---------
 length(unique(df_compare_future_species$acc))  # final length is 30 species: corss between wessely and observed field database
 
-# how many species are present in my species database, but not in Wessely? 
-species_out_of_wessely <- df_compare_future_species %>%
-  dplyr::filter(is.na(rcp26)) %>%
-  distinct(acc)  # Optional, if you want all unique rows with NA acc
-
 # create country naming from regions
 unique_regions_per_country <- df_fin %>%
    group_by(country_pooled) %>%
@@ -2833,8 +2825,7 @@ unique_regions_per_country <- df_fin %>%
   mutate(unique_regions = as.integer(as.character(unique_regions)))
 
 
-# Merge field observations with Wesseley database 
-# add country indication
+# Merge field observations with Wesseley database , add country indication
 df_compare_future_species_regions <- df_compare_future_species %>%
   #   # Extract the first two characters of 'site' as 'region' and convert to integer
   mutate(region = as.integer(substr(site, 1, 2))) %>%
@@ -3098,6 +3089,7 @@ p.species.suitability_country
 
 
 #### Sankey plot test: need to restructure data -----------------
+
 # update naming and coloring
 species_colors_grey <- c(
   piab = "#006837",
@@ -3130,8 +3122,12 @@ species_labels_grey <- c(
 
 
 
-# make a table for sankey plot: merge all of non top 10 species as 'other'
-df_top_species <- df_compare_future_species_regions %>% 
+# START ----------------------
+
+# recalculate sankey per all plots (not only on occurence)
+n_plots = 849
+
+df_top_species_ovr <- df_compare_future_species_regions %>% 
   dplyr::mutate(
     acc = ifelse(acc %in% top_species_site_share, acc, "other")  # relabel all others
   ) %>%
@@ -3146,20 +3142,20 @@ df_top_species <- df_compare_future_species_regions %>%
     rcp85,
     sum_stem_density,
     country_pooled
-      ) %>% 
+  ) %>% 
   group_by(acc) %>% 
   summarize( n_sites_present = n_distinct(site),
-             avg_stem_dens_current = sum(sum_stem_density)/n_sites_present,
-             avg_stem_dens_rcp26 = sum(sum_stem_density[rcp26 == 1]) / n_sites_present,
-             avg_stem_dens_rcp45 = sum(sum_stem_density[rcp45 == 1]) / n_sites_present,
-             avg_stem_dens_rcp85 = sum(sum_stem_density[rcp85 == 1]) / n_sites_present,
+             avg_stem_dens_current = sum(sum_stem_density)/n_plots,
+             avg_stem_dens_rcp26 = sum(sum_stem_density[rcp26 == 1]) / n_plots,
+             avg_stem_dens_rcp45 = sum(sum_stem_density[rcp45 == 1]) / n_plots,
+             avg_stem_dens_rcp85 = sum(sum_stem_density[rcp85 == 1]) / n_plots,
              .groups = "drop") #%>% 
-  #dplyr::select(-)
+#dplyr::select(-)
 
 
 # Start from  existing summary
 # Prepare long-format data
-df_alluvial_stem_density <- df_top_species %>%
+df_alluvial_stem_density_overall <- df_top_species_ovr %>%
   dplyr::select(acc, 
                 avg_stem_dens_current, 
                 avg_stem_dens_rcp26, 
@@ -3182,23 +3178,20 @@ df_alluvial_stem_density <- df_top_species %>%
 
 
 # Create the alluvial plot
-
-library(ggalluvial)
-
-p_species_stem_density <- 
-  ggplot(df_alluvial_stem_density,
-                                 aes(x = scenario,
-                                     y = stem_density/1000,
-                                     stratum = acc,
-                                     alluvium = acc,
-                                     fill = acc)) +
+p_species_stem_density_ovr <- 
+  ggplot(df_alluvial_stem_density_overall,
+         aes(x = scenario,
+             y = stem_density/1000,
+             stratum = acc,
+             alluvium = acc,
+             fill = acc)) +
   geom_flow(alpha = 0.85) +
   geom_stratum() +
   theme_classic2(base_size = 8) +
   labs(title = "",
        x = "Scenario",
-       y = expression("Stem density per species [n × 10"^3*" "*ha^{-1}*"]"),
-       #y = expression("Stem density per species [n "*ha^{-1}*"]"),
+       #y =   y_lab_reg, #expression("Reg. stem density [n  1000 " " "*ha^{-1}*"]"),
+       y = expression("Regeneration stem density [1000 n "*ha^{-1}*"]"),
        fill = "Species") +
   scale_fill_manual(values = species_colors_grey,
                     labels = species_labels_grey) +
@@ -3209,19 +3202,26 @@ p_species_stem_density <-
     axis.title = element_text(size = 8)
   )
 
-p_species_stem_density
+p_species_stem_density_ovr
 
 
 # Save the combined plot as an image
 ggsave(
-  filename = "outFigs/p.sankey.png",    # File name (change extension for different formats, e.g., .pdf)
-  plot = p_species_stem_density,             # Plot object to save
+  filename = "outFigs/p.sankey_ovr.png",    # File name (change extension for different formats, e.g., .pdf)
+  plot = p_species_stem_density_ovr,             # Plot object to save
   width = 5,                       # Width of the saved plot in inches
   height = 3,                       # Height of the saved plot in inches
   dpi = 300,                        # Resolution (dots per inch)
   units = "in"                      # Units for width and height
 )
 # p.species.suitability_country_simpl
+
+
+
+
+# END -------------------------
+
+
 
 
 
