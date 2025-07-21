@@ -1676,7 +1676,7 @@ vis.gam(m_rnd_ti, view = c("prcp", "tmp"), plot.type = "contour")
 #### quick plotting ---------------------------
 plot(m_rnd_ti_fixed, page = 1, shade = T)
 
-m<- m_alt #m_rnd_ti         
+m<- m_rnd_ti         
 
 clay_effect <- ggpredict(m, terms = "clay_extract")
 dist_edge_effect <- ggpredict(m, terms = c("distance_edge"))
@@ -1697,7 +1697,7 @@ plot(tmp_prcp_effect)
 
 
 
-## export final drivers model: only fixed effectd  -----------------------------------------------------------------
+## Export final drivers model: only fixed effectd  -----------------------------------------------------------------
 
 # Identify random effects using the model's "smooth" component
 smooth_terms <- summary(fin.m.reg.density)$s.table
@@ -1772,7 +1772,7 @@ sjPlot::tab_model(m_rnd_ti,
 # Predict stem density at mean precipitation for different temperatures
 
 
-## Predict effect of temperature (per 1°C increase)------------------
+## Predict effect of temperature (per 1°C increase)
 temp_pred <- ggpredict(fin.m.reg.density, terms = "tmp [7:12]")
 temp_diff <- diff(temp_pred$predicted)
 
@@ -1832,7 +1832,7 @@ cat(sprintf(
 ))
 
 
-### distrubanec severity and distance edge -------------------------------------
+## distrubanec severity and distance edge -------------------------------------
 
 # Predict effect of distance from edge
 distance_pred <- ggpredict(fin.m.reg.density, terms = "distance_edge [50,250]")
@@ -2235,7 +2235,7 @@ ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_p
 
 
 
-## all predictors for supplemeny  ------------------------
+### all predictors for supplement  ------------------------
 
 p_combined_int_no_points_supplem <- ggarrange(p.prcp, p.tmp, p1, p4, p2, p3,
                                       labels = c("[a]","[b]", "[c]","[d]", "[e]","[f]"), 
@@ -2262,7 +2262,7 @@ table(df_fin$adv_delayed)
 
 
 
-# get indicators for delayed/advanced: ------------------------------------------
+## get indicators for delayed/advanced: ------------------------------------------
 df_delayed_advanced <- df_fin %>% 
   dplyr::select(site, country, adv_delayed)
 
