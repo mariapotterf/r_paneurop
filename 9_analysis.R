@@ -1258,7 +1258,7 @@ predictor_vars_sub <- c(
 
 
 
-### run univariate models to find teh best predictors : -----------------------------
+## Univariate models to find teh best predictors : -----------------------------
 
 # Define response and predictor variables
 response_var <- "stem_regeneration" # Replace with your actual response variable name
@@ -1302,7 +1302,6 @@ sjPlot::tab_df(AIC_results_univariate,
                digits = 1) 
 
 
-## Models: simplify table just for stem_regeneration  ---------------------------------------------------------------------------------
 # test drivers: simplify the analysis:
 # Subset the data
 
@@ -1317,7 +1316,7 @@ df_stem_regeneration2 <- df_fin %>%
 summary(df_stem_regeneration2)
 
 
-#### check for multicollinearity -----------------------------------------------------
+### check for multicollinearity -----------------------------------------------------
 
 library(car)
 
@@ -1331,7 +1330,7 @@ vif(lm_small)
 
 
 
-## Drivers: regeneration density pooled ---------------------------------------------
+### Drivers: Correlation coefficient ---------------------------------------------
 
 
 # Check the structure of the data
@@ -1388,7 +1387,7 @@ corrplot(correlation_matrix_renamed,
 )
 
 dev.off()
-# DRivers: models: -----------------------------------------------------------
+## DRivers: models: -----------------------------------------------------------
 
 
 
@@ -1605,54 +1604,47 @@ summary(m_lowsev)
 summary(m_rnd_ti_fixed)
 
 
+# TEST START ---
 
-# 3. Prediction data
-newdata <- data.frame(
-  prcp = mean(df_stem_regeneration2$prcp, na.rm = TRUE),
-  tmp = mean(df_stem_regeneration2$tmp, na.rm = TRUE),
-  distance_edge = mean(df_stem_regeneration2$distance_edge, na.rm = TRUE),
-  disturbance_severity = seq(0.1, 1, by = 0.01),
-  clay_extract = mean(df_stem_regeneration2$clay_extract, na.rm = TRUE),
-  av.nitro = mean(df_stem_regeneration2$av.nitro, na.rm = TRUE),
-  x = mean(df_stem_regeneration2$x, na.rm = TRUE),
-  y = mean(df_stem_regeneration2$y, na.rm = TRUE)
-)
+#low vs full severity sites
 
-# 4. Predict with confidence intervals
-pred_full <- predict(m_rnd_ti_fixed, newdata, type = "response", se.fit = TRUE)
-pred_low <- predict(m_lowsev, newdata, type = "response", se.fit = TRUE)
+# 1. Predict from the full model (across full severity range)
+pred_full <- ggpredict(m_rnd_ti_fixed, terms = "disturbance_severity [0:1 by=0.01]") # 
+pred_full$group <- "Full model (n = 849)"
 
-# 5. Combine predictions
-df_pred <- newdata %>%
-  mutate(
-    fit_full = pred_full$fit,
-    upper_full = pred_full$fit + 2 * pred_full$se.fit,
-    lower_full = pred_full$fit - 2 * pred_full$se.fit,
-    fit_low = pred_low$fit,
-    upper_low = pred_low$fit + 2 * pred_low$se.fit,
-    lower_low = pred_low$fit - 2 * pred_low$se.fit
-  )
+# 2. Predict from the low-severity model (limited to 0–0.7 range)
+pred_low <- ggpredict(m_lowsev, terms = "disturbance_severity [0:0.7 by=0.01]") #  
+pred_low$group <- "Low-severity subset (n = 133)"
 
-df_pred$disturbance_severity_pct <- df_pred$disturbance_severity * 100
+# 3. Combine predictions
+pred_combined <- bind_rows(as.data.frame(pred_full), as.data.frame(pred_low)) %>%
+  mutate(disturbance_severity_pct = x * 100)
 
-# 6. Plot
-p_low_high_severity <- ggplot(df_pred, aes(x = disturbance_severity_pct)) +
-  geom_ribbon(aes(ymin = lower_full, ymax = upper_full), fill = "steelblue", alpha = 0.2) +
-  geom_line(aes(y = fit_full, color = "Full model (n = 846)"), size = 1.2) +
-  geom_ribbon(aes(ymin = lower_low, ymax = upper_low), fill = "darkorange", alpha = 0.2) +
-  geom_line(aes(y = fit_low, color = "Low-severity subset (n = 133)"), size = 1.2, linetype = "dashed") +
- # geom_vline(xintercept = 90, linetype = "dotted", color = "grey40") +
-  labs(
-    title = "", # Effect of disturbance severity on tree regeneration
-    x = "Disturbance severity [%]",
-    y = expression("Predicted stem regeneration density [n ha"^-1*"]"),
-    color = ""
+# 4. Plot both prediction lines + confidence bands + raw data
+p_low_high_severity <- 
+  ggplot(pred_combined, aes(x = disturbance_severity_pct, y = predicted/1000, 
+                            color = group,
+                            linetype = group)) +
+  geom_ribbon(aes(ymin = conf.low/1000, 
+                  ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
+  geom_line(size = 1.2) +
+ scale_color_manual(values = c("Full model (n = 849)" = "steelblue",
+                               "Low-severity subset (n = 133)" = "darkorange"),
+                    guide = guide_legend(nrow = 2)) +
+ scale_fill_manual(values = c("Full model (n = 849)" = "steelblue",
+                              "Low-severity subset (n = 133)" = "darkorange"),
+                   guide = guide_legend(nrow = 2)) +
+    scale_linetype_manual(values = c("Full model (n = 849)" = "solid",
+                                     "Low-severity subset (n = 133)" = "dashed"),
+                          guide = guide_legend(nrow = 2)) +
+    
+     labs(
+       x = "Disturbance severity [%]",
+       y = expression("Stem regeneration density [*1000 n ha"^-1*"]"),
+       color = "", fill = "", linetype = "",
   ) +
-  scale_color_manual(values = c("Full model (n = 846)" = "steelblue", 
-                                "Low-severity subset (n = 133)" = "darkorange")) +
-  theme_bw(base_size = 8) + 
-  theme(legend.position = 'bottom')
-
+  theme_classic2(base_size = 8) +
+  theme(legend.position = "bottom")
 
 
 p_low_high_severity
@@ -1802,96 +1794,6 @@ sjPlot::tab_model(m_rnd_ti,
                   pred.labels = c("Intercept", pred_labels), # Replace smooth term labels
                   dv.labels = paste0("Explained Deviance: ", round(100 * summary(m_rnd_ti)$dev.expl, 2), "%"), 
                   file = "outTable/full_drivers_reg_stem_density_full_random.doc")
-
-## Disturbance severity: balanced design: --------------------------------
-hist(df_stem_regeneration2$disturbance_severity)
-hist(df_stem_regeneration2$distance_edge)
-
-table(df_stem_regeneration2$disturb_sev_cl_simpl)[2]
-table(df_stem_regeneration2$disturb_sev_cl3)
-# min number of points in low category is 31
-min_n = 175
-
-# Randomly sample equal-sized subsets for each severity level
-df_balanced2 <- df_stem_regeneration2 %>%
-  group_by(disturb_sev_cl2) %>%
-  sample_n(175) %>%   # from only 2 categories: low and high, low = 175
-  ungroup()
-# run for 3 caterories: low, medium, high
-df_balanced3 <- df_stem_regeneration2 %>%
-  group_by(disturb_sev_cl3) %>%
-  sample_n(31) %>% # low category = 31
-  ungroup()
-
-# Fit the GAM model again on the balanced dataset
-# Fit the GAM model again on the balanced dataset
-m_balanced3 <- gam(
-  stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) +
-    te(disturbance_severity, distance_edge, k = 5) +
-    ti(prcp, tmp, k = 5) +
-    s(management_intensity, by = country_pooled, k = 4) +
-    s(country_pooled, bs = "re") +
-    s(region_manual, bs = "re", k = 5) +
-    s(x, y),
-  family = tw(),
-  method = "REML",
-  data = df_balanced3
-)
-
-
-
-m_balanced2 <- gam(
-  stem_regeneration ~ s(prcp, k = 5) + s(tmp, k = 5) +
-    te(disturbance_severity, distance_edge, k = 5) +
-    ti(prcp, tmp, k = 5) +
-    s(management_intensity, by = country_pooled, k = 4) +
-    s(country_pooled, bs = "re") +
-    s(region_manual, bs = "re", k = 5) +
-    s(x, y),
-  family = tw(),
-  method = "REML",
-  data = df_balanced2
-)
-
-# Compare the original and balanced models
-summary(m_balanced3)
-summary(m_balanced2)
-summary(m_int_sev_edge_full_te_comb)  # Original model
-
-hist(df_stem_regeneration2$management_intensity)
-
-# Histogram for management intensity by country
-ggplot(df_stem_regeneration2, aes(x = management_intensity)) +
-  geom_histogram(binwidth = 0.1, fill = "steelblue", color = 
-                   ) +
-  facet_wrap(~ country_pooled, scales = "free_y") +
-  labs(
-    title = "Distribution of Management Intensity by Country",
-    x = "Management Intensity",
-    y = "Count"
-  ) +
-  theme_minimal()
-
-ggplot(df_stem_regeneration2, aes(x = salvage_intensity)) +
-  geom_histogram(binwidth = 0.1, fill = "steelblue", color = 
-                   ) +
-  facet_wrap(~ country_pooled, scales = "free_y") +
-  labs(
-    title = "Distribution of Salvage Intensity by Country",
-    y = "Count"
-  ) +
-  theme_minimal()
-
-
-ggplot(df_stem_regeneration2, aes(x = protection_intensity)) +
-  geom_histogram(binwidth = 0.1, fill = "steelblue", color = 
-                   ) +
-  facet_wrap(~ country_pooled, scales = "free_y") +
-  labs(
-    title = "Distribution of Protection Intensity by Country",
-    y = "Count"
-  ) +
-  theme_minimal()
 
 
 # 6. interpret the results:  drivers -----------------------
