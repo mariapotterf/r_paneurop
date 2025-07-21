@@ -20,24 +20,17 @@ library(ggridges)
 library(purrr)
 
 # stats
-library(MASS) #glm.nb for negative binomial models
-library(glmmTMB) #Salamanders dataset and lots of families
+#library(MASS) #glm.nb for negative binomial models
+#library(glmmTMB) #Salamanders dataset and lots of families
 
 
-#library(lme4) #pseudo-R2 and and mixed model functionality
-#library(MuMIn) #dredge function for comparing models, AIC, marginal R^2 for mixed models
-#library(sjmisc) #pseudo R^2 - but I think gets loaded as a dependency
-library(DHARMa) #model diagnostics
+#library(DHARMa) #model diagnostics
 library(effects) #what do my marginal effects look like?
-#library(performance) #binomial model diagnostics
-#library(emmeans) #post hoc for categorical predictors
 
 library(mgcv)
 library(gratia)
 library(ggeffects)
 
-
-# Cluster analysis
 
 library(GGally) # for pairwise comparions of the variables 1:1, also calculates the correlation and sinificance
 
@@ -178,6 +171,7 @@ df_fin_clim_clust_xy <- st_as_sf(df_fin, coords = c("x", "y"), crs = crs(xy))
 
 ## properly format table: --------------
 df_fin <- df_fin %>% 
+  dplyr::select(-disturbance_agent ) %>%  # contains NAs!
   mutate(country_full    = factor(country_full),
          country_abbr    = factor(country_abbr),
          country_pooled  = factor(country_pooled),
@@ -1767,7 +1761,7 @@ sjPlot::tab_model(m_rnd_ti,
                   file = "outTable/full_drivers_reg_stem_density_full_random.doc")
 
 
-# 6. interpret the results:  drivers -----------------------
+## Interpret the results:  drivers -----------------------
 # average increase in stem density per tmp, prcp and tehir interaction 
 # Predict stem density at mean precipitation for different temperatures
 
@@ -1832,7 +1826,7 @@ cat(sprintf(
 ))
 
 
-## distrubanec severity and distance edge -------------------------------------
+### distrubanec severity and distance edge -------------------------------------
 
 # Predict effect of distance from edge
 distance_pred <- ggpredict(fin.m.reg.density, terms = "distance_edge [50,250]")
@@ -1858,7 +1852,7 @@ cat(sprintf(
 ))
 
 
-## Predict stem density at disturbance severity levels 0.3 and 0.9 ---------------
+### Predict stem density at disturbance severity levels 0.3 and 0.9 ---------------
 severity_pred <- ggpredict(fin.m.reg.density, terms = "disturbance_severity [0.3,0.9]")
 
 # Extract predicted values and confidence intervals
@@ -1915,131 +1909,13 @@ moran_test <- moran.test(model_residuals, listw)
 print(moran_test)
 
 
-## 7.  Plot: Drivers  ---------------------------------------------------------------------------
+## Plot: Drivers  ---------------------------------------------------------------------------
 y_lab = expression("Stem density [1000 n ha"^{-1}*"]")
 
-summary(fin.m.reg.density)
-anova.gam(fin.m.reg.density)
 
-# show only 95% quatile for stem density
-# Define the quantiles for stem_density and tmp columns
-quantiles_stem_density99 <- quantile(df_stem_regeneration2$stem_regeneration  , 
-                                    probs = c(0, 0.99), na.rm = TRUE)
-# 
-quantiles_stem_density90 <- quantile(df_stem_regeneration2$stem_regeneration  , 
-                                     probs = c(0, 0.90), na.rm = TRUE)
-
-
-# Filter the DataFrame to keep rows within these quantile ranges
-filtered_df_plot99 <- df_stem_regeneration2 %>%
-   dplyr::filter(stem_regeneration     >= quantiles_stem_density99[1] & stem_regeneration  <= quantiles_stem_density99[2])
-
-filtered_df_plot90 <- df_stem_regeneration2 %>%
-  dplyr::filter(stem_regeneration     >= quantiles_stem_density90[1] & stem_regeneration  <= 
-                  quantiles_stem_density90[2])
-
-
-# ,tmp >= quantiles_tmp[1] & tmp <= quantiles_tmp[2]
-
-# Display the filtered data
-#filtered_df_plot99
-#summary(filtered_df_plot99$stem_regeneration)
-
-
-
-## DRivers effect plorts make plot manually:  --------------------------
+### Make plot manually:  --------------------------
 
 m <- fin.m.reg.density #m_int_sev_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
-k.check(m)
-summary(m)
-
-
-# test 
-# Generate predictions using ggpredict
-# Interaction 1: Precipitation and Temperature
-pred1 <- ggpredict(m, terms = c("prcp", "tmp [8,10]"))
-
-pred1_df <- as.data.frame(pred1)
-pred1_df$group <- as.numeric(as.character(pred1_df$group)) 
-pred1_df$group <- factor(pred1_df$group)
-
-
-# Interaction 2: Distance to Edge and Disturbance Severity
-pred2 <- ggpredict(m, terms = c("distance_edge", "disturbance_severity [0.3,0.9]"))
-# Example: Convert disturbance_severity to percent
-pred2_df <- as.data.frame(pred2)
-pred2_df$group <- as.numeric(as.character(pred2_df$group)) * 100
-pred2_df$group <- factor(pred2_df$group)
-
-my_colors_interaction <- c( "#FDAE61", "#A50026")
-# Plot the first interaction
-p1 <- 
-  ggplot(pred1, aes(x = x, y = predicted/1000)) +
-  geom_point(data = filtered_df_plot99, 
-              aes( x = prcp, y = stem_regeneration/1000), 
-              size = 1, alpha = 0.2, color = 'grey', pch = 16) +
-  geom_line(linewidth = 1, aes(color = group) ) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
-              alpha = 0.2, color = NA) +
-  scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
-  scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
-  theme_classic() +
-  labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "p=0.005", 
-      # linetype =  "Temperature [°C]"
-       ) +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
-    axis.title = element_text(size = 8),                   # Axis title size
-    axis.text = element_text(size = 8),                    # Axis text size
-    legend.key.size = unit(0.5, "cm"),                     # Legend key size
-    legend.text = element_text(size = 8),                  # Legend text size
-    legend.title = element_text(size = 8),                 # Legend title size
-    legend.position = c(0.05, 0.9),
-    legend.justification = c(0.05, 0.9)
-  )
-
-p1
-# Plot the second interaction
-p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
-  geom_jitter(data = filtered_df_plot90, 
-              aes( x = distance_edge, y = stem_regeneration/1000), 
-              size = 1, alpha = 0.2, color = 'grey',
-              width = 7,
-              height = 1, pch = 16) +
-  geom_line(linewidth = 1, aes(color = group) ) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
-  scale_color_manual(values = my_colors_interaction, 
-                     name = "Disturbance\nseverity",
-                     labels = c("Low", "High")) +
-  scale_fill_manual(values = my_colors_interaction, 
-                    name = "Disturbance\nseverity",
-                    labels = c("Low", "High")) +
-  theme_classic() +
-  #ylim(0,20) +
-  labs(x = "Distance to edge [m]", y = "", title = "p=0.751") +
-  theme(
-    axis.title = element_text(size = 8),
-    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
-    axis.title.y = element_blank(),                   # Axis title size
-    axis.text = element_text(size = 8),                    # Axis text size
-    legend.key.size = unit(0.5, "cm"),                     # Legend key size
-    legend.text = element_text(size = 8),                  # Legend text size
-    legend.title = element_text(size = 8),                 # Legend title size
-    legend.position = c(0.05, 0.9),
-    legend.justification = c(0.05, 0.9)
-  )
-p2
-
-p_combined_int <- ggarrange(p1, p2, 
-                            labels = c("[a]","[b]"), 
-                            align = 'hv',
-                            font.label = list(size = 8, face = "plain")) # Specify plain font style)
-
-(p_combined_int)
-# Save the combined plot
-ggsave('outFigs/fig_regen_int_drivers.png', plot = p_combined_int, 
-       width = 6, height = 3.1, bg = 'white')
 
 
 ### p combined no points --------------------------
@@ -2262,7 +2138,7 @@ table(df_fin$adv_delayed)
 
 
 
-## get indicators for delayed/advanced: ------------------------------------------
+### get indicators for delayed/advanced: ------------------------------------------
 df_delayed_advanced <- df_fin %>% 
   dplyr::select(site, country, adv_delayed)
 
@@ -2599,7 +2475,7 @@ ggsave(filename = "outFigs/wilcox_plot_out_clay.svg", plot = wilcox_plot_out_cla
 
 
 
-# Wilcox supplement ------------------
+## Wilcox supplement ------------------
 # alternative Wilcopx with protection intensity
 # Combine all plots into a single figure
 wilcox_plot_supplement<- ggarrange(p1, p2, p3,p4,p5, p6,
@@ -2892,26 +2768,27 @@ ggarrange(p.country.density, p.country.richness)
 
 ### Get partial R2: define teh most important variable --------------------
 # Perform an ANOVA to assess each term's contribution to the model
-
-# Run ANOVA on GAM model
-anova_results <- anova(fin.m.reg.density)
-
-# Convert the ANOVA results into a dataframe
-anova_df <- as.data.frame(anova_results)
-
-# Add term names for better readability
-anova_df <- tibble::rownames_to_column(anova_df, "Predictor")
-
-# Rename columns for better interpretation
-colnames(anova_df) <- c("Predictor", "EDF", "Ref. DF", "F-Value", "p-Value")
+summary_df <- summary(fin.m.reg.density)$s.table
+summary_df <- as.data.frame(summary_df)
+summary_df$term <- rownames(summary_df)
+summary_df
 
 # Export as an APA-styled table using sjPlot
-sjPlot::tab_df(anova_results,
+sjPlot::tab_df(summary_df,
                title = "outTable/ANOVA Results for GAM Model",
                #col.header = c(as.character(qntils), 'mean'),
                show.rownames = FALSE,
                file="outTable/anova_GAM.doc",
                digits = 3) 
+
+
+summary_df %>%
+  mutate(term = gsub("s\\(|ti\\(|\\)", "", term)) %>%
+  ggplot(aes(x = reorder(term, F), y = F, fill = `p-value` < 0.05)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "Smooth term", y = "F-value", fill = "Significant (p < 0.05)") +
+  theme_minimal()
 
 
 ## Save models --------------------------------------------------
@@ -3334,7 +3211,7 @@ df_top_species <- df_compare_future_species_regions %>%
   #dplyr::select(-)
 
 
-# Start from your existing summary
+# Start from  existing summary
 # Prepare long-format data
 df_alluvial_stem_density <- df_top_species %>%
   dplyr::select(acc, 
