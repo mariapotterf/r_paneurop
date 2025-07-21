@@ -400,6 +400,12 @@ reg_colors <- c(
   "Intermediate"   = "#FDAE61",   # yellowish
   "Advanced"= "#006837"    # green
 )
+
+reg_colors_short <- c(
+  "Del." = "#A50026",   # reddish
+  "Int."   = "#FDAE61",   # yellowish
+  "Adv."= "#006837"    # green
+)
   
 
 # Manually define lighter versions for 'no seed' scenario
@@ -473,7 +479,7 @@ ggsave(filename = 'outFigs/fig_p_simulated_stem_dens.png',
        plot = p_simulated_stem_dens, width = 6.5, height = 3, dpi = 300, bg = 'white')
 
 
-# Sensitivity analysis : seed and no seed range ---------------------------------------
+# Sensitivity analysis : range of seed and no seed scenario ---------------------------------------
 
 df_sim_indicators <- df_sim_indicators %>%
   mutate(
@@ -491,7 +497,11 @@ df_sens_plot <- df_sim_indicators %>%
     seed_level_num = as.integer(str_extract(seed_comb, "-?\\d+")),
     seed_comb = factor(seed_comb, levels = c("No seed", paste0("seed_", 
                                                                sort(unique(seed_level_num))))),
-    adv_delayed = factor(adv_delayed, levels = c("Delayed", "Intermediate", "Advanced"))
+    adv_delayed = recode_factor(adv_delayed,
+                                "Delayed" = "Del.",
+                                "Intermediate" = "Int.",
+                                "Advanced" = "Adv."),
+    adv_delayed = factor(adv_delayed, levels = c("Del.", "Int.", "Adv."))
   )
 
 group_summary <- df_sens_plot %>%
@@ -507,13 +517,13 @@ p_simulated_stem_sensitivity <- group_summary %>%
   ggplot(aes(y = seed_comb, x = median_density,
              xmin = q25, xmax = q75,
              color = adv_delayed)) +
-  geom_pointrange(position = position_dodge(width = 0.6), size = 0.6) +
+  geom_pointrange(position = position_dodge(width = 0.6), size = 0.3) +
   geom_vline(data = group_summary %>%
                group_by(adv_delayed) %>%
                summarize(median_density = median(median_density), .groups = "drop"),
              aes(xintercept = median_density, color = adv_delayed),
              linetype = "dashed", show.legend = FALSE) +
-  scale_color_manual(values = reg_colors) +
+  scale_color_manual(values = reg_colors_short) +
   theme_classic2() +
   scale_x_continuous(limits = c(0, 13)) +
   scale_y_discrete(labels = ~ str_remove(., "seed_")) +
