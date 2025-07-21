@@ -3120,11 +3120,7 @@ species_labels_grey <- c(
 )
 
 
-
-
-# START ----------------------
-
-# recalculate sankey per all plots (not only on occurence)
+# Sankey per all plots (not only on occurence)
 n_plots = 849
 
 df_top_species_ovr <- df_compare_future_species_regions %>% 
