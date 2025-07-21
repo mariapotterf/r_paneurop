@@ -1558,7 +1558,7 @@ results
 # how to choose threshols? 
 
 ggplot(df_stem_regeneration2, aes(x = disturbance_severity, y = stem_regeneration)) +
-  geom_point(alpha = 0.2) +
+  geom_point(alpha = 0.4) +
   geom_smooth()
 quantile(df_stem_regeneration2$disturbance_severity, probs = 0.90)
 
@@ -1911,79 +1911,11 @@ print(moran_test)
 
 ## Plot: Drivers  ---------------------------------------------------------------------------
 y_lab = expression("Stem density [1000 n ha"^{-1}*"]")
+y_lab_reg = expression("Reg. stem density [1000 n ha"^{-1}*"]")
 
-
-### Make plot manually:  --------------------------
 
 m <- fin.m.reg.density #m_int_sev_edge_full_te_comb # m_int_res_edge_full_te_comb #  m_int_res_edge_full_te
 
-
-### p combined no points --------------------------
-
-# Plot the first interaction
-p1 <- 
-  ggplot(pred1, aes(x = x, y = predicted/1000)) +
-   geom_line(linewidth = 1, aes(color = group) ) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), 
-              alpha = 0.2, color = NA) +
-  scale_color_manual(values = my_colors_interaction, name = "Temperature [°C]") +
-  scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
-  theme_classic() +
-  labs(x = "Precipitation [mm]", 
-       y = "Regeneration stem density [#*1000/ha]", title = "p=0.005", 
-       # linetype =  "Temperature [°C]"
-  ) +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
-    axis.title = element_text(size = 8),                   # Axis title size
-    axis.text = element_text(size = 8),                    # Axis text size
-    legend.key.size = unit(0.5, "cm"),                     # Legend key size
-    legend.text = element_text(size = 8),                  # Legend text size
-    legend.title = element_text(size = 8),                 # Legend title size
-    legend.position = c(0.05, 0.9),
-    legend.justification = c(0.05, 0.9)
-  )
-
-p1
-# Plot the second interaction
-p2 <- ggplot(pred2_df, aes(x = x, y = predicted/1000, color = group)) +
-  geom_line(linewidth = 1, aes(color = group) ) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000, fill = group), alpha = 0.2, color = NA) +
-  scale_color_manual(values = my_colors_interaction, 
-                     name = "Disturbance\nseverity",
-                     labels = c("Low", "High")) +
-  scale_fill_manual(values = my_colors_interaction, 
-                    name = "Disturbance\nseverity",
-                    labels = c("Low", "High")) +
-  theme_classic() +
-  #ylim(0,20) +
-  labs(x = "Distance to edge [m]", y = "", title = "p=0.751") +
-  theme(
-    axis.title = element_text(size = 8),
-    plot.title = element_text(hjust = 0.5, size = 8),       # Title size
-    axis.title.y = element_blank(),                   # Axis title size
-    axis.text = element_text(size = 8),                    # Axis text size
-    legend.key.size = unit(0.5, "cm"),                     # Legend key size
-    legend.text = element_text(size = 8),                  # Legend text size
-    legend.title = element_text(size = 8),                 # Legend title size
-    legend.position = c(0.05, 0.9),
-    legend.justification = c(0.05, 0.9)
-  )
-p2
-
-p_combined_int_no_points <- ggarrange(p1, p2, 
-                            labels = c("[a]","[b]"), 
-                            align = 'hv',
-                            font.label = list(size = 8, face = "plain")) # Specify plain font style)
-
-# Save the combined plot
-ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_points, 
-       width = 6, height = 3.1, bg = 'white')
-
-          
-    
-
-### Plot 4 drivers: clay, edge, severity, prcp_tmp ------------------------------------------
 # Generate predictions using ggpredict
 summary(m)
 
@@ -1994,6 +1926,15 @@ pred_tmp_prcp   <- ggpredict(m, terms = c("prcp", "tmp [8,10]"))
 pred_dist_edge  <- ggpredict(m, terms = c("distance_edge[50:250]"))
 pred_dist_sever <- ggpredict(m, terms = c("disturbance_severity"))
 pred_clay       <- ggpredict(m, terms = c("clay_extract"))
+
+# Convert all ggpredict objects to data.frames
+pred_prcp        <- as.data.frame(pred_prcp)
+pred_tmp         <- as.data.frame(pred_tmp)
+pred_tmp_prcp    <- as.data.frame(pred_tmp_prcp)
+pred_dist_edge   <- as.data.frame(pred_dist_edge)
+pred_dist_sever  <- as.data.frame(pred_dist_sever)
+pred_clay        <- as.data.frame(pred_clay)
+
 
 my_theme_drivers <- theme(
   axis.title = element_text(size = 8),
@@ -2007,15 +1948,16 @@ my_theme_drivers <- theme(
   legend.justification = c(0.05, 0.9)
 )
 
+#my_colors_interaction <- c("grey90", "red") 
 my_colors_interaction <- c("#FDAE61", "#A50026") 
-my_color_main_effects <- "grey" # "#006837"    
+my_color_main_effects <- "grey90" # "#006837"    
 
 # Plot precipitation
 p.prcp <- ggplot(pred_prcp, aes(x = x, y = predicted/1000)) +
   geom_line(linewidth = 1, color = my_color_main_effects) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = my_color_main_effects) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.4,fill = my_color_main_effects) +
   labs(x = "Precipitation [mm]", 
-       y = y_lab, 
+       y = y_lab_reg, 
        title = "p<0.001") +
   my_theme_drivers + 
   theme(legend.position = 'none')
@@ -2024,9 +1966,9 @@ p.prcp
 # Plot precipitation
 p.tmp <- ggplot(pred_tmp, aes(x = x, y = predicted/1000)) +
   geom_line(linewidth = 1, color = my_color_main_effects) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.2,fill = my_color_main_effects) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), alpha = 0.4,fill = my_color_main_effects) +
   labs(x = "Temperature [°C]",  
-       y = y_lab, 
+       y = y_lab_reg, 
        title = "p=0.004") +
   my_theme_drivers + 
   theme(legend.position = 'none')
@@ -2044,7 +1986,7 @@ p1 <-
   scale_fill_manual(values = my_colors_interaction, name = "Temperature [°C]") +
  # theme_classic() +
   labs(x = "Precipitation [mm]", 
-       y =y_lab,  
+       y =y_lab_reg,  
        title = "p=0.006", 
        # linetype =  "Temperature [°C]"
   ) +
@@ -2056,27 +1998,23 @@ p1
 p2 <- ggplot(pred_dist_edge, aes(x = x, y = predicted/1000)) +
    geom_line(linewidth = 1, color = my_color_main_effects) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), 
-              alpha = 0.2,fill = my_color_main_effects) +
+              alpha = 0.3,fill = my_color_main_effects) +
   labs(x = "Distance to edge [m]",  
-       y = y_lab, 
+       y = y_lab_reg, 
        title = "p=0.023") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p2
 
-# "#4D4D4D"
-# "#666666"
-# my_color_main_effects
 
-
-# Plot the second interaction
+# 
 p3 <- ggplot(pred_dist_sever, aes(x = x*100, y = predicted/1000)) +
   geom_line(linewidth = 1, color = my_color_main_effects ) +
-  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), fill =my_color_main_effects, alpha = 0.2, color = NA) +
+  geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000), fill =my_color_main_effects, alpha = 0.3, color = NA) +
   theme_classic() +
  # ylim(0,15) +
   labs(x = "Disturbance severity [%]", 
-       y = "", title = "p=0.001") +
+       y = "", title = "p<0.001") +
   my_theme_drivers + 
   theme(legend.position = 'none')
 p3
@@ -2086,7 +2024,7 @@ p3
 p4 <- ggplot(pred_clay, aes(x = x, y = predicted/1000)) +
   geom_line(linewidth = 1, color = my_color_main_effects ) +
   geom_ribbon(aes(ymin = conf.low/1000, ymax = conf.high/1000),  
-              fill = my_color_main_effects, alpha = 0.2, color = NA) +
+              fill = my_color_main_effects, alpha = 0.3, color = NA) +
   theme_classic() +
   scale_y_continuous(breaks = seq(5, 15, 5)) +
   #ylim(0,20) +
@@ -2112,6 +2050,14 @@ ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_p
 
 
 ### all predictors for supplement  ------------------------
+
+# update y lables plotting
+p.tmp <- p.tmp + labs(y = "")
+p1    <- p1 + labs(y = "")
+p2    <- p2 + labs(y = "")
+p3    <- p3 + labs(y = "")
+p4    <- p4 + labs(y = y_lab_reg )
+
 
 p_combined_int_no_points_supplem <- ggarrange(p.prcp, p.tmp, p1, p4, p2, p3,
                                       labels = c("[a]","[b]", "[c]","[d]", "[e]","[f]"), 
