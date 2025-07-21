@@ -1330,7 +1330,7 @@ vif(lm_small)
 
 
 
-### Drivers: Correlation coefficient ---------------------------------------------
+### Correlation coefficient ---------------------------------------------
 
 
 # Check the structure of the data
@@ -1387,11 +1387,8 @@ corrplot(correlation_matrix_renamed,
 )
 
 dev.off()
-## DRivers: models: -----------------------------------------------------------
 
-
-
-### 20250401 - completely remove management, also protection and salvage intensity ------------
+## GAM(M)s: 20250401 -  remove management ------------
 
 m_rnd <- gam(
   stem_regeneration ~ 
@@ -1469,13 +1466,13 @@ m_rnd_ti_fixed <- gam(
 )
 
 
-## which factors are most important?  ------------------------------------
+### Relative contribution of factors  ------------------------------------
 
 mgcv::summary.gam(m_rnd_ti_fixed)
 gratia::appraise(m_rnd_ti_fixed)
 
 
-### drop one variable at time:  ---------------------------------------------------
+### drop one variable at time:  
 
 # Fit full model
 m_full <- gam(
@@ -1562,7 +1559,7 @@ results
 # 5   drop_dist_sev 16076.56 -8019.264 0.09183355    0.09942951
 # 6 m_drop_prcp_tmp 16070.75 -8015.014 0.09329267    0.10687028
 
-## test the pattern for low severity sites; ----------------------------
+## Low vs high severity sites ----------------------------
 
 # how to choose threshols? 
 
@@ -1659,32 +1656,6 @@ ggsave(p_low_high_severity,
 )
 
 
-### complete altarnative based on univariate AIC ---------
-m_alt <- gam(
-  stem_regeneration ~ 
-    s(drought_prcp, k = 5) + s(tmp_z, k = 5) +
-    s(distance_edge, k = 5) +
-    s(disturbance_severity, k = 5) +
-    s(clay_extract, k = 5) +
-    s(av.nitro, k = 5) +
-    ti(disturbance_severity, distance_edge, k = 5 ) +
-    ti(drought_prcp,tmp_z, k = 5 ) +
-    #s(protection_intensity,by = country_pooled, k = 4) + 
-    #s(country_pooled, bs = "re") +
-    #s(region_manual, bs = "re", k = 5) +                # Macro-scale random effect
-    s(x, y),                                 # Spatial autocorrelation
-  family = tw(),
-  method = 'REML',
-  select = TRUE,
-  data = df_stem_regeneration2
-)
-
-
-AIC(m_rnd_ti_fixed, m_rnd,m_rnd_te, m_rnd_ti, m_alt)
-summary(m_rnd)
-summary(m_rnd_te)
-summary(m_rnd_ti)
-summary(m_rnd_ti_fixed)
 
 
 
