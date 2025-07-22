@@ -45,7 +45,7 @@ library(colorspace)   # For gradient and color manipulation
 
 
 
-source('my_functions.R')
+source('00_my_functions.R')
 
 ## Set a global theme -------------------------------------------------------------------
 
@@ -195,9 +195,66 @@ df_fin <- df_fin %>%
 
 # include mature trees: present/absent
 #df_fin$sum_stems_mature_pres_abs <- ifelse(df_fin$sum_stems_mature > 0, 1, 0)
-
-
-
+# df_fin_share <- df_fin %>%
+#   dplyr::select(
+#     -dominant_species,
+#     -country,
+#     -country_num,
+#     #-country_pooled,
+#     -country_full,
+#     -spei6,
+#     -spei24,
+#     -drought_spei6,
+#     -drought_spei24,
+#     -sd_t2m,
+#     -sd_tp,
+#     -max_grw_anm_prcp,
+#     -max_grw_anm_tmp,
+#     -min_grw_anm_prcp,
+#     -min_grw_anm_tmp,
+#     -median_grw_anm_prcp,
+#     -median_grw_anm_tmp,
+#     -mean_grw_anm_tmp, 
+#     -mean_grw_anm_prcp,
+#     -sd_grw_anm_tmp, 
+#     -sd_grw_anm_prcp,
+#     -disturbance_year,
+#     #-disturbance_agent,
+#     -rIVI # only if you don’t use it for diversity/composition analysis
+#   ) %>% 
+#   rename(plot = site,
+#          country_unique = country_abbr)
+# 
+# # order data
+# df_fin_share <- df_fin_share %>%
+#   dplyr::select(
+#     # ID and location
+#     plot, country_unique, country_pooled, region, x, y,
+#     
+#     # Regeneration metrics
+#     stem_regeneration, adv_delayed,
+#     sum_stems_juvenile, sum_stems_sapling, sum_stems_mature,
+#     stem_density, n_vertical, richness,
+#     
+#     # Disturbance
+#     disturbance_severity, distance_edge,
+#     
+#     # Climate (mean & anomalies)
+#     tmp, prcp, tmp_z, prcp_z,
+#     spei1, spei3, spei12,
+#     drought_tmp, drought_prcp,
+#     drought_spei1, drought_spei3, drought_spei12,
+#     
+#     # Soil
+#     elevation, slope, aspect,
+#     sand_extract, clay_extract, depth_extract, av.nitro,
+#     
+#     # Climate variation (anomalies, interannual variability)
+#     cv_t2m, cv_tp
+#   )
+# 
+# 
+# fwrite(df_fin_share, "outData/public/plot_level_predictors_clean.csv")
 
 
 ## add to gpkg: 10 prevailing species 
