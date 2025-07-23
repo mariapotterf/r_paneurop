@@ -27,6 +27,7 @@ library(cowplot)
 # Make a color gradient: shaded within species
 library(colorspace)   # For gradient and color manipulation
 library(here)
+library(ggalluvial)
 
 source('00_my_functions.R')
 
@@ -36,8 +37,11 @@ public_dir <- here("outData", "public")
 # Load cleaned input data
 df_fin <- fread(file.path(public_dir, "data", "plot_level_predictors_clean.csv"))
 df_stem_species_class <- fread(file.path(public_dir, "data", "plot_level_stem_density_species_by_class.csv"))
-# define coloring -------------------
 
+
+# Variables
+# total number of plots
+n_total_plots = length(unique(df_fin$plot)) # 849
 
 source('00_my_functions.R')
 
@@ -438,8 +442,6 @@ overall_med_share <- species_composition_sapl_juv_summary %>%
 ## adjust colors -----------------------------------------------------------------
 
 # Generate separate colors for Juveniles (darker) and Saplings (lighter)
-#species_colors_juveniles <- species_colors
-
 species_colors_juveniles <- lapply(species_colors, function(color) colorspace::darken(color, 
                                                                                       amount = 0.2)) %>% unlist()
 
@@ -1365,12 +1367,18 @@ p_combined_int_no_points <- ggarrange(p1, p4, p2, p3,
 p_combined_int_no_points
 
 # Save the combined plot
-ggsave('outFigs/fig_regen_int_drivers_no_points.png', plot = p_combined_int_no_points, 
-       width = 5.5, height = 5.5, bg = 'white')
+ggsave(
+  filename = file.path(public_dir, "figs", "Fig2.png"),
+  plot = p_combined_int_no_points,
+  width = 5.5,
+  height = 5.5,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
 
 
-
-### all predictors for supplement  ------------------------
+#### all predictors for supplement  ------------------------
 
 # update y lables plotting
 p.tmp <- p.tmp + labs(y = "")
@@ -1389,66 +1397,31 @@ p_combined_int_no_points_supplem <- ggarrange(p.prcp, p.tmp, p1, p4, p2, p3,
 p_combined_int_no_points_supplem
 
 # Save the combined plot
-ggsave('outFigs/fig_p_combined_int_no_points_supplem.png', plot = p_combined_int_no_points_supplem, 
-       width = 8, height = 5.5, bg = 'white')
+ggsave(
+  filename = file.path(public_dir, "figs", "figS_regeneration_by_drivers_supplement.png"),
+  plot = p_combined_int_no_points_supplem,
+  width = 8,
+  height = 5.5,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
 
 
 
 
-# two categories: count how many plots i have?
 
-#prop.table(table(df_fin$adv_delayed_wider))
-prop.table(table(df_fin$adv_delayed))
-table(df_fin$adv_delayed)
+# 6. Delayed vs advanced sites: Wilcox plot-----------------------------------------------
 
-
-# 6. Wilcox text: delayed vs advanced -----------------------------------------------
-
-##  get indicators for delayed/advanced: 
-df_delayed_advanced <- df_fin %>% 
-  dplyr::select(plot, country, adv_delayed)
+# Combine predictor variables with the grouping variable
+vars_to_plot <- c(predictor_vars_sub, "adv_delayed")
 
 
-# summarize stem deregeneration, rIVI, richness, n_vert
-df_fin %>% 
-  group_by(adv_delayed) %>% 
-  summarise(med_stem_density = median(stem_density),
-            iqr_stem_density = IQR(stem_density),
-            med_rIVI = median(rIVI),
-            iqr_rIVI = IQR(rIVI),
-            med_richness = median(richness),
-            iqr_richness = IQR(richness),
-            med_n_vertical = median(n_vertical),
-            iqr_n_vertical = IQR(n_vertical)
-  )
-
-
-### test differences between plots: --------------------------------------
+### test differences between plots:
 # Step 1: Reshape the data to long format
 df_long_narrow <- df_fin %>%
   na.omit() %>% 
-  dplyr::select(tmp, 
-                prcp,
-                sd_grw_anm_prcp,
-                sd_grw_anm_tmp,
-                tmp_z,
-                prcp_z,
-                
-                av.nitro, 
-                depth_extract,
-                slope, 
-                elevation,
-                sand_extract,
-                clay_extract,
-                drought_spei1,
-                drought_spei3,
-                drought_spei12,
-                #drought_tmp,
-                drought_prcp,
-                disturbance_severity,
-                distance_edge, 
-                adv_delayed) %>% 
-  #dplyr::select(all_of(variables_to_plot), adv_delayed) %>% 
+  dplyr::select(all_of(vars_to_plot)) %>%
   gather(key = "Variable", value = "Value", -adv_delayed) %>% 
   droplevels() %>% 
   mutate(Variable = factor(Variable, levels = unique(Variable))) # preserve teh order of factors
@@ -1482,72 +1455,12 @@ summary_stats_narrow_sub <- df_long_narrow_sub %>%
   ) %>%
   arrange(adv_delayed, Variable)
 
-print(summary_stats_narrow_sub)
-
-
 # list groups to pairwise comparison
 comparisons_3grps <- list(c("Delayed", "Intermediate"), 
                           c("Delayed", "Advanced"), 
                           c("Intermediate", "Advanced"))
 
-comparisons_2grps <- list(c("Delayed", "Advanced"))
 
-# Calculate mean ± SD and median ± IQR for each Variable per group - all variables
-summary_stats_adv_delayed <- df_long_narrow %>%
-  group_by(Variable, adv_delayed) %>%
-  summarise(
-    Mean = mean(Value, na.rm = TRUE),
-    SD = sd(Value, na.rm = TRUE),
-    Median = median(Value, na.rm = TRUE),
-    IQR = IQR(Value, na.rm = TRUE)#,
-    #Min = min(Value, na.rm = TRUE),
-    #Max = max(Value, na.rm = TRUE),
-    #n = n()  # Number of observations per group
-  ) %>%
-  ungroup()
-
-
-print(summary_stats_adv_delayed, n = 40)
-
-
-# Plot using ggboxplot
-p_boxplot_wilcox_narrow <- 
-  ggboxplot(df_long_narrow, x = "adv_delayed", y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("lightblue", "red", "green"),
-            facet.by = "Variable", scales = "free_y", 
-            ylab = "Values", xlab = "Regeneration Status",
-            #outlier.size = .2,
-            outlier.shape = NA,
-            size = 0.2) +
-  labs(title = "",
-       x = "Reg. Status", y = "Vals")+
-  theme(
-    legend.position = 'none',
-    text = element_text(size = 5),         # Set all text to size 3
-    axis.text = element_text(size = 5),    # Axis tick labels
-    axis.title = element_text(size = 5),   # Axis titles
-    strip.text = element_text(size = 5),   # Facet labels
-    legend.text = element_text(size = 5),  # Legend text
-    plot.title = element_text(size = 5),   # Plot title
-    strip.background = element_blank(),    # Remove the box around facet names
-    strip.placement = "outside",           # Optional: Move facet label outside the plot area
-    panel.border = element_rect(colour = 
-                                  , fill = NA, linewidth = 0.5)  # Add a square border around the plots
-  )  +
-  stat_compare_means(comparisons = comparisons_3grps, method = "wilcox.test", 
-                     label = "p.signif", #"p.format",  
-                     size = 2, label.x = 1.5) +
-  # Add mean dots
-  geom_point(data = summary_stats_adv_delayed, 
-             aes(x = adv_delayed, y = Mean, group = Variable), 
-             shape = 21, 
-             fill = "white",        # Added missing fill value
-             color = "black",       # Added missing color value
-             size = 1.5, 
-             inherit.aes = FALSE)
-
-p_boxplot_wilcox_narrow
 
 # Define a reusable theme function
 my_theme <- function() {
@@ -1568,37 +1481,8 @@ my_theme <- function() {
 }
 
 
-## Supplement Wilcox: ---make a final plot: only prcp,  tmp_z, drought_spei1, - 3  groups -------------------
-# manually 
+### Supplement Wilcox:  3  groups -------------------
 
-# Example: Create individual plots
-p.prcp <-   df_long_narrow_sub %>% 
-  dplyr::filter(Variable == "prcp") %>% 
-  ggboxplot(x = "adv_delayed", 
-            y = "Value", 
-            fill = "adv_delayed", 
-            palette = c("#A50026", "#FDAE61", "#006837"),
-            ylab = "Precipitation [mm]", 
-            xlab = "",
-            outlier.shape = NA,
-            #outlier.size = .2,
-            size = 0.2) +
-  stat_compare_means(comparisons = comparisons_3grps, 
-                     method = "wilcox.test", 
-                     label =  'p.format', #"p.signif",  
-                     size = 3,
-                     digits = 3,    
-                     label.y = c(1430, 
-                                 1350, 
-                                 1280)) +  # Standard Wilcoxon test comparison lines
-  my_theme() +
-  # Add mean dots
-  geom_point(data =  subset(summary_stats_narrow_sub, Variable == "prcp"), 
-             aes(x = adv_delayed, y = Mean, group = adv_delayed), 
-             shape = 21, fill = "red", color = "red", size = 1.5, inherit.aes = FALSE) +
-  coord_cartesian(ylim = c(300,1500))  #
-
-p.prcp
 
 # for all of predictors: 
 
@@ -1648,10 +1532,10 @@ make_boxplot_with_pvals <- function(var_name, y_label, y_limits, bracket_heights
     my_theme() +
     
     # Bracket lines and ticks
-    geom_segment(data = brackets, aes(x = x, xend = xend, y = y, yend = y), size = 0.3) +
-    geom_segment(data = brackets, aes(x = x, xend = x, y = y, yend = y - tick), size = 0.3) +
-    geom_segment(data = brackets, aes(x = xend, xend = xend, y = y, yend = y - tick), size = 0.3) +
-    geom_text(data = brackets, aes(x = (x + xend) / 2, y = y + text_offset, label = label), size = 3)
+    geom_segment(data = brackets, aes(x = x, xend = xend, y = y, yend = y), linewidth  = 0.3) +
+    geom_segment(data = brackets, aes(x = x, xend = x, y = y, yend = y - tick), linewidth  = 0.3) +
+    geom_segment(data = brackets, aes(x = xend, xend = xend, y = y, yend = y - tick), linewidth  = 0.3) +
+    geom_text(data = brackets, aes(x = (x + xend) / 2, y = y + text_offset, label = label), linewidth  = 3)
   
   return(p)
 }
@@ -1701,39 +1585,27 @@ p6 <- make_boxplot_with_pvals(
 )
 p6
 
-# Combine all plots into a single figure
-wilcox_plot_out_clay <- ggarrange(p1, p2, p3,p4,
-                                  ncol = 2, 
-                                  nrow = 2, 
-                                  labels = c("[a]", "[b]","[c]","[d]"), 
-                                  font.label = list(size = 8, face = "plain"))
 
-# Display the final merged plot
-wilcox_plot_out_clay
-
-
-# Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_plot_out_clay.png", plot = wilcox_plot_out_clay, 
-       device = "png", width = 5, height = 5.5, dpi = 300, bg = 'white')
-
-
-
-## Wilcox supplement ------------------
-# alternative Wilcopx with protection intensity
+## Wilcox supplement 
 # Combine all plots into a single figure
 wilcox_plot_supplement<- ggarrange(p1, p2, p3,p4,p5, p6,
                                    ncol = 3, nrow = 2, labels = c("[a]", "[b]","[c]","[d]", '[e]','[f]'), #'[g]','[h]'
                                    font.label = list(size = 8, face = "plain"))
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_vars_supplement.png", plot = wilcox_plot_supplement, 
-       device = "png", width = 7, height = 5.5, dpi = 300, bg = 'white')
+ggsave(
+  filename = file.path(public_dir, "figs", "figS_boxplot_wilcox_multiple_vars.png"),
+  plot = wilcox_plot_supplement,
+  device = "png",
+  width = 7,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
 
 
+### FINAL Wilcox: remove 'Intermediate' category -----
 
-### FINAL wilcox: remove 'Intermediate' category -----
-# filter the tables
-# !!! START
 summary_stats_narrow_sub2 <- summary_stats_narrow_sub %>%
   dplyr::filter(adv_delayed != "Intermediate") %>%
   droplevels()
@@ -1862,267 +1734,129 @@ wilcox_fin
 
 
 # Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_fin.png", plot = wilcox_fin, 
-       device = "png", width = 6, height = 3, dpi = 300, bg = 'white')
+ggsave(
+  filename = file.path(public_dir, "figs", "fig_boxplot_wilcox_final_vars.png"),
+  plot = wilcox_fin,
+  device = "png",
+  width = 6,
+  height = 3,
+  dpi = 300,
+  bg = "white"
+)
 
-# Save the plot as an SVG file
-ggsave(filename = "outFigs/wilcox_fin.svg", plot = wilcox_fin, 
-       device = "svg", width = 6, height = 3, dpi = 300, bg = 'white')
 
-
-# use bayes statistics: more robust for uneven sample sizes ----------------------------
+### use bayes statistics: more robust for uneven sample sizes ----------------------------
 library("BayesFactor")
 # Compute Bayesian ANOVA for each variable
 bayesian_results <- df_long_narrow_sub2 %>%
+  as.data.frame() %>% 
+  mutate(adv_delayed = factor(adv_delayed)) %>% 
+  
   group_by(Variable) %>%
   summarise(
     BF = extractBF(anovaBF(Value ~ adv_delayed, data = cur_data()))$bf[1]  # Extract Bayes Factor
-  ) %>% 
-  arrange(decs(BF))
+  )# %>% 
+ # arrange(decs(BF))
+
+bayesian_results <- bayesian_results %>%
+  mutate(interpretation = case_when(
+    BF < 1 ~ "Evidence for null",
+    BF < 3 ~ "Anecdotal",
+    BF < 10 ~ "Moderate",
+    BF < 30 ~ "Strong",
+    BF < 100 ~ "Very strong",
+    BF >= 100 ~ "Decisive"
+  ))
 
 
 sjPlot::tab_df(bayesian_results,
                show.rownames = FALSE,
-               file="outTable/bayesian_results_groups_diff.doc",
-               digits = 1) 
-
-
-# test if i got anova right --
-df_sub <- df_long_narrow %>% 
-  dplyr::filter(Variable == 'drought_prcp')
-
-anovaBF(Value ~ adv_delayed, data = df_sub)
-
-
-
-# Test 
-
-df_fin %>% 
-  group_by(adv_delayed) %>% 
-  summarize(
-    min_distance = min(distance_edge, na.rm = TRUE),
-    max_distance = max(distance_edge, na.rm = TRUE),
-    mean_distance = mean(distance_edge, na.rm = TRUE),
-    median_distance = median(distance_edge, na.rm = TRUE),
-    IQR_distance = IQR(distance_edge, na.rm = TRUE),
-    sd_distance = sd(distance_edge, na.rm = TRUE),
-    n = n()
-  )
-
-df_fin %>% 
-  #group_by(adv_delayed) %>% 
-  summarize(
-    min_distance = min(distance_edge, na.rm = TRUE),
-    max_distance = max(distance_edge, na.rm = TRUE),
-    mean_distance = mean(distance_edge, na.rm = TRUE),
-    median_distance = median(distance_edge, na.rm = TRUE),
-    IQR_distance = IQR(distance_edge, na.rm = TRUE),
-    sd_distance = sd(distance_edge, na.rm = TRUE),
-    n = n()
-  )
-
-
-df_fin %>% 
-  #group_by(adv_delayed) %>% 
-  summarize(
-    min_severity = min(disturbance_severity, na.rm = TRUE),
-    max_severity = max(disturbance_severity, na.rm = TRUE),
-    mean_severity = mean(disturbance_severity, na.rm = TRUE),
-    median_severity = median(disturbance_severity, na.rm = TRUE),
-    IQR_severity = IQR(disturbance_severity, na.rm = TRUE),
-    sd_severity = sd(disturbance_severity, na.rm = TRUE),
-    n = n()
-  )
+               file = file.path(public_dir, "tables", "table_bayesian_group_differences.doc"),
+               digits = 1)
 
 
 
 
-# 7. Analyze at country level: Country effect ----------------------------------------------------------
-df_richness <- df_richness %>% 
-  dplyr::filter(plot %in% plot_id_keep) 
-
-
-
-p.country.richness <- ggplot(data = df_richness,
-                             aes(x = country, y = richness,fill = country)) + 
-  # Add bars as medians
-  stat_summary(fun = "median", 
-               geom = "bar") +
-  stat_summary(
-    data = df_richness,
-    mapping = aes(x = country, y = richness),
-    fun.min = function(z) { quantile(z,0.25) },
-    fun.max = function(z) { quantile(z,0.75) },
-    fun = median,
-    geom  = 'errorbar',
-    width = .2) +
-  ylab('Richness [#]') + 
-  theme_classic() +
-  theme(legend.position = 'none')
-#coord_cartesian(ylim=c(60, 67)) # ylim=c(59,66)
-
-p.country.richness
-
-stem_dens_ha_plot_sum <- stem_dens_ha_plot_sum %>% 
-  dplyr::filter(plot %in% plot_id_keep) 
-
-
-df_stems_country <- stem_dens_ha_plot_sum %>% 
-  ungroup(.) %>% 
-  group_by(plot, manag, country) %>% # sum stems per luster, manag and country
-  dplyr::reframe(sum_stems = sum(total_stems)) 
-
-p.country.density <-  df_stems_country %>% 
-  ggplot(aes(x = country, y = sum_stems,fill = country )) +
-  # Add bars as medians
-  stat_summary(fun = "median", 
-               geom = "bar") +
-  stat_summary(
-    data = df_stems_country,
-    mapping = aes(x = country, y = sum_stems),
-    fun.min = function(z) { quantile(z,0.25) },
-    fun.max = function(z) { quantile(z,0.75) },
-    fun = median,
-    geom  = 'errorbar',
-    width = .2) +
-  ylab('Stems [ha]') + 
-  theme_classic() +
-  theme(legend.position = 'none')
-
-(p.country.density)
-#coord_cartesian(ylim=c(60, 67)) # ylim=c(59,66)
-
-# test significance - for 2 groups only
-wilcox.test(sum_stems ~ manag, data = df_stems)
-
-
-# for several groups:
-kruskal.test(sum_stems ~ country, data = df_stems_country)
-
-
-# Perform the Dunn test
-dunnTest <- dunn.test(df_stems_country$sum_stems, df_stems_country$manag, method="bonferroni")
-dunnTest
-
-
-ggarrange(p.country.density, p.country.richness)
-
-
-### Get partial R2: define teh most important variable --------------------
-# Perform an ANOVA to assess each term's contribution to the model
-summary_df <- summary(fin.m.reg.density)$s.table
-summary_df <- as.data.frame(summary_df)
-summary_df$term <- rownames(summary_df)
-summary_df
-
-# Export as an APA-styled table using sjPlot
-sjPlot::tab_df(summary_df,
-               title = "outTable/ANOVA Results for GAM Model",
-               #col.header = c(as.character(qntils), 'mean'),
-               show.rownames = FALSE,
-               file="outTable/anova_GAM.doc",
-               digits = 3) 
-
-
-summary_df %>%
-  mutate(term = gsub("s\\(|ti\\(|\\)", "", term)) %>%
-  ggplot(aes(x = reorder(term, F), y = F, fill = `p-value` < 0.05)) +
-  geom_col() +
-  coord_flip() +
-  labs(x = "Smooth term", y = "F-value", fill = "Significant (p < 0.05)") +
-  theme_minimal()
-
-
-
-# 9. Species climate suitability  -------------------------------------------
+# 7. Species climate suitability  -------------------------------------------
 
 df_stem_species_class %>% 
   dplyr::filter(stem_density > 0) %>% 
   distinct(Species) %>% 
   count()  #@ 35
 
-# compare current species composition with future ones form wessely
+# compare current species composition (from field data) with climate suitability from wessely
 # Need to adjust tree species naming a bit: 
 #   we have less species then wessely: 
 # - eg we have besp, which can be betula pendula, betula pubescense
 # - same for populus (3), quercus (6), salix ...
 
-# read look up tables: 
-# get species merging table - acronyms from iLand
-species_look_up_simple<- read.csv("rawData/tree_sp_simple.csv", sep = ';')
-
-# get species merging table:   - merged my naming with Wessely species naming
-species_look_up_full<- read.csv("rawData/tree_sp_field_wessely_merged.csv", sep = ';')
-
+# Read species lookup tables
+lookup_species_acronyms      <- read.csv(file.path(public_dir, "data", "lookup_species_acronyms.csv"), sep = ';')
+lookup_species_field_wessely <- read.csv(file.path(public_dir, "data", "lookup_species_field_wessely.csv"), sep = ';')
 
 # identify what species are present per plot - use simple look up table, 
 # add only latin names
-present_species <- 
+species_present_field <- 
   df_stem_species_class %>% 
   dplyr::filter(VegType != "Mature") %>% 
   ungroup() %>% 
   group_by(plot, Species) %>% 
-  summarize(sum_stem_density = sum(stem_density, na.rm = T )) %>% 
-  mutate(presence = if_else(sum_stem_density > 0, 1, 0)) %>% 
-  # dplyr::select(-sum_stem_density ) %>% 
-  left_join(species_look_up_simple, by = c("Species" = "acc")) %>% 
-  dplyr::select(-latin) 
-
-present_species <- present_species %>% 
-  dplyr::rename(acc = Species) %>% 
-  dplyr::rename(plot = plot)
+  summarize(reg_stem_density = sum(stem_density, na.rm = T )) %>% 
+  mutate(presence = if_else(reg_stem_density > 0, 1, 0)) %>% 
+  # dplyr::select(-reg_stem_density ) %>% 
+  left_join(lookup_species_acronyms, by = c("Species" = "acc")) %>% 
+  dplyr::select(-latin)  %>% 
+  dplyr::rename(acc = Species) 
 
 # read table with Wessely species - from species present/absent of plots locations
 # only species present on every perios (occurence = 8) are climatically suitable across whole century
-future_species      <- fread('outTable/species_presence_clim_change.csv')
-# future_species_full <- fread('outTable/species_presence_clim_change_full.csv')
-
-unique(future_species$species )
-
+species_climate_suitability_raw <- fread(
+  file.path(public_dir, "data", "species_presence_clim_change.csv")
+)
 
 # add acronyms and consider presence across several species: eg betula sp.
-future_species_sum <- 
-  future_species %>%
+species_suitability_summary <- 
+  species_climate_suitability_raw  %>%
+  rename(plot = site) %>% 
   # add naming
-  left_join(species_look_up_full, by = c('species' = 'wessely')) %>%
-  #   View()
+  left_join(lookup_species_field_wessely, by = c('species' = 'wessely')) %>%
   # group by species to allow occurence of species that have specified genus: eg betula sp.
   group_by(plot, scenario, acc) %>% 
   # Summarize and set sum_presence to 1 if the sum is greater than 1 - 
   # this account for the fact that wessely can have two betulas, I have only 1
   summarize(sum_presence = pmin(sum(overall_presence), 1), .groups = 'drop')
 
-wide_future_species <- future_species_sum %>%
+species_suitability_wide <- species_suitability_summary %>%
   pivot_wider(names_from = scenario, values_from = sum_presence) 
 
 # merge both tables: the presently recorded species and species under climate scenarios
-df_compare_future_species <- wide_future_species %>% 
-  left_join(present_species) %>%   # use left join to explude species that are recorded in field, but not present in Wessely database
+df_suitability_observed_vs_modeled <- species_suitability_wide %>% 
+  left_join(species_present_field) %>%   # use left join to explude species that are recorded in field, but not present in Wessely database
   dplyr::rename(current = presence)
 
 
-## compare with vs Wessely species databases  ---------
-length(unique(df_compare_future_species$acc))  # final length is 30 species: corss between wessely and observed field database
+## Combine field occurence with vs Wessely species databases  ---------
+length(unique(df_suitability_observed_vs_modeled$acc))  # final length is 30 species: corss between wessely and observed field database
 
-# create country naming from regions
-unique_regions_per_country <- df_fin %>%
+# create look up table to identify the countries based on regions
+region_country_lookup <- df_fin %>%
   group_by(country_pooled) %>%
-  dplyr::summarise(unique_regions = list(unique(region))) %>% 
-  unnest(unique_regions) %>% 
-  mutate(unique_regions = as.integer(as.character(unique_regions)))
+  dplyr::summarise(region = list(unique(region))) %>%
+  unnest(region) %>%
+  mutate(region = as.integer(as.character(region)))
 
-
-# Merge field observations with Wesseley database , add country indication
-df_compare_future_species_regions <- df_compare_future_species %>%
-  #   # Extract the first two characters of 'plot' as 'region' and convert to integer
+# add country indication to merged field and modeled suitability
+df_suitability_observed_vs_modeled_reg <- 
+  df_suitability_observed_vs_modeled %>%
+  # Extract the first two characters of 'plot' as 'region' and convert to integer
   mutate(region = as.integer(substr(plot, 1, 2))) %>%
-  #   # Left join with unique_regions_per_country to get country indication
-  left_join(unique_regions_per_country, by = c("region" = "unique_regions"))
+  # Left join with unique_regions_per_country to get country indication
+  left_join(region_country_lookup)
 
 
 
-# evaluate presence vs absence of species per plot
-df_compare_future_species_regions <- df_compare_future_species_regions %>%
+# classify plot level species suitability 
+df_suitability_observed_vs_modeled_reg <- df_suitability_observed_vs_modeled_reg %>%
   mutate(
     suitability_rcp26 = case_when(
       current == 1 & rcp26 == 1 ~ "suitable",
@@ -2148,19 +1882,20 @@ df_compare_future_species_regions <- df_compare_future_species_regions %>%
 #### Share of stems that is not suitable under CC scenarios? --------------------------
 # Convert suitability columns to logical: TRUE if unsuitable ("0"), FALSE otherwise
 
-anyNA(df_compare_future_species)  
+anyNA(df_suitability_observed_vs_modeled)  
 
 # get total sum of stems: acdjust for fact that ionly 30 species overlaps between 2 dababases
 total_stems         <- sum(df_stem_species_class$stem_density)
-total_stems_wessely <- sum(df_compare_future_species$sum_stem_density )
+total_stems_wessely <- sum(df_suitability_observed_vs_modeled$reg_stem_density )
 total_stems_wessely
-#6172500 - all stems, 6008250 over crossed databases 
+total_stems
+#6172500 - all stems, 5908250 over crossed databases 
 
-# now, it is only climate suitability for regeneration!
-df_compare_future_species_long_full <- df_compare_future_species_regions %>%
+# Convert to long format 
+df_climate_suitability_regen_species_long <- df_suitability_observed_vs_modeled_reg %>%
   dplyr::select(plot, 
                 acc,
-                sum_stem_density , 
+                reg_stem_density , 
                 country_pooled, 
                 suitability_rcp26, 
                 suitability_rcp45, 
@@ -2171,248 +1906,93 @@ df_compare_future_species_long_full <- df_compare_future_species_regions %>%
   mutate(scenario = gsub("suitability_", "", scenario)) #
 
 
-df_compare_future_species_long_full %>%  # Remove "suitability_" prefix
+df_climate_suitability_regen_species_long %>%  # Remove "suitability_" prefix
   group_by(suitability, scenario) %>% 
   dplyr::filter(suitability == "not_suitable") %>%  
-  summarize(sum = sum(sum_stem_density)) %>% 
+  summarize(sum = sum(reg_stem_density)) %>% 
   mutate(share = round(sum/total_stems*100,1))
 
 # suitability  scenario     sum share
-# <chr>        <chr>      <dbl> <dbl>
-# 1 not_suitable rcp26    3838375  62.2
-# 2 not_suitable rcp45    4505375  73  
-# 3 not_suitable rcp85    5172625  83.8
+# <chr>        <chr>      <int> <dbl>
+#   1 not_suitable rcp26    3782000  61.3
+# 2 not_suitable rcp45    4438000  71.9
+# 3 not_suitable rcp85    5092750  82.5
 
 
-#### MOst affected species  ---------------
-# Filter for species with stem density > 0
-species_suitability_summary <- df_compare_future_species_long_full %>%
-  dplyr::filter(sum_stem_density > 0) %>%
+#### Most affected species  ---------------
+# # Identify species occurence per splots, and which species wuill lose teh most of climate suitability
+
+species_plot_suitability_summary <- 
+  df_climate_suitability_regen_species_long %>%
+  dplyr::filter(reg_stem_density > 0) %>%
   
   # Count total number of unique plots per species
   group_by(acc) %>%
-  mutate(n_total = n_distinct(plot)) %>%
+  mutate(n_plots_current_occurrence  = n_distinct(plot)) %>%
+ # View()
   
   # Filter to only suitable cases
   dplyr::filter(suitability == "suitable") %>%
   
   # Count number of suitable plots per species and scenario
-  distinct(plot, scenario, acc, total_plots) %>%
+  distinct(plot, scenario, acc, n_plots_current_occurrence ) %>%
   count(acc, scenario, name = "n_suitable_plots") %>%
   
   # Join back total plot counts
   left_join(
-    df_compare_future_species_long_full %>%
-      dplyr::filter(sum_stem_density > 0) %>%
+    df_climate_suitability_regen_species_long %>%
+      dplyr::filter(reg_stem_density > 0) %>%
       group_by(acc) %>%
-      summarise(n_plots_with_species = n_distinct(plot), .groups = "drop"),
+      summarise(n_plots_current_occurrence = n_distinct(plot), .groups = "drop"),
     by = "acc"
   ) %>%
   
   # Calculate share
-  mutate(n_unsuitable_plots = n_plots_with_species - n_suitable_plots,
-         share_suitable     = round(n_suitable_plots / n_plots_with_species * 100,1),
-         share_unsuitable   = round(n_unsuitable_plots / n_plots_with_species * 100,1),
-         share_overall      = round(n_plots_with_species / total_plots * 100,1)) %>%
+  mutate(n_unsuitable_plots = n_plots_current_occurrence - n_suitable_plots,
+         share_suitable     = round(n_suitable_plots / n_plots_current_occurrence * 100,1),
+         share_unsuitable   = 100 - share_suitable, #round(n_unsuitable_plots / n_plots_current_occurrence * 100,1),
+         share_overall      = round(n_plots_current_occurrence / n_total_plots * 100,1)) %>%
+  #View()
   dplyr::select(scenario, 
                 share_overall,
                 n_suitable_plots, 
                 n_unsuitable_plots,     
-                n_plots_with_species,   # number of plots that species occured on
+                n_plots_current_occurrence,   # number of plots that species occured on
                 share_suitable,         
                 share_unsuitable,
                 acc)
 
-# View result
-species_suitability_summary
+species_plot_suitability_summary
 
 # identify the most affected species (highest share of unsuitable on plot in RCP45)
-species_suitability_summary %>%
+species_plot_suitability_summary %>%
   dplyr::filter(scenario == "rcp45") %>%
   #dplyr::filter(acc %in% top_species_plot_share) %>% 
   mutate(share_unsuitable = n_unsuitable_plots / n_plots_with_species * 100) %>%
   arrange(desc(share_overall)) %>% # , share_unsuitable
   View()
 
-# the most affected species by cliamte change
-share_unsuitable_range <- species_suitability_summary %>%
-  group_by(acc) %>%
-  summarise(
-    min_unsuitable = min(share_unsuitable),
-    max_unsuitable = max(share_unsuitable),
-    range_unsuitable = max_unsuitable - min_unsuitable,
-    .groups = "drop"
-  ) %>%
-  arrange(desc(range_unsuitable))
-
-share_unsuitable_range
 
 
 
-
-## Plot level : Get only counts per country and plot, no need for specific species : ------------
-# Convert to long format
-df_suitability_long <- 
-  df_compare_future_species_regions %>%
-  dplyr::select(plot, 
-                country_pooled, 
-                suitability_rcp26, 
-                suitability_rcp45, 
-                suitability_rcp85) %>%
-  pivot_longer(cols = starts_with("suitability_rcp"), 
-               names_to = "scenario", 
-               values_to = "suitability") %>%
-  mutate(scenario = gsub("suitability_", "", scenario)) %>%  # Remove "suitability_" prefix
-  group_by(plot, country_pooled, suitability, scenario) %>% 
-  summarize(freq = n()) %>% 
-  dplyr::filter(suitability != 0) %>% 
-  ungroup()
-
-# how many plots overall do not have any tree species currently present  climatically suitable? 
-df_suitability_long %>%
-  group_by(plot, scenario) %>%
-  summarize(has_suitable = any(suitability == "suitable"), .groups = "drop") %>%
-  dplyr::filter(!has_suitable) %>%
-  count(scenario, name = "n_plots_without_suitable") %>% 
-  mutate(share = n_plots_without_suitable/849)
-
-# scenario n_plots_without_suitable share
-# <chr>                          <int> <dbl>
-#   1 rcp26                            327 0.385
-# 2 rcp45                            433 0.510
-# 3 rcp85                            524 0.617 
-
-df_suitability_summary_plot <- df_suitability_long %>% 
-  group_by( country_pooled, suitability, scenario) %>% 
-  dplyr::summarize(mean = mean(freq, na.rm = T),
-                   sd = sd(freq, na.rm = T)) %>% 
-  mutate(cv = (sd / mean) * 100) %>% 
-  mutate(suitability = factor(suitability, levels = c("not_suitable", "suitable", "novel"))) %>% 
-  mutate(mean = ifelse(suitability == "not_suitable", -mean, mean)) %>% # change values to neagative for not_suitable species
-  ungroup(.)
-
-
-#df_suitability_summary_plot <- df_suitability_summary_plot[order(levels(df_suitability_summary_plot$suitability)),]
-# make a barplot like this :
-
-# figure out teh error bars!!! 
-df_suitability_summary_plot2 <- df_suitability_summary_plot %>%
-  arrange(country_pooled, scenario) %>%
-  group_by(country_pooled, scenario) %>%
-  mutate(
-    # Compute cumulative positions only for suitable and novel
-    cumulative_mean = ifelse(suitability == "suitable", cumsum(mean), mean),
-    cumulative_mean = ifelse(suitability == "not_suitable", mean, -mean ),
-    cumulative_mean = ifelse(suitability == "novel", mean, mean ),
-    
-    # Adjust error bars: Flip for "not_suitable"
-    cumulative_upper = ifelse(suitability == "not_suitable", mean - sd, cumulative_mean + sd),
-    cumulative_lower = ifelse(suitability == "not_suitable", mean + sd, cumulative_mean - sd)
-  ) %>% 
-  mutate(
-    pos = cumsum(mean),
-    upper = pos + sd/2,
-    lower = pos - sd/2
-  ) %>%
-  ungroup()# with error bars: 
-
-# add specific factor for x:
-df_suitability_summary_plot2 <- df_suitability_summary_plot2 %>% 
-  dplyr::filter(suitability !='novel') %>% 
-  mutate(x_comb = factor(paste(country_pooled, scenario )))
-
-
-# Test start -----!!!
-
-# Create scenario labels for x-axis (only show for unique scenario values)
-scenario_labels <- df_suitability_summary_plot2 %>%
-  group_by(x_comb) %>%
-  summarize(label = first(scenario)) %>%
-  pull(label)
-
-p.species.suitability_country <- 
-  ggplot(df_suitability_summary_plot2, aes(x = scenario, 
-                                           y = mean, 
-                                           fill =  factor(suitability, 
-                                                          levels = c("not_suitable", "suitable", "novel")))) +
-  geom_bar(stat = "identity", position = "stack") +  # Stacked bars
-  #  geom_errorbar(aes(ymin = lower, ymax = upper), 
-  #          width = 0.2, color = "grey10") +  # Add error bars at midpoints
-  theme_classic2() +
-  scale_x_discrete(labels = scenario_labels) +
-  facet_grid(. ~ country_pooled) +  # Facet by country, labels below
-  labs(title = "",
-       x = "",
-       y = "Number of species [#]",
-       fill = "Climate suitability") +
-  scale_fill_manual(
-    values = c("not_suitable" = "#FDBE6E", 
-               "suitable" = "#006837", 
-               "novel" = "#FEEDA2"),  # Custom colors
-    labels = c("not_suitable" = "Not suitable", 
-               "suitable" = "Suitable", 
-               "novel" = "Novel")  # Custom legend labels
-  )+
-  # geom_hline(yintercept = 0, color = "black", linewidth = 0.3) +
-  theme(
-    legend.position = 'right',
-    legend.text = element_text(size = 8),  
-    legend.title = element_text(size = 8),  
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),  # Rotate x-axis labels
-    axis.text.y = element_text(size = 8),  # Keep y-axis labels non-italic
-    axis.title = element_text(size = 8),    # Adjust axis title size
-    strip.background = element_blank(),  # Removes the box around facet labels
-    strip.text = element_text(face = "bold"),  # Keeps facet text bold
-    strip.placement = "outside",  # Places facet labels outside the plot area
-    panel.spacing = unit(0.3, "lines")  # Increases space between facet panels (countries)
-  )  
-p.species.suitability_country
-
-
-
-
-
-
-
-
-#### Sankey plot test: need to restructure data -----------------
+### Sankey plot test: need to restructure data -----------------
 
 # update naming and coloring
 species_colors_grey <- c(
-  piab = "#006837",
-  fasy = "#229C52",
-  quro = "#74C364",
-  pisy = "#B7E075",
-  soau = "#E9F6A2",
-  acps = "#FEEDA2",
-  potr = "#FDBE6E",
-  abal = "#F67B49",
-  besp = "#DA362A",
-  lade = "#A50026",
+  species_colors,
   other = "#D3D3D3"  # light grey
 )
 
 species_labels_grey <- c(
-  piab = "Picea abies",
-  fasy = "Fagus sylvatica",
-  quro = "Quercus robur/petraea",
-  pisy = "Pinus sylvestris",
-  soau = "Sorbus aucuparia",
-  acps = "Acer pseudoplatanus",
-  potr = "Populus tremula",
-  abal = "Abies alba",
-  besp = "Betula sp.",
-  lade = "Larix decidua",
+  species_labels,
   other = "Other species"
 )
 
 
-# Sankey per all plots (not only on occurence)
-n_plots = 849
-
-df_top_species_ovr <- df_compare_future_species_regions %>% 
+df_top_species_ovr <- 
+  df_suitability_observed_vs_modeled_reg %>% 
   dplyr::mutate(
-    acc = ifelse(acc %in% top_species_plot_share, acc, "other")  # relabel all others
+    acc = ifelse(acc %in% top_species_plot_share_v, acc, "other")  # relabel all others
   ) %>%
   #dplyr::filter(acc %in% top_species_plot_share) %>% 
   dplyr::filter(current == 1) %>% 
@@ -2423,22 +2003,21 @@ df_top_species_ovr <- df_compare_future_species_regions %>%
     rcp26,
     rcp45, 
     rcp85,
-    sum_stem_density,
+    reg_stem_density,
     country_pooled
   ) %>% 
   group_by(acc) %>% 
   summarize( n_plots_present = n_distinct(plot),
-             avg_stem_dens_current = sum(sum_stem_density)/n_plots,
-             avg_stem_dens_rcp26 = sum(sum_stem_density[rcp26 == 1]) / n_plots,
-             avg_stem_dens_rcp45 = sum(sum_stem_density[rcp45 == 1]) / n_plots,
-             avg_stem_dens_rcp85 = sum(sum_stem_density[rcp85 == 1]) / n_plots,
+             avg_stem_dens_current = sum(reg_stem_density)/n_total_plots,
+             avg_stem_dens_rcp26 = sum(reg_stem_density[rcp26 == 1]) / n_total_plots,
+             avg_stem_dens_rcp45 = sum(reg_stem_density[rcp45 == 1]) / n_total_plots,
+             avg_stem_dens_rcp85 = sum(reg_stem_density[rcp85 == 1]) / n_total_plots,
              .groups = "drop") #%>% 
-#dplyr::select(-)
 
 
-# Start from  existing summary
 # Prepare long-format data
-df_alluvial_stem_density_overall <- df_top_species_ovr %>%
+df_alluvial_stem_density_overall <- 
+  df_top_species_ovr %>%
   dplyr::select(acc, 
                 avg_stem_dens_current, 
                 avg_stem_dens_rcp26, 
@@ -2449,13 +2028,16 @@ df_alluvial_stem_density_overall <- df_top_species_ovr %>%
     names_to = "scenario",
     values_to = "stem_density"
   ) %>%
-  mutate(
-    scenario = recode(scenario,
-                      "avg_stem_dens_current" = "Current",
-                      "avg_stem_dens_rcp26" = "RCP2.6",
-                      "avg_stem_dens_rcp45" = "RCP4.5",
-                      "avg_stem_dens_rcp85" = "RCP8.5"),
-    acc = factor(acc, levels = c(top_species_plot_share, 'other'))  # Set desired order
+    mutate(
+      scenario = case_when(
+        scenario == "avg_stem_dens_current" ~ "Current",
+        scenario == "avg_stem_dens_rcp26"   ~ "RCP2.6",
+        scenario == "avg_stem_dens_rcp45"   ~ "RCP4.5",
+        scenario == "avg_stem_dens_rcp85"   ~ "RCP8.5",
+        TRUE ~ scenario
+      )
+    ) %>% 
+  mutate(acc = factor(acc, levels = c(top_species_plot_share_v, 'other'))  # Set desired order
   )
 
 
@@ -2488,38 +2070,90 @@ p_species_stem_density_ovr <-
 p_species_stem_density_ovr
 
 
-# Save the combined plot as an image
 ggsave(
-  filename = "outFigs/p.sankey_ovr.png",    # File name (change extension for different formats, e.g., .pdf)
-  plot = p_species_stem_density_ovr,             # Plot object to save
-  width = 5,                       # Width of the saved plot in inches
-  height = 3,                       # Height of the saved plot in inches
-  dpi = 300,                        # Resolution (dots per inch)
-  units = "in"                      # Units for width and height
+  filename = file.path(public_dir, "figs", "fig_sankey_stem_density_species.png"),
+  plot = p_species_stem_density_ovr,
+  width = 5,
+  height = 3,
+  dpi = 300,
+  units = "in",
+  bg = "white"  # Add white background to ensure clean rendering
 )
-# p.species.suitability_country_simpl
 
 
 
 
-# END -------------------------
+### Get Tables:  -----------------------------------------------------------
+# 1. share of stems/country
+# 2. share of plots whene no stemps will remain
+# merge into single table
+
+# Summarise stem counts per plot, scenario, country
+df_stem_suitability <- 
+  df_climate_suitability_regen_species_long %>%
+  group_by(country_pooled, scenario) %>%
+  summarise(n_plot_country = n_distinct(plot),
+    total_stems = sum(reg_stem_density, na.rm = TRUE),
+    suitable_stems = sum(reg_stem_density[suitability == "suitable"], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    share_suitable = ifelse(total_stems > 0, suitable_stems / total_stems, 0)  # <- Treat 0-stem plots as 0%
+  )
+
+# Step 2: Average share across plots (including zero-stem ones as 0%)
+df_stem_suitability_avg <- df_stem_suitability %>%
+  group_by(country_pooled, scenario, n_plot_country) %>%
+  summarise(
+    avg_share_suitable = round(mean(share_suitable) * 100, 1),  # As percentage
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    country_full = case_when(
+      country_pooled == "AT" ~ "Austria",
+      country_pooled == "CH" ~ "Switzerland",
+      country_pooled == "CZ" ~ "Czech Republic",
+      country_pooled == "DE" ~ "Germany",
+      country_pooled == "FR" ~ "France",
+      country_pooled == "PL" ~ "Poland",
+      country_pooled == "SI" ~ "Slovenia",
+      country_pooled == "SK" ~ "Slovakia",
+      TRUE ~ NA_character_  # Catch anything unexpected
+    )
+  ) %>%
+  arrange(country_full)
 
 
+df_stem_suitability_avg_wide <- df_stem_suitability_avg %>%
+  select(country_pooled, country_full, scenario, avg_share_suitable) %>%
+  pivot_wider(
+    names_from = scenario,
+    values_from = avg_share_suitable,
+    names_prefix = "stem_share_"
+  ) %>%
+  arrange(country_full)
 
 
+# Result
+df_stem_suitability_avg_wide
 
-### Summary table per country -----------------------------
+# TEST END !!!
+
+
+#### Summary table per country -----------------------------
+
+# get tables: 
+# species richness per country 
 #### Prepare Table 1: share of climatically suitable tree species per plot/country ------------------
 
 # create a df that contains all plots (also empty ones to calculate properly averages)
 df_master <- df_fin %>% 
   dplyr::select(plot, 
-                #country_full, 
                 country_pooled )
 
 
 # compare teh shares of species that are climatically suitable per plot
-df_species_clim_suitability <-   df_compare_future_species_regions %>% 
+df_suitability_richness <-   df_suitability_observed_vs_modeled_reg %>% 
   
   group_by(plot, country_pooled) %>%
   mutate(
@@ -2567,7 +2201,7 @@ df_species_clim_suitability <-   df_compare_future_species_regions %>%
 
 
 #  Calculate shares 
-df_clim_suitable_species_richness <- df_species_clim_suitability %>% #  View()
+df_suitability_richness_share <- df_suitability_richness %>% #  View()
   mutate(country_pooled = ifelse(is.na(country_pooled), "FR", 
                                  as.character(country_pooled))) %>%
   mutate(country_pooled = as.factor(country_pooled))  %>% # Optional: re-convert to factor if needed
@@ -2581,15 +2215,17 @@ df_clim_suitable_species_richness <- df_species_clim_suitability %>% #  View()
             richness45_share = mean(rcp45_share),
             richness85_share = mean(rcp85_share)) %>% 
   mutate(
-    country_full = recode(as.character(country_pooled),
-                          "AT" = "Austria",
-                          "CH" = "Switzerland",
-                          "CZ" = "Czech Republic",
-                          "DE" = "Germany",
-                          "FR" = "France",
-                          "PL" = "Poland",
-                          "SI" = "Slovenia",
-                          "SK" = "Slovakia")
+    country_full = case_when(
+      country_pooled == "AT" ~ "Austria",
+      country_pooled == "CH" ~ "Switzerland",
+      country_pooled == "CZ" ~ "Czech Republic",
+      country_pooled == "DE" ~ "Germany",
+      country_pooled == "FR" ~ "France",
+      country_pooled == "PL" ~ "Poland",
+      country_pooled == "SI" ~ "Slovenia",
+      country_pooled == "SK" ~ "Slovakia",
+      TRUE ~ NA_character_  # Catch anything unexpected
+    )
   ) %>%
   arrange(country_full)
 
@@ -2597,7 +2233,7 @@ df_clim_suitable_species_richness <- df_species_clim_suitability %>% #  View()
 
 #### Lost plots:  how many plots per country does not contain any currently present species??? ---------------
 
-df_clim_suitable_plots <- df_compare_future_species_regions %>%
+df_suitability_plots <- df_suitability_observed_vs_modeled_reg %>%
   group_by(country_pooled, plot) %>%
   mutate(
     any_present = any(current == 1),
@@ -2626,31 +2262,34 @@ df_clim_suitable_plots <- df_compare_future_species_regions %>%
                 share_lost_85) %>% 
   distinct() %>% 
   mutate(
-    country_full = recode(as.character(country_pooled),
-                          "AT" = "Austria",
-                          "CH" = "Switzerland",
-                          "CZ" = "Czech Republic",
-                          "DE" = "Germany",
-                          "FR" = "France",
-                          "PL" = "Poland",
-                          "SI" = "Slovenia",
-                          "SK" = "Slovakia")
+    country_full = case_when(
+      country_pooled == "AT" ~ "Austria",
+      country_pooled == "CH" ~ "Switzerland",
+      country_pooled == "CZ" ~ "Czech Republic",
+      country_pooled == "DE" ~ "Germany",
+      country_pooled == "FR" ~ "France",
+      country_pooled == "PL" ~ "Poland",
+      country_pooled == "SI" ~ "Slovenia",
+      country_pooled == "SK" ~ "Slovakia",
+      TRUE ~ NA_character_  # Catch anything unexpected
+    )
   ) %>%
-  arrange(country_full) 
+  arrange(country_full)
 
 
 
 #### merge climate suitability tables: richenss and lost plots  ----------------------------
-df_out <- full_join(df_clim_suitable_species_richness,
-                    df_clim_suitable_plots)
+df_out <- full_join(df_stem_suitability_avg_wide,
+                    df_suitability_plots) %>% 
+  full_join(df_suitability_richness_share)
 
 ##### simpler version for MS
 df_out_MS <- df_out %>% 
   dplyr::select(country_full,
                 #n_plots_total,
-                richness26_share,
-                richness45_share, 
-                richness85_share,
+                stem_share_rcp26 ,
+                stem_share_rcp45 , 
+                stem_share_rcp85 ,
                 share_lost_26,
                 share_lost_45,
                 share_lost_85)
@@ -2661,11 +2300,11 @@ df_out_supplement <- df_out %>%
   dplyr::select(country_full,
                 richness,  # average number of species per plot/country
                 richness26,
-                richness26_share,
+                stem_share_rcp26 ,
                 richness45,
-                richness45_share, 
+                stem_share_rcp45 , 
                 richness85,
-                richness85_share,
+                stem_share_rcp85 ,
                 n_plots_total,
                 n_lost_26,
                 share_lost_26,
@@ -2678,39 +2317,53 @@ df_out_supplement <- df_out %>%
 
 
 ### Get Summary row: bottom: Totals : values for richness and lost plots across all values:  -----------
-#### Richness
-total_richness_full <- df_compare_future_species_regions %>% 
+#### Richness & remaining stems 
+total_richness_stems_full <- df_suitability_observed_vs_modeled_reg %>% 
   summarize(
     # calculate number of species
     richness = length(unique(acc[current == 1])),
     richness26       = length(unique(acc[current == 1 & rcp26 == 1])),
     richness45       = length(unique(acc[current == 1 & rcp45 == 1])),
-    richness85       = length(unique(acc[current == 1 & rcp85 == 1]))
+    richness85       = length(unique(acc[current == 1 & rcp85 == 1])),
+    
+    # Total stems currently present
+    stems_current = sum(reg_stem_density[current == 1], na.rm = TRUE),
+    
+    # Total stems that are both currently present AND climatically suitable
+    stems_suitable_26 = sum(reg_stem_density[current == 1 & rcp26 == 1], na.rm = TRUE),
+    stems_suitable_45 = sum(reg_stem_density[current == 1 & rcp45 == 1], na.rm = TRUE),
+    stems_suitable_85 = sum(reg_stem_density[current == 1 & rcp85 == 1], na.rm = TRUE)
+    
   ) %>% 
   mutate(country_full = "Total",
          richness26_share = richness26/richness*100,
          richness45_share = richness45/richness*100,
-         richness85_share = richness85/richness*100) %>% 
+         richness85_share = richness85/richness*100,
+         stem_share_rcp26 = stems_suitable_26/stems_current*100,
+         stem_share_rcp45 = stems_suitable_45/stems_current*100,
+         stem_share_rcp85 = stems_suitable_85/stems_current*100
+         ) %>% 
   dplyr::select(country_full,
                 richness,
                 richness26,
-                richness26_share,
+                stem_share_rcp26,
                 richness45,
-                richness45_share,
+                stem_share_rcp45,
                 richness85,
-                richness85_share)
+                stem_share_rcp85
+               )
 
 # make simpler version for MS
-total_richness_MS <- total_richness_full %>% 
+total_stem_dens_MS <- total_richness_stems_full %>% 
   dplyr::select(country_full,
-                richness26_share,
-                richness45_share,
-                richness85_share)
+                stem_share_rcp26 ,
+                stem_share_rcp45 ,
+                stem_share_rcp85 )
 
 
 #### Summary row: Total loss -----------------------
 total_lost_full <- 
-  df_compare_future_species_regions %>%
+  df_suitability_observed_vs_modeled_reg %>%
   group_by(plot) %>%
   mutate(
     any_present = any(current == 1),
@@ -2788,22 +2441,20 @@ df_out_supplement_formatted <- df_out_supplement_with_total %>%
 
 View(df_out_supplement_formatted)
 
-sjPlot::tab_df(df_out_MS_with_total,
-               show.rownames = FALSE,
-               file="outTable/MS_clim_suitability_country.doc",
-               digits = 1) 
-
-
-
-sjPlot::tab_df(df_out_supplement_formatted,
-               show.rownames = FALSE,
-               file="outTable/Supplement_clim_suitability_country.doc",
-               digits = 1) 
+# sjPlot::tab_df(df_out_MS_with_total,
+#                show.rownames = FALSE,
+#                file = file.path(public_dir, "tables", "table_MS_clim_suitability_by_country.doc"),
+#                digits = 1)
+# 
+# sjPlot::tab_df(df_out_supplement_formatted,
+#                show.rownames = FALSE,
+#                file = file.path(public_dir, "tables", "table_Supplement_clim_suitability_by_country.doc"),
+#                digits = 1)
 
 
 # which species will remain?
 # Calculate the presence proportion for each scenario
-species_presence_proportion <- df_compare_future_species %>%
+species_presence_proportion <- df_suitability_observed_vs_modeled %>%
   ungroup() %>%
   dplyr::filter(current == 1) %>%
   dplyr::group_by(acc) %>%
@@ -2812,10 +2463,10 @@ species_presence_proportion <- df_compare_future_species %>%
     rcp26_count = sum(rcp26 == 1, na.rm = T),
     rcp45_count = sum(rcp45 == 1, na.rm = T),
     rcp85_count = sum(rcp85 == 1, na.rm = T),
-    current_proportion = (current_count / total_plots) * 100,
-    rcp26_proportion = (rcp26_count / total_plots) * 100,
-    rcp45_proportion = (rcp45_count / total_plots) * 100,
-    rcp85_proportion = (rcp85_count / total_plots) * 100
+    current_proportion = (current_count / n_plots) * 100,
+    rcp26_proportion = (rcp26_count / n_plots) * 100,
+    rcp45_proportion = (rcp45_count / n_plots) * 100,
+    rcp85_proportion = (rcp85_count / n_plots) * 100
   ) %>%
   arrange(desc(current_count))
 
@@ -2824,8 +2475,8 @@ View(species_presence_proportion)
 
 
 # how may plots have ONLY piab??
-plots_with_only_piab <- df_compare_future_species %>%
-  dplyr::filter(sum_stem_density > 0) %>%
+plots_with_only_piab <- df_suitability_observed_vs_modeled %>%
+  dplyr::filter(reg_stem_density > 0) %>%
   group_by(plot) %>%
   summarise(only_piab = all(acc == "piab"), .groups = "drop") %>%
   dplyr::filter(only_piab) %>%
@@ -2841,7 +2492,7 @@ length(plots_with_only_piab)
 # Test for single country: 
 
 current_species<- 
-  df_compare_future_species %>%  
+  df_suitability_observed_vs_modeled %>%  
   dplyr::filter(country_pooled == "SK") %>% 
   dplyr::filter(current == 1) %>% 
   #dplyr::filter(rcp26 == 1) %>% 
@@ -2850,7 +2501,7 @@ current_species<-
 # rename(current = acc)
 #pull()
 
-rcp26_species<- df_compare_future_species %>%  
+rcp26_species<- df_suitability_observed_vs_modeled %>%  
   dplyr::filter(country_pooled == "SK") %>% 
   dplyr::filter(rcp26 == 1) %>% 
   ungroup() %>% 
@@ -2874,14 +2525,14 @@ View(merged_species)
 # Try with cmmapring the vectors:
 
 current_species_v <- 
-  df_compare_future_species %>%  
+  df_suitability_observed_vs_modeled %>%  
   dplyr::filter(country_pooled == "SK") %>% 
   dplyr::filter(current == 1) %>% 
   ungroup() %>% 
   distinct(acc) %>%
   pull()
 
-rcp26_species_v<- df_compare_future_species %>%  
+rcp26_species_v<- df_suitability_observed_vs_modeled %>%  
   dplyr::filter(country_pooled == "SK") %>% 
   dplyr::filter(rcp26 == 1) %>% 
   ungroup() %>% 
@@ -2946,7 +2597,7 @@ calculate_species_loss <- function(data, country, rcp_column) {
 rcp_scenarios <- c("rcp26", "rcp45", "rcp85")
 
 # Run the function for each country and scenario, store results in a data frame
-species_loss_summary <- df_compare_future_species %>%
+species_loss_summary <- df_suitability_observed_vs_modeled %>%
   distinct(country_pooled) %>%
   pull() %>%
   expand.grid(country = ., rcp = rcp_scenarios) %>%
@@ -2999,7 +2650,7 @@ sjPlot::tab_df(df_species_by_climate,
 
 ### Barplot of species suitability -------------
 # seems wrong ---
-df_species_presence <- df_compare_future_species_regions %>%
+df_species_presence <- df_suitability_observed_vs_modeled_reg %>%
   pivot_longer(cols = c(current, rcp26, rcp45, rcp85), 
                names_to = "scenario", 
                values_to = "presence") %>%
@@ -3018,7 +2669,7 @@ df_species_presence <- df_compare_future_species_regions %>%
 
 
 # Calculate frequency of occurrence grouped by species, scenario, and presence
-df_freq <- df_compare_future_species_regions %>%
+df_freq <- df_suitability_observed_vs_modeled_reg %>%
   dplyr::filter(current == 1) %>%
   pivot_longer(cols = c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>%
   mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
@@ -3030,14 +2681,14 @@ df_freq <- df_compare_future_species_regions %>%
 
 # calculate species richness per country and scanerio - cross link, get a barplot with categories of occurance
 # Count unique species in 'current' per country
-species_current <- df_compare_future_species %>%
+species_current <- df_suitability_observed_vs_modeled %>%
   dplyr::filter(current == 1) %>%  # Filter where species is present
   group_by(country_pooled) %>%
   dplyr::reframe(n_species_current = unique(acc))
 
 # Count unique species in each future scenario per country
 #species_scenarios <- 
-df_compare_future_species %>%
+df_suitability_observed_vs_modeled %>%
   dplyr::filter(rcp26 == 1 | rcp45 == 1 | rcp85 == 1) %>%  # Keep only species present in any scenario
   group_by(country_pooled) %>%
   dplyr::summarise(
