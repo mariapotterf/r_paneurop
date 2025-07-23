@@ -256,6 +256,11 @@ df_fin <- df_fin %>%
 # 
 # fwrite(df_fin_share, "outData/public/plot_level_predictors_clean.csv")
 
+df_stem_dens_out <- stem_dens_species_long_cluster %>% 
+  dplyr::select(-management_intensity ) %>% 
+  rename(plot = cluster)
+
+fwrite(df_stem_dens_out, "outData/public/plot_level_stem_density_species_by_class.csv")
 
 ## add to gpkg: 10 prevailing species 
 # 
