@@ -1,10 +1,12 @@
 # 5. Drivers ---------------------------------
 
 # Model
+rm(list = ls())             # Remove all objects from global environment
+graphics.off()              # Close all open graphics devices
+gc()                        # Run garbage collection to free up memory
 
-gc()
 
-
+# libs -------------------
 library(dplyr)
 library(stringr)
 library(ggplot2)
@@ -28,8 +30,7 @@ df_stem_species_class <- fread(file.path(public_dir, "data", "plot_level_stem_de
 # total number of plots
 n_total_plots = length(unique(df_fin$plot)) # 849
 
-source('00_my_functions.R')
-
+source(file.path(public_dir, "code", "00_my_functions.R"))
 
 # select main variables as predictors 
 predictor_vars_sub <- c(

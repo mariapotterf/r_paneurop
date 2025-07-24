@@ -26,8 +26,6 @@ library(cowplot)
 library(sjPlot)
 
 
-source('00_my_functions.R')
-
 # Input data -------------------------------------------------------------
 public_dir <- here("outData", "public")
 
@@ -40,7 +38,7 @@ df_stem_species_class <- fread(file.path(public_dir, "data", "plot_level_stem_de
 # total number of plots
 n_total_plots = length(unique(df_fin$plot)) # 849
 
-source('00_my_functions.R')
+source(file.path(public_dir, "code", "00_my_functions.R"))
 
 ## Set a global theme -------------------------------------------------------------------
 

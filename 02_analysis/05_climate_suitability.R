@@ -1,6 +1,22 @@
 # species climate suitability
 
-gc()
+# Extract future species distribution from Wessely 2024
+
+# process;
+
+# read the list of all Wessely species (67)
+# read my species list (~37)
+# narrows down species list
+# read the vect points
+
+# look over the rasters to extract the values
+# this will be 0/1 per species and decade
+# merge 
+
+rm(list = ls())             # Remove all objects from global environment
+graphics.off()              # Close all open graphics devices
+gc()  
+
 # Libs --------------------------------------------------------------------------
 
 library(data.table)
@@ -18,8 +34,56 @@ library(sf)
 library(sjPlot)
 
 
-source('00_my_functions.R')
+source(file.path(public_dir, "code", "00_my_functions.R"))
 
+
+### Get a color scheme per species -------------------------
+
+# Reverse the color palette and map to the species in the desired order
+n_colors  <- 10  # Number of species
+my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Generate colors
+
+# Reverse the color order to start with dark green
+reversed_colors <- rev(my_colors)
+
+species_colors <- c(
+  piab = "#006837",
+  fasy = "#229C52",
+  quro = "#74C364",
+  pisy = "#B7E075",
+  soau = "#E9F6A2",
+  acps = "#FEEDA2",
+  potr = "#FDBE6E",
+  abal = "#F67B49",
+  besp = "#DA362A",
+  lade = "#A50026"
+)
+
+
+# Print the color assignments for confirmation
+print(species_colors)
+
+v_top10_species <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
+
+# Assign colors to each species in the order of `top_species_site_share$Species`
+species_colors <- setNames(
+  reversed_colors,
+  c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
+)
+
+# update species labels
+species_labels <- c(
+  "piab" = "Picea abies",
+  "fasy" = "Fagus sylvatica",
+  "quro" = "Quercus robur/petraea",
+  "pisy" = "Pinus sylvestris",
+  "soau" = "Sorbus aucuparia",
+  "acps" = "Acer pseudoplatanus",
+  "potr" = "Populus tremula",
+  "abal" = "Abies alba",
+  "besp" = "Betula sp.",
+  "lade" = "Larix decidua"
+)
 
 
 # Input data -------------------------------------------------------------
@@ -268,7 +332,7 @@ species_labels_grey <- c(
 df_top_species_ovr <- 
   df_suitability_observed_vs_modeled_reg %>% 
   dplyr::mutate(
-    acc = ifelse(acc %in% top_species_plot_share_v, acc, "other")  # relabel all others
+    acc = ifelse(acc %in% v_top10_species, acc, "other")  # relabel all others
   ) %>%
   #dplyr::filter(acc %in% top_species_plot_share) %>% 
   dplyr::filter(current == 1) %>% 
@@ -313,7 +377,7 @@ df_alluvial_stem_density_overall <-
       TRUE ~ scenario
     )
   ) %>% 
-  mutate(acc = factor(acc, levels = c(top_species_plot_share_v, 'other'))  # Set desired order
+  mutate(acc = factor(acc, levels = c(v_top10_species, 'other'))  # Set desired order
   )
 
 
@@ -347,7 +411,7 @@ p_species_stem_density_ovr
 
 
 ggsave(
-  filename = file.path(public_dir, "figs", "fig_sankey_stem_density_species.png"),
+  filename = file.path(public_dir, "figs", "Fig4.png"),
   plot = p_species_stem_density_ovr,
   width = 5,
   height = 3,
@@ -413,7 +477,6 @@ df_stem_suitability_avg_wide <- df_stem_suitability_avg %>%
 # Result
 df_stem_suitability_avg_wide
 
-# TEST END !!!
 
 
 #### Summary table per country -----------------------------
@@ -679,8 +742,8 @@ total_lost_MS <- total_lost_full %>%
 ##### bind total rows for richness and lost plots: for MS and full for supplement 
 # total row for MS:  (only percentages)
 # full total rown for supplemnt 
-total_row_MS         <- cbind(total_richness_MS, total_lost_MS)
-total_row_supplement <- cbind(total_richness_full, total_lost_full)
+total_row_MS         <- cbind(total_richness_stems_full, total_lost_MS)
+total_row_supplement <- cbind(total_richness_stems_full, total_lost_full)
 
 
 #### Add total rowns to MS and supplement tables: 
@@ -739,10 +802,10 @@ species_presence_proportion <- df_suitability_observed_vs_modeled %>%
     rcp26_count = sum(rcp26 == 1, na.rm = T),
     rcp45_count = sum(rcp45 == 1, na.rm = T),
     rcp85_count = sum(rcp85 == 1, na.rm = T),
-    current_proportion = (current_count / n_plots) * 100,
-    rcp26_proportion = (rcp26_count / n_plots) * 100,
-    rcp45_proportion = (rcp45_count / n_plots) * 100,
-    rcp85_proportion = (rcp85_count / n_plots) * 100
+    current_proportion = (current_count / 849) * 100,
+    rcp26_proportion = (rcp26_count / 849) * 100,
+    rcp45_proportion = (rcp45_count / 849) * 100,
+    rcp85_proportion = (rcp85_count / 849) * 100
   ) %>%
   arrange(desc(current_count))
 

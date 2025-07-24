@@ -1,4 +1,25 @@
-# 6. Delayed vs advanced sites: Wilcox plot-----------------------------------------------
+# Delayed vs advanced sites: characterize conditions
+
+# Clean up memory
+rm(list = ls())             # Remove all objects from global environment
+graphics.off()              # Close all open graphics devices
+gc()                        # Run garbage collection to free up memory
+
+# Libs ---------
+
+library(data.table)   # fread()
+library(dplyr)        # mutate(), filter(), group_by(), summarise()
+library(tidyr)        # gather()
+library(stringr)      # str_extract(), str_remove()
+library(ggplot2)      # general plotting
+library(ggpubr)       # ggboxplot(), compare_means(), ggarrange(), theme_classic2()
+library(purrr)        # used indirectly via summarise() + cur_data()
+library(sjPlot)       # tab_df() for table export
+library(BayesFactor)  # anovaBF(), extractBF() for Bayesian ANOVA
+
+
+
+# Input data ----------------------------
 
 public_dir <- here("outData", "public")
 
@@ -11,7 +32,41 @@ df_stem_species_class <- fread(file.path(public_dir, "data", "plot_level_stem_de
 # total number of plots
 n_total_plots = length(unique(df_fin$plot)) # 849
 
-source('00_my_functions.R')
+source(file.path(public_dir, "code", "00_my_functions.R"))
+
+# select main variables as predictors 
+predictor_vars_sub <- c(
+  
+  # over 2018-2023
+  "spei1",
+  "spei12",
+  "tmp", 
+  "prcp", 
+  "tmp_z", 
+  "prcp_z", 
+  
+  # during 2018-2020
+  "drought_tmp",
+  "drought_prcp",
+  "drought_spei1",
+  "drought_spei12",
+  
+  # disturbance chars
+  "distance_edge", 
+  "disturbance_severity", # from RS 
+  
+  # plot info
+  "sand_extract",
+  "clay_extract", 
+  "depth_extract", 
+  "av.nitro",
+  
+  # seasonality: CV - over year
+  "cv_t2m",
+  "cv_tp" #,
+)
+
+
 
 
 # Combine predictor variables with the grouping variable
@@ -336,7 +391,7 @@ wilcox_fin
 
 # Save the plot as an SVG file
 ggsave(
-  filename = file.path(public_dir, "figs", "fig_boxplot_wilcox_final_vars.png"),
+  filename = file.path(public_dir, "figs", "Fig3.png"),
   plot = wilcox_fin,
   device = "png",
   width = 6,
@@ -370,8 +425,8 @@ bayesian_results <- bayesian_results %>%
   ))
 
 
-sjPlot::tab_df(bayesian_results,
-               show.rownames = FALSE,
-               file = file.path(public_dir, "tables", "table_bayesian_group_differences.doc"),
-               digits = 1)
-
+# sjPlot::tab_df(bayesian_results,
+#                show.rownames = FALSE,
+#                file = file.path(public_dir, "tables", "table_bayesian_group_differences.doc"),
+#                digits = 1)
+# 

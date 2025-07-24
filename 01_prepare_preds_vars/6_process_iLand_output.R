@@ -7,20 +7,7 @@
 # temporal develpment
 #- evaluate they cchange change over time, how thtable they are given the clim cluster
 
-
-# pre-analysis
 # - inspect the development of 12 iLand landscapes
-
-# compare stem density bbetween intial condistion and between clusters
-
-
-# Process all sites:
-# - run k means clustering to classify clim_cluster
-# - compare my indicators with simulated data over time
-# - clim_clusters: 
-# --	Cluster 1 – wet, cold
-# --	Cluster 2 – hot, dry
-# --	Cluster 3 – in between 1-2
 
 # simulated data:
 # clim_model: 3
