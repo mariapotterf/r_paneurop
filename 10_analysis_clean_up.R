@@ -2423,9 +2423,9 @@ df_out_supplement_formatted <- df_out_supplement_with_total %>%
     lost_85 = paste0(n_lost_85, " (", round(share_lost_85, 1), ")"),
     
     richness = round(richness, 1),
-    richness26_fmt = paste0(round(richness26, 1), " (", round(richness26_share, 1), ")"),
-    richness45_fmt = paste0(round(richness45, 1), " (", round(richness45_share, 1), ")"),
-    richness85_fmt = paste0(round(richness85, 1), " (", round(richness85_share, 1), ")")
+    richness26_fmt = paste0(round(richness26, 1), " (", round(stem_share_rcp26 , 1), ")"),
+    richness45_fmt = paste0(round(richness45, 1), " (", round(stem_share_rcp45 , 1), ")"),
+    richness85_fmt = paste0(round(richness85, 1), " (", round(stem_share_rcp85 , 1), ")")
   ) %>%
   dplyr::select(
     country_full,
@@ -2441,15 +2441,15 @@ df_out_supplement_formatted <- df_out_supplement_with_total %>%
 
 View(df_out_supplement_formatted)
 
-# sjPlot::tab_df(df_out_MS_with_total,
-#                show.rownames = FALSE,
-#                file = file.path(public_dir, "tables", "table_MS_clim_suitability_by_country.doc"),
-#                digits = 1)
-# 
-# sjPlot::tab_df(df_out_supplement_formatted,
-#                show.rownames = FALSE,
-#                file = file.path(public_dir, "tables", "table_Supplement_clim_suitability_by_country.doc"),
-#                digits = 1)
+sjPlot::tab_df(df_out_MS_with_total,
+               show.rownames = FALSE,
+               file = file.path(public_dir, "tables", "table_MS_clim_suitability_by_country.doc"),
+               digits = 1)
+
+sjPlot::tab_df(df_out_supplement_formatted,
+               show.rownames = FALSE,
+               file = file.path(public_dir, "tables", "table_Supplement_clim_suitability_by_country.doc"),
+               digits = 1)
 
 
 # which species will remain?
@@ -2484,233 +2484,4 @@ plots_with_only_piab <- df_suitability_observed_vs_modeled %>%
 
 length(plots_with_only_piab)
 # 48 from 849, 5.7%
-
-
-#### identify teh most affected species --------------------------------
-# Evaluate by species: what species are present/ country? and how many of them are not clim suitbale?
-
-# Test for single country: 
-
-current_species<- 
-  df_suitability_observed_vs_modeled %>%  
-  dplyr::filter(country_pooled == "SK") %>% 
-  dplyr::filter(current == 1) %>% 
-  #dplyr::filter(rcp26 == 1) %>% 
-  ungroup() %>% 
-  distinct(acc) #%>%
-# rename(current = acc)
-#pull()
-
-rcp26_species<- df_suitability_observed_vs_modeled %>%  
-  dplyr::filter(country_pooled == "SK") %>% 
-  dplyr::filter(rcp26 == 1) %>% 
-  ungroup() %>% 
-  distinct(acc)  #%>%
-#pull() 
-
-# Add an indicator column for presence in each dataset
-current_species <- current_species %>% mutate(current_presence = 1)
-rcp26_species <- rcp26_species %>% mutate(rcp26_presence = 1)
-
-# Full join to keep all species and display their presence status
-merged_species <- full_join(current_species, rcp26_species, by = "acc") %>%
-  mutate(current_presence = ifelse(is.na(current_presence), FALSE, current_presence),
-         rcp26_presence = ifelse(is.na(rcp26_presence), FALSE, rcp26_presence))
-
-# View the result
-View(merged_species)
-
-
-
-# Try with cmmapring the vectors:
-
-current_species_v <- 
-  df_suitability_observed_vs_modeled %>%  
-  dplyr::filter(country_pooled == "SK") %>% 
-  dplyr::filter(current == 1) %>% 
-  ungroup() %>% 
-  distinct(acc) %>%
-  pull()
-
-rcp26_species_v<- df_suitability_observed_vs_modeled %>%  
-  dplyr::filter(country_pooled == "SK") %>% 
-  dplyr::filter(rcp26 == 1) %>% 
-  ungroup() %>% 
-  distinct(acc)  %>%
-  pull() 
-
-
-
-
-
-
-current_species_v
-rcp26_species_v
-length(unique(current_species_v, rcp26_species_v))
-
-species_lost <- setdiff(current_species_v, rcp26_species_v)
-length(species_lost)/length(current_species_v)
-
-# Create a data frame that lists all species in the current vector
-species_comparison <- data.frame(
-  species = current_species_v,
-  presence_rcp26 = ifelse(current_species_v %in% rcp26_species_v, "Present", "Lost")
-)
-
-# Display the data frame
-print(species_comparison)
-
-
-
-
-##### run for all species: -----------------------------------------------------
-
-
-
-# Define a function to calculate species loss per climate scenario
-calculate_species_loss <- function(data, country, rcp_column) {
-  # Filter species present under current conditions
-  current_species_v <- data %>%
-    dplyr::filter(country_pooled == country, current == 1) %>%
-    distinct(acc) %>%
-    pull() 
-  
-  # Filter species present under specified climate scenario
-  rcp_species_v <- data %>%
-    dplyr::filter(country_pooled == country, .data[[rcp_column]] == 1) %>%
-    distinct(acc) %>%
-    pull() 
-  
-  # Calculate species lost and loss share
-  species_lost <- setdiff(current_species_v, rcp_species_v)
-  loss_share <- length(species_lost) / length(current_species_v)
-  n_species_loss <- length(species_lost)
-  n_species_current <- length(current_species_v)
-  
-  # Return results as a list for multiple values
-  return(list(loss_share = loss_share, 
-              n_species_loss = n_species_loss, 
-              n_species_current = n_species_current))
-}
-
-# List of climate scenarios to check
-rcp_scenarios <- c("rcp26", "rcp45", "rcp85")
-
-# Run the function for each country and scenario, store results in a data frame
-species_loss_summary <- df_suitability_observed_vs_modeled %>%
-  distinct(country_pooled) %>%
-  pull() %>%
-  expand.grid(country = ., rcp = rcp_scenarios) %>%
-  mutate(rcp = as.character(rcp)) %>%  # Convert rcp to character
-  rowwise() %>%
-  mutate(
-    results = list(calculate_species_loss(df_compare_future_species, country, rcp))
-  ) %>%
-  unnest_wider(results) %>%  # Separate the list into individual columns
-  ungroup()
-
-# Print the resulting summary
-print(species_loss_summary)
-
-# Combine `n_species_loss` and `loss_share` into a single formatted column
-species_loss_summary <- species_loss_summary %>%
-  mutate(
-    loss_summary = paste0(n_species_loss, " (", round(loss_share * 100, 1), "%)")
-  ) %>%
-  dplyr::select(country, n_species_current, rcp, loss_summary) %>% 
-  mutate(country = as.character(country)) %>% 
-  arrange(country)
-
-# Reshape the data into wide format
-species_loss_summary_wide <- species_loss_summary %>%
-  pivot_wider(
-    names_from = rcp,
-    values_from = loss_summary,
-    names_prefix = "species_"
-  )
-
-# Print the resulting wide-format summary
-print(species_loss_summary_wide)
-
-# marge two tables and export
-
-df_species_by_climate <- cbind(species_loss_summary_wide, plot_summary_formatted_share)
-
-df_species_by_climate <- df_species_by_climate %>% 
-  dplyr::select(-country_pooled) #%>% 
-#dplyr::rename(country = ) #%>% 
-#dplyr::rename()
-
-
-sjPlot::tab_df(df_species_by_climate,
-               #col.header = c(as.character(qntils), 'mean'),
-               show.rownames = FALSE,
-               file="outTable/climate_suitable_species_plots.doc",
-               digits = 1) 
-
-### Barplot of species suitability -------------
-# seems wrong ---
-df_species_presence <- df_suitability_observed_vs_modeled_reg %>%
-  pivot_longer(cols = c(current, rcp26, rcp45, rcp85), 
-               names_to = "scenario", 
-               values_to = "presence") %>%
-  dplyr::filter(presence == 1) %>%  # Keep only species that are present
-  dplyr::select(country_pooled, acc, scenario) %>%
-  distinct() %>%  # Remove duplicates
-  mutate(presence = acc) %>%  # Rename `acc` column for clarity
-  pivot_wider(names_from = scenario, values_from = presence, values_fill = "0") 
-
-# make sankey plot:
-# how often which species will transit into each climate change scenarios?
-
-
-
-
-
-
-# Calculate frequency of occurrence grouped by species, scenario, and presence
-df_freq <- df_suitability_observed_vs_modeled_reg %>%
-  dplyr::filter(current == 1) %>%
-  pivot_longer(cols = c(current, rcp26, rcp45, rcp85), names_to = 'scenario', values_to = 'presence') %>%
-  mutate(scenario = factor(scenario, levels = c("current", "rcp26", "rcp45", "rcp85")),
-         presence = factor(presence)) %>%
-  group_by(acc, scenario, presence) %>%
-  summarise(freq = n(), .groups = "drop")
-
-
-
-# calculate species richness per country and scanerio - cross link, get a barplot with categories of occurance
-# Count unique species in 'current' per country
-species_current <- df_suitability_observed_vs_modeled %>%
-  dplyr::filter(current == 1) %>%  # Filter where species is present
-  group_by(country_pooled) %>%
-  dplyr::reframe(n_species_current = unique(acc))
-
-# Count unique species in each future scenario per country
-#species_scenarios <- 
-df_suitability_observed_vs_modeled %>%
-  dplyr::filter(rcp26 == 1 | rcp45 == 1 | rcp85 == 1) %>%  # Keep only species present in any scenario
-  group_by(country_pooled) %>%
-  dplyr::summarise(
-    n_species_rcp26 = unique(acc[rcp26 == 1]),
-    n_species_rcp45 = unique(acc[rcp45 == 1]),
-    n_species_rcp85 = unique(acc[rcp85 == 1])
-  )
-
-# Merge results
-species_counts <- species_current %>%
-  full_join(species_scenarios, by = "country_pooled") %>%
-  arrange(desc(n_species_current))  # Sort by most species currently
-
-# Display results
-print(species_counts)
-
-
-
-
-
-
-
-
-
 
