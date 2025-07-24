@@ -1,5 +1,11 @@
 # Post-disturbance forest structure
 
+# collect vegetation data from the field
+# calculate tree species occurence per plot,
+# species richness
+# vertical structure
+# species stem density 
+
 gc()
 
 # Libs --------------------------------------------------------------------------
@@ -505,7 +511,7 @@ p3 <- p_share_vertical_species + theme(axis.ticks.y = element_blank(),
 
 
 # Combine plots with aligned axes
-combined_plot <- plot_grid(
+combined_plot <- cowplot::plot_grid(
   p1,p2,p3,
   align = "h",  # Align vertically
   axis = "b",
