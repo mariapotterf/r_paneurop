@@ -21,6 +21,7 @@ library(spdep)
 
 
 # Input data ------------------------------------
+public_dir <- here("02_analysis/share/EU_forest_regeneration")  # Adjust if needed
 
 source(file.path(public_dir, "code", "00_paths_functions.R"))
 
@@ -106,7 +107,7 @@ for (predictor in predictor_vars) {
 AIC_results_univariate <- AIC_results_univariate[order(AIC_results_univariate$AIC), ]
 
 # Display the results
-View(AIC_results_univariate)
+#View(AIC_results_univariate)
 
 sjPlot::tab_df(AIC_results_univariate,
                show.rownames = FALSE,
