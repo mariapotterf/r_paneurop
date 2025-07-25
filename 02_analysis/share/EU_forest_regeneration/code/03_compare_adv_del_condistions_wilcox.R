@@ -20,6 +20,7 @@ library(BayesFactor)  # anovaBF(), extractBF() for Bayesian ANOVA
 
 
 # Input data -------------------------------------------------------------
+public_dir <- here("02_analysis/share/EU_forest_regeneration")  # Adjust if needed
 
 source(file.path(public_dir, "code", "00_paths_functions.R"))
 

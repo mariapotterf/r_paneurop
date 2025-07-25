@@ -1,18 +1,26 @@
+# Load libraries
+library(data.table)  # fread()
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(ggpubr)
+library(here)
+library("RColorBrewer")
 
-# paths -------------------------------------
-# define your path and folder
-public_dir <- here("EU_forest_regeneration")
+# Define base project directory
+public_dir <- here("02_analysis/share/EU_forest_regeneration")  # Adjust if needed
+
+# Source helper functions
+#source(file.path(code_dir, "00_paths_functions.R"))
 
 # Load cleaned input data
 
 # final set of predictors, summary per plot
 df_fin                 <- fread(file.path(public_dir, "data", "plot_level_predictors_clean.csv"))
-# 
 df_stem_species_class  <- fread(file.path(public_dir, "data", "plot_level_stem_density_species_by_class.csv"))
 
 # simulated data aggregated on plot level
 df_sim_indicators      <- fread(file.path(public_dir, "data", "df_sim_indicators.csv"))
-
 # Species climate suitability :
 
 # Read species lookup tables
@@ -23,8 +31,6 @@ lookup_species_field_wessely <- read.csv(file.path(public_dir, "data", "lookup_s
 species_climate_suitability_raw <- fread(
   file.path(public_dir, "data", "species_presence_clim_change.csv")
 )
-
-
 
 ### Get a color scheme per species -------------------------
 

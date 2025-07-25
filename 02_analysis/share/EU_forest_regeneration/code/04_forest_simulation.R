@@ -33,6 +33,7 @@ library(ggpubr)      # For theme_classic2()
 
 
 # Input data -------------------------------------------------------------
+public_dir <- here("02_analysis/share/EU_forest_regeneration")  # Adjust if needed
 
 source(file.path(public_dir, "code", "00_paths_functions.R"))
 
@@ -47,30 +48,36 @@ reg_colors_short <- c(
 
 
 # prepare summary table
-df_sens_plot <- df_sim_indicators %>% 
+df_sens_plot <- 
+  df_sim_indicators %>% 
   # filter final years
   dplyr::filter(year %in% 25:30) %>%
   mutate(
-    seed_comb = ifelse(is.na(seed_comb), "No seed", as.character(seed_comb)),
-    seed_level_num = as.integer(str_extract(seed_comb, "-?\\d+")),
+    seed_comb = ifelse(seed_comb == "", "No seed", seed_comb),
+    #seed_level_num = as.integer(str_extract(seed_comb, "-?\\d+")),
     seed_comb = factor(seed_comb, levels = c("No seed", paste0("seed_", 
                                                                sort(unique(seed_level_num))))),
     adv_delayed = recode_factor(adv_delayed,
                                 "Delayed" = "Del.",
                                 "Intermediate" = "Int.",
-                                "Advanced" = "Adv."),
-    adv_delayed = factor(adv_delayed, levels = c("Del.", "Int.", "Adv."))
+                                "Advanced" = "Adv.") #,
+    #adv_delayed = factor(adv_delayed, levels = c("Del.", "Int.", "Adv."))
   )
 
+  
+  
+  
 # calculate medians and IQR
-group_summary <- df_sens_plot %>%
+group_summary <- 
+  df_sens_plot %>%
   dplyr::group_by(adv_delayed, seed_comb) %>%
   dplyr::summarize(
     q25 = quantile(stem_density / 1000, 0.25, na.rm = TRUE),
     median_density = median(stem_density / 1000, na.rm = TRUE),
     q75 = quantile(stem_density / 1000, 0.75, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>% 
+  mutate(adv_delayed = factor(adv_delayed, levels = c("Del.", "Int.", "Adv.")))
 
 # make a plot
 p_simulated_stem_sensitivity <- group_summary %>%
@@ -80,8 +87,8 @@ p_simulated_stem_sensitivity <- group_summary %>%
   geom_pointrange(position = position_dodge(width = 0.6), size = 0.3) +
   geom_vline(data = group_summary %>%
                group_by(adv_delayed) %>%
-               summarize(median_density = median(median_density), .groups = "drop"),
-             aes(xintercept = median_density, color = adv_delayed),
+               summarize(mean_density = mean(median_density), .groups = "drop"),
+             aes(xintercept = mean_density, color = adv_delayed),
              linetype = "dashed", show.legend = FALSE) +
   scale_color_manual(values = reg_colors_short) +
   theme_classic2() +
