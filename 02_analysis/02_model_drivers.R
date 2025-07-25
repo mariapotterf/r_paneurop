@@ -6,7 +6,7 @@ graphics.off()              # Close all open graphics devices
 gc()                        # Run garbage collection to free up memory
 
 
-# libs -------------------
+# libs ---------------------------------------
 library(dplyr)
 library(stringr)
 library(ggplot2)
@@ -19,18 +19,12 @@ library(corrplot)
 library(spdep)
 
 
-public_dir <- here("outData", "public")
 
-# Load cleaned input data
-df_fin <- fread(file.path(public_dir, "data", "plot_level_predictors_clean.csv"))
-df_stem_species_class <- fread(file.path(public_dir, "data", "plot_level_stem_density_species_by_class.csv"))
+# Input data ------------------------------------
 
+source(file.path(public_dir, "code", "00_paths_functions.R"))
 
-# Variables
-# total number of plots
-n_total_plots = length(unique(df_fin$plot)) # 849
-
-source(file.path(public_dir, "code", "00_my_functions.R"))
+# define predictors ------------------
 
 # select main variables as predictors 
 predictor_vars_sub <- c(

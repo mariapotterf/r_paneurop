@@ -22,8 +22,7 @@ rm(list = ls())             # Remove all objects from global environment
 graphics.off()              # Close all open graphics devices
 gc()                        # Run garbage collection to free up memory
 
-
-
+# Libs ----------------------------------------------------------------
 
 library(data.table)  # fread()
 library(dplyr)       # mutate(), filter(), group_by(), summarize()
@@ -32,14 +31,13 @@ library(tidyr)       # Not used in this snippet, can be removed
 library(stringr)     # str_extract(), str_remove()
 library(ggpubr)      # For theme_classic2()
 
-# Input data -----------------------------------------------------------------------------
-public_dir <- here("outData", "public")
 
-df_sim_indicators <- fread(file.path(public_dir, "data", "df_sim_indicators.csv"))
+# Input data -------------------------------------------------------------
 
-source(file.path(public_dir, "code", "00_my_functions.R"))
+source(file.path(public_dir, "code", "00_paths_functions.R"))
 
-# Vars 
+
+# Vars ---------------------------
 
 reg_colors_short <- c(
   "Del." = "#A50026",   # reddish

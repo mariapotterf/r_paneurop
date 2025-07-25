@@ -34,71 +34,10 @@ library(sf)
 library(sjPlot)
 
 
-source(file.path(public_dir, "code", "00_my_functions.R"))
-
-
-### Get a color scheme per species -------------------------
-
-# Reverse the color palette and map to the species in the desired order
-n_colors  <- 10  # Number of species
-my_colors <- colorRampPalette(brewer.pal(11, "RdYlGn"))(n_colors)  # Generate colors
-
-# Reverse the color order to start with dark green
-reversed_colors <- rev(my_colors)
-
-species_colors <- c(
-  piab = "#006837",
-  fasy = "#229C52",
-  quro = "#74C364",
-  pisy = "#B7E075",
-  soau = "#E9F6A2",
-  acps = "#FEEDA2",
-  potr = "#FDBE6E",
-  abal = "#F67B49",
-  besp = "#DA362A",
-  lade = "#A50026"
-)
-
-
-# Print the color assignments for confirmation
-print(species_colors)
-
-v_top10_species <- c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
-
-# Assign colors to each species in the order of `top_species_site_share$Species`
-species_colors <- setNames(
-  reversed_colors,
-  c("piab", "fasy", "quro", "pisy", "soau", "acps", "potr", "abal", "besp", "lade")
-)
-
-# update species labels
-species_labels <- c(
-  "piab" = "Picea abies",
-  "fasy" = "Fagus sylvatica",
-  "quro" = "Quercus robur/petraea",
-  "pisy" = "Pinus sylvestris",
-  "soau" = "Sorbus aucuparia",
-  "acps" = "Acer pseudoplatanus",
-  "potr" = "Populus tremula",
-  "abal" = "Abies alba",
-  "besp" = "Betula sp.",
-  "lade" = "Larix decidua"
-)
-
 
 # Input data -------------------------------------------------------------
-public_dir <- here("outData", "public")
 
-# Load cleaned input data
-df_fin <- fread(file.path(public_dir, "data", "plot_level_predictors_clean.csv"))
-df_stem_species_class <- fread(file.path(public_dir, "data", "plot_level_stem_density_species_by_class.csv"))
-
-
-# Variables
-# total number of plots
-n_total_plots = length(unique(df_fin$plot)) # 849
-
-source('00_my_functions.R')
+source(file.path(public_dir, "code", "00_paths_functions.R"))
 
 ## Set a global theme -------------------------------------------------------------------
 
@@ -117,6 +56,8 @@ theme_set(
 
 
 
+
+
 # 7. Species climate suitability  -------------------------------------------
 
 df_stem_species_class %>% 
@@ -130,9 +71,6 @@ df_stem_species_class %>%
 # - eg we have besp, which can be betula pendula, betula pubescense
 # - same for populus (3), quercus (6), salix ...
 
-# Read species lookup tables
-lookup_species_acronyms      <- read.csv(file.path(public_dir, "data", "lookup_species_acronyms.csv"), sep = ';')
-lookup_species_field_wessely <- read.csv(file.path(public_dir, "data", "lookup_species_field_wessely.csv"), sep = ';')
 
 # identify what species are present per plot - use simple look up table, 
 # add only latin names
@@ -148,11 +86,6 @@ species_present_field <-
   dplyr::select(-latin)  %>% 
   dplyr::rename(acc = Species) 
 
-# read table with Wessely species - from species present/absent of plots locations
-# only species present on every perios (occurence = 8) are climatically suitable across whole century
-species_climate_suitability_raw <- fread(
-  file.path(public_dir, "data", "species_presence_clim_change.csv")
-)
 
 # add acronyms and consider presence across several species: eg betula sp.
 species_suitability_summary <- 
