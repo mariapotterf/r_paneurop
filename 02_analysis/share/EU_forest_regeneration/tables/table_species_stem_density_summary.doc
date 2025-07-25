@@ -1,0 +1,256 @@
+<table style="border-collapse:collapse; border:none;">
+<caption style="font-weight: bold; text-align:left;">Summary of Stem Density per Species</caption>
+<tr>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; text-align:left; ">Species</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">min</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">max</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">mean_sd</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">median_iqr</th>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Abies alba</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">22500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2123 ± 3024</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (2000)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Acer campestre</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">955 ± 723</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (750)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Acer platanoides</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">23000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">4107 ± 5900</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2000 (2875)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Acer pseudoplatanus</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">42500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3163 ± 4902</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1500 (2500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Alnus glutinosa</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1067 ± 817</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">750 (875)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Alnus incana</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">4500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1357 ± 1492</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (1000)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Betula sp.</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">17500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1551 ± 2186</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">562.5 (1125)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Carpinus betulus</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2124 ± 2842</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (1500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Castanea sativa</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">6000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1838 ± 2038</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (2500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Fagus sylvatica</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">19000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1828 ± 2538</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (1500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Fraxinus excelsior</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">17000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">9026 ± 5141</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">8500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Fraxinus ornus</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">786 ± 393</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Ilex aquifolium</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">750 ± 289</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">750 (500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Juglans regia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 ± 0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Juniperus sp.</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 ± NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Larix decidua</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">9500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1210 ± 1249</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (875)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Ostrya carpinifolia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">900 ± 894</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Picea abies</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">31000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3045 ± 4243</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1500 (3000)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Pinus strobus</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">8500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1386 ± 1815</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (1000)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Pinus sylvestris</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">26000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2517 ± 3445</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (2500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Populus sp.</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">5000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1260 ± 1062</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (1000)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Populus tremula</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">30500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2601 ± 3671</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1250 (2500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Prunus avium</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">6000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1015 ± 1041</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (875)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Pseudotsuga menziesii</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">4500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1012 ± 803</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (1000)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Quercus robur/rubra</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">42000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2068 ± 3746</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (1500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Quercus sp.</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">7000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1482 ± 1722</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (937.5)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Robinia pseudoacacia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">28750</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">5208 ± 11533</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Salix caprea</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">833 ± 545</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Salix sp.</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 ± NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Sorbus aria</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">5000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1235 ± 1264</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Sorbus aucuparia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">36000</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2247 ± 3936</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (1500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Sorbus torminalis</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 ± 0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Tilia cordata</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 ± NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500 (0)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Tilia sp.</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">8500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1368 ± 1825</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1000 (500)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; border-bottom: double; ">Ulmus sp.</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">7500</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">2053 ± 2134</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">1500 (2000)</td>
+</tr>
+</table>
+

@@ -1,0 +1,113 @@
+<table style="border-collapse:collapse; border:none;">
+<tr>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; text-align:left; ">country_full</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">richness</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">richness26_fmt</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">richness45_fmt</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">richness85_fmt</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">n_plots_total</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; col7">lost_26</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; col8">lost_45</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; col9">lost_85</th>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Austria</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3.4</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.6 (54.7)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.1 (38.2)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.4 (11.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">57</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">9 (15.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">17 (29.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">38 (66.7)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Czech Republic</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3.4</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1 (28.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.4 (10.6)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.3 (4.7)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">135</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">47 (34.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">88 (65.2)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">96 (71.1)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">France</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3.6</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.7 (46.5)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.6 (39.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.9 (19.2)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">63</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">12 (19)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">12 (19)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">31 (49.2)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Germany</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.9 (26)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.7 (18.7)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.5 (13.4)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">459</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">188 (41)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">226 (49.2)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">253 (55.1)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Poland</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.4 (36)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.9 (22.1)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.1 (23.7)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">37</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">7 (18.9)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">15 (40.5)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">11 (29.7)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Slovakia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3.6</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2 (45.7)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.5 (15.4)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.5 (9.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">18</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">1 (5.6)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">9 (50)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">9 (50)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Slovenia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">4.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2.6 (61.9)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2 (42.9)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1 (14.2)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">56</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">5 (8.9)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">7 (12.5)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">25 (44.6)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Switzerland</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">5.1</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2.5 (48.3)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2 (42.9)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.5 (20.5)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">24</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">4 (16.7)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col8">3 (12.5)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col9">8 (33.3)</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; border-bottom: double; ">Total</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">29.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">20 (36)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">19 (24.9)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">14 (13.8)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">849</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  col7">273 (32.2)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  col8">377 (44.4)</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  col9">471 (55.5)</td>
+</tr>
+</table>
+

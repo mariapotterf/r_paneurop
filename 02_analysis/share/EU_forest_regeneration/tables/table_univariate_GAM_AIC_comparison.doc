@@ -1,0 +1,79 @@
+<table style="border-collapse:collapse; border:none;">
+<tr>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; text-align:left; ">Predictor</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">AIC</th>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">drought_prcp</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16167.1</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">prcp</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16169.6</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">tmp_z</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16191.1</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">av.nitro</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16194.9</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">drought_spei12</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16197.8</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">drought_spei1</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16198.2</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">clay_extract</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16200.9</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">prcp_z</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16206.2</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">sand_extract</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16207.1</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">depth_extract</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16210.9</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">distance_edge</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16211.6</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">disturbance_severity</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16212.5</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">cv_t2m</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16213.2</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">spei1</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16214.0</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">cv_tp</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16214.2</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">tmp</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16215.7</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">drought_tmp</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">16216.3</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; border-bottom: double; ">spei12</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">16216.8</td>
+</tr>
+</table>
+

@@ -1,0 +1,133 @@
+<table style="border-collapse:collapse; border:none;">
+<tr>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; text-align:left; ">country_full</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">stem_share_rcp26</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">stem_share_rcp45</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">stem_share_rcp85</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">share_lost_26</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">share_lost_45</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; col7">share_lost_85</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; col8">richness</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; col9">richness26</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; 0">richness45</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; 1">richness85</th>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Austria</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">54.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">38.2</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">11.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">15.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">29.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">66.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Czech Republic</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">28.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">10.6</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">4.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">34.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">65.2</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">71.1</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">France</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">46.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">39.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">19.2</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">19.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">19.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">49.2</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Germany</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">26.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">18.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">13.4</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">41.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">49.2</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">55.1</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Poland</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">36.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">22.1</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">23.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">18.9</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">40.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">29.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Slovakia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">45.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">15.4</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">9.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">5.6</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">50.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">50.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Slovenia</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">61.9</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">42.9</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">14.2</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">8.9</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">12.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">44.6</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Switzerland</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">48.3</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">42.9</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">20.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">16.7</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">12.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  col7">33.3</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col8">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col9">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 0">NA</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; 1">NA</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; border-bottom: double; ">Total</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  ">36.0</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  ">24.9</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  ">13.8</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  ">32.2</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  ">44.4</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double;  col7">55.5</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; col8">29</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; col9">20</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; 0">19</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; 1">14</td>
+</tr>
+</table>
+
