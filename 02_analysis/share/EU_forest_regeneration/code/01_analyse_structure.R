@@ -179,7 +179,7 @@ df_stem_sp_sum <- df_stem_species_class %>%
   group_by(plot, Species) %>% 
   # summarize across vertical groups
   summarise(sum_stem_density = sum(stem_density, na.rm = T)) %>%
-  mutate(counts = sum_stem_density/500) # convert back to counts
+  mutate(count = sum_stem_density/500) # convert back to counts
 
 
 
@@ -210,71 +210,22 @@ top_species_plot_share <- species_plot_share %>%
 
 top_species_plot_share$Species
 
+# Unconditional density (density including zeros) -------------------------------------------------------
 
-
-## test for convesion of stem density: ----------------------------------------
-# get total stem density vs stem density per species
-
-dd <- data.frame(plot = c(1,1,1,
-                          2,2,2,
-                          3,3,3),
-                 species = c('p','a', 'b',
-                             'p','a', 'b',
-                             'p','a', 'b'),
-                 count = c(5,5,0,
-                           1,1,0,
-                           0,0,0),
-                 area_m2 = 20)
-
-conv <- 10000 / 20   # = 500, prevod na hectare
-
-total_density <- dd %>%
-  group_by(plot) %>%
-  summarise(
-    stems = sum(count),
-    density_per_ha = stems * (10000 / unique(area_m2))
-  )
-
-total_density
-
-density_species_inc_zeros <- dd %>%
-  mutate(density_per_ha = count * (10000 / area_m2))
-
-density_species_inc_zeros
-
-
-density_species_exc_zeros <- dd %>%
-  filter(count > 0) %>%
-  mutate(density_per_ha = count * (10000 / area_m2))
-
-density_species_exc_zeros
-
-
-# Summary including zeros
-summ_species_inc_zeros <- density_species_inc_zeros %>%
-  group_by(species) %>%
-  summarise(
-    mean_density = mean(density_per_ha),
-    median_density = median(density_per_ha),
-    min_density = min(density_per_ha),
-    max_density = max(density_per_ha)
-  )
-
-
-# summary excluding zeros
-
-
-uncond_density <- dd %>%
-  group_by(species) %>%
+df_uncond_density <- df_stem_sp_sum %>%
+  mutate(area_m2 = 20) %>% 
+  group_by(Species) %>%
   summarise(
     total_stems = sum(count),
-    unconditional_density = total_stems * (10000 / unique(area_m2)) / n_distinct(plot)
-  )
+    n_plots_present = n_distinct(plot[count > 0]),
+    n_plots_total   = n_distinct(plot),
+    share_plots = n_plots_present / n_plots_total * 100,
+    unconditional_density = total_stems * (10000 / unique(area_m2)) / n_plots_total
+  ) %>% 
+  select(-n_plots_total ) %>% 
+  arrange(desc(share_plots ))
 
-
-
-
-
+df_uncond_density
 
 
 ## Create a horizontal bar plot -------------------------------------------------
@@ -624,18 +575,18 @@ summary_stem_dens_VegType <- df_stem_species_class %>%
 summary_stem_dens_VegType
 
 # # Get a summary table:
-summary_stem_dens_spec <- df_stem_species_class %>%
+summary_stem_dens_spec <-   df_stem_sp_sum %>%
   #  dplyr::filter(Species %in% v_top10_species) %>%
-  dplyr::filter(stem_density > 0) %>%
+  dplyr::filter(sum_stem_density > 0) %>%
   # mutate(Species = factor(Species, levels = v_top10_species)) %>%
   group_by(Species) %>%
   summarise(
-    min = min(stem_density, na.rm =T),
-    max = max(stem_density, na.rm =T),
-    mean     = mean(stem_density, na.rm =T),
-    sd = sd(stem_density, na.rm =T),
-    Median = median(stem_density, na.rm =T),
-    IQR = IQR(stem_density)#,
+    min = min(sum_stem_density, na.rm =T),
+    max = max(sum_stem_density, na.rm =T),
+    mean     = mean(sum_stem_density, na.rm =T),
+    sd = sd(sum_stem_density, na.rm =T),
+    Median = median(sum_stem_density, na.rm =T),
+    IQR = IQR(sum_stem_density)#,
     
   ) %>%
   mutate(Species = recode(Species, !!!species_lookup)) %>% 
@@ -645,8 +596,6 @@ summary_stem_dens_spec <- df_stem_species_class %>%
 
 # Display the summary table
 summary_stem_dens_spec
-
-# print ourt
 
 # Reorder and concatenate columns in the desired format
 summary_stem_dens_spec_formated <- summary_stem_dens_spec %>%
@@ -667,6 +616,42 @@ sjPlot::tab_df(
   title = "Summary of Stem Density per Species",
   show.rownames = FALSE
 )
+
+
+#### Unconditional stem density and plots numbers  ----
+
+# Recode species using the same lookup table as your other summaries ---
+
+df_uncond_density <- df_uncond_density %>%
+  mutate(Species = recode(Species, !!!species_lookup))
+
+
+df_uncond_density_formatted <- df_uncond_density %>%
+  mutate(
+    Species = paste0("<i>", Species, "</i>"),
+    share_plots = round(share_plots, 1),
+    unconditional_density = round(unconditional_density, 0),
+    total_stems = round(total_stems, 0)
+  ) %>%
+  select(
+    Species,
+    total_stems,
+    n_plots_present,
+    share_plots,
+    unconditional_density
+  )
+
+
+# --- 4. Export a clean DOC table (sjPlot) ---
+
+sjPlot::tab_df(
+  df_uncond_density_formatted,
+  file = file.path(public_dir, "tables", "table_unconditional_species_density.doc"),
+  title = "Plot Occurence  per Species, total number of stems, and 
+  Unconditional Stem Density",
+  show.rownames = FALSE
+)
+
 
 
 
