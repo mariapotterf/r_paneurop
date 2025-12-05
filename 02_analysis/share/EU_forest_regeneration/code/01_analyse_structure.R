@@ -78,6 +78,9 @@ theme_set(
 n_plots_total <- length(unique(df_fin$plot))
 
 
+med_stem_dens <- median(df_fin$stem_density)  # overall median stem density 4500
+med_reg_stem_dens <- median(df_fin$stem_regeneration) # median stem density for regeneration, 4500
+
 
 # Categorize richness into bins and calculate proportions
 richness_summary <- df_fin %>%
@@ -273,48 +276,129 @@ my_species_levels <-  levels(df_stem_sp_sum_ordered$Species)
 df_stem_sp_sum_ordered <- df_stem_sp_sum_ordered %>%
   mutate(log_sum_stem_density = log10(sum_stem_density + 1))  # Adding 1 to avoid log(0)
 
-p_stem_density_species <- df_stem_sp_sum_ordered %>%
-  ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
+
+species_median_color <- ifelse(colorspace::luminance(species_colors) < 0.5,
+                               "white", "black")
+
+df_stem_dens_colors <- df_stem_sp_sum_ordered %>%
+  group_by(Species) %>%
+  summarise(
+    med  = median(log_sum_stem_density),
+    q1   = quantile(log_sum_stem_density, 0.25),
+    q3   = quantile(log_sum_stem_density, 0.75)
+  ) %>%
+  mutate(
+    err_color = ifelse(Species %in% c("piab", "lade"), "grey70", "black")
+  )
+
+# new plot with changed colors
+p_stem_density_species <- 
+  df_stem_sp_sum_ordered %>%
+  ggplot(aes(x = log_sum_stem_density, y = Species)) +
+  
   geom_density_ridges(
     aes(fill = Species), 
     alpha = 1, 
-    color = 'NA', 
-    scale = 0.9 # Adjust the vertical scale of the ridges
-  ) +
-  scale_fill_manual(values = species_colors) +
-  stat_summary(
-    aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
-    fun = median, 
-    fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-    fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-    geom = "pointrange", 
-    color = 'black'      ,  # Black outline for points
-    shape = 21,  # Shape 21 is a circle with a fill and border
-    size = 0.5,
-    linewidth = 0.2,
-    stroke = 0.2,
-    position = position_nudge(y = 0.2)  # No vertical nudge for alignment
-  ) +
-  theme_classic() +
-  labs(
-    title = "",
-    x = expression("\nStem density (log"[10]*") [n ha"^-1*"]"),
-    # x = "\nStem density (log10) [#/ha]",
-    y = ""
-  ) +
-  scale_x_continuous(
-    labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
+    color = NA, 
+    scale = 0.9,
+    quantile_lines = TRUE,
+    quantiles = c(0.25, 0.5, 0.75)
   ) +
   
-  scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) + # Adjust y-axis padding
+  scale_fill_manual(values = species_colors) +
+  
+  # --- replace stat_summary with geom_pointrange ---
+    geom_pointrange(
+      data = df_stem_dens_colors,
+      aes(
+        x = med,
+        xmin = q1,
+        xmax = q3,
+        y = Species,
+        color = err_color
+      ),
+      shape = 21,
+      fill = "white",
+      size = 0.6,
+      stroke = 0.4,
+      linewidth = 0.5,
+      position = position_nudge(y = 0.2)
+    ) +
+    scale_color_identity() + # to keep my manual colors
+  
+  geom_vline(
+    xintercept = log10(med_stem_dens),
+    linetype = "dashed",
+    color = "grey"
+  ) +
+  
+  labs(
+   # x = expression("Stem density (log"[10]*")\n[stems ha"^-1*"]"), #
+    x =  expression(atop("Stem density (log"[10]*")", "[stems ha"^-1*"]")),
+   # x = expression("\nStem density (log"[10]*") [stems ha"^-1*"]"),
+    y = ""
+  ) +
+  scale_x_continuous(labels = scales::math_format(10^.x)) +
+ # scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) +
+  
   theme_classic(base_size = 8) +
   theme(
-    axis.text = element_text(size = 8),    # Axis tick labels
-    axis.title = element_text(size = 8),   # Axis titles
-    panel.grid.minor = element_blank(),    # Remove minor grid lines
-    legend.position = 'none'               # Hide the legend
+    axis.text = element_text(size = 8),
+    axis.title = element_text(size = 8),
+    legend.position = "none"
   )
 
+p_stem_density_species
+
+# 
+# p_stem_density_species <- df_stem_sp_sum_ordered %>%
+#   ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
+#   geom_density_ridges(
+#     aes(fill = Species), 
+#     alpha = 1, 
+#     color = 'NA', 
+#     scale = 0.9, # Adjust the vertical scale of the ridges
+#     quantile_lines = TRUE,
+#     quantiles = c(0.25, 0.5, 0.75)
+#   ) +
+#   scale_fill_manual(values = species_colors) +
+#   stat_summary(
+#     aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
+#     fun = median,
+#     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
+#     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
+#     geom = "pointrange",
+#     color = 'black'      ,  # Black outline for points
+#     fill = 'white',
+#     shape = 21,  # Shape 21 is a circle with a fill and border
+#     size = 0.6,
+#     linewidth = 0.6,
+#     stroke = 0.5,
+#     position = position_nudge(y = 0.2)  # No vertical nudge for alignment
+#   ) +
+#  
+#   geom_vline(xintercept =log10(med_stem_dens),
+#              lty = 'dashed', col = 'grey') + 
+#   theme_classic() +
+#   labs(
+#     title = "",
+#     x = expression("\nStem density (log"[10]*") [n ha"^-1*"]"),
+#     # x = "\nStem density (log10) [#/ha]",
+#     y = ""
+#   ) +
+#   scale_x_continuous(
+#     labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
+#   ) +
+#   
+#   scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) + # Adjust y-axis padding
+#   theme_classic(base_size = 8) +
+#   theme(
+#     axis.text = element_text(size = 8),    # Axis tick labels
+#     axis.title = element_text(size = 8),   # Axis titles
+#     panel.grid.minor = element_blank(),    # Remove minor grid lines
+#     legend.position = 'none'               # Hide the legend
+#   )
+# p_stem_density_species
 
 # % of recorded stems of juveniles and saplings ---------------------
 df_stem_species_class %>% 
@@ -366,7 +450,7 @@ species_composition_sapl_juv_summary <- species_composition_sapl_juv %>%
     med_share = median(share, na.rm = TRUE),
     iqr_low = quantile(share, 0.25, na.rm = TRUE),
     iqr_high = quantile(share, 0.75, na.rm = TRUE),
-    iqr = IQR(share, 0.75, na.rm = TRUE)
+    iqr = quantile(share, 0.75, na.rm = TRUE)
   ) %>%
   ungroup() %>%
   mutate(
@@ -419,17 +503,19 @@ species_composition_sapl_juv_summary <- species_composition_sapl_juv_summary %>%
 p_share_vertical_species <- 
   ggplot(species_composition_sapl_juv_summary, aes(x = med_share, y = Species, fill = fill_key)) +
   geom_bar(stat = "identity", position = "identity", alpha = 1) + # Horizontal bars
-  geom_errorbarh(aes(xmin = iqr_low, xmax = iqr_high), 
-                 height = 0.1, 
+  geom_errorbar(aes(xmin = iqr_low, xmax = iqr_high), 
+                 height = 0.2, 
                  color = "black",                   ,
-                 linewidth = 0.2) + # Add IQR error bars
+                 linewidth = 0.3) + # Add IQR error bars
   scale_x_continuous(
     labels = abs, # Show positive labels
-    name = "Stem density\nMedian share [%]",
+    name = "Median share of stems\n per cohort [%]",
   ) +
   scale_fill_manual(values = species_colors_combined) + # Use combined color palette
   labs(
-    x = "Stem density\nMedian share [%]",
+    #x =  expression(atop("Stem density (log"[10]*")", "[stems ha"^-1*"]")),
+    x = "Median share of stems\n per cohort [%]",
+    #x = "Stem density\nMedian share [%]",
     y = "",
     title = ""
   ) +
@@ -453,7 +539,7 @@ p_share_vertical_species <-
     plot.title = element_text(size = 8, hjust = 0.5)
   )
 
-
+p_share_vertical_species
 
 # Remove x- and y-axis labels from individual plots
 p1 <- p_plots_share_species +
@@ -474,14 +560,14 @@ p3 <- p_share_vertical_species + theme(axis.ticks.y = element_blank(),
 combined_plot <- cowplot::plot_grid(
   p1,p2,p3,
   align = "h",  # Align vertically
-  axis = "b",
+  axis = "tb",
   ncol = 3 ,     # Three plots in a row
   rel_widths = c(1.4, 1, 1), # Adjust relative widths if necessary
   labels = c("[a]", "[b]", "[c]"), # Add labels
   label_size = 8,           # Adjust label size
   label_fontface = "plain"   # Use plain font for labels
 )
-
+combined_plot
 # Save the combined plot as an image
 ggsave(
   filename = file.path(public_dir, "figs", "Fig1.png"),    # File name (change extension for different formats, e.g., .pdf)
@@ -642,7 +728,7 @@ df_uncond_density_formatted <- df_uncond_density %>%
   )
 
 
-# --- 4. Export a clean DOC table (sjPlot) ---
+#4. Export a clean DOC table (sjPlot) 
 
 sjPlot::tab_df(
   df_uncond_density_formatted,
