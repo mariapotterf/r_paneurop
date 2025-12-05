@@ -75,7 +75,7 @@ theme_set(
 
 
 # how many plots do not have any stem density present? not evemn mature treees?
-n_total <- length(unique(df_fin$plot))
+n_plots_total <- length(unique(df_fin$plot))
 
 
 
@@ -125,7 +125,7 @@ p_bar_richness_groups <- ggplot(richness_summary,
 p_bar_richness_groups
 
 
-### vertical classes share -----------------------------------
+### Vertical classes share -----------------------------------
 # get from vertical claas share
 
 # Categorize counts of vertical claases into bins and calculate proportions
@@ -178,10 +178,12 @@ ggarrange(p_bar_vertical_groups, p_bar_richness_groups,
 df_stem_sp_sum <- df_stem_species_class %>% 
   group_by(plot, Species) %>% 
   # summarize across vertical groups
-  summarise(sum_stem_density = sum(stem_density, na.rm = t)) #%>% 
+  summarise(sum_stem_density = sum(stem_density, na.rm = T)) %>%
+  mutate(counts = sum_stem_density/500) # convert back to counts
 
 
-### Share of plots by species -----------------------------------------------------
+
+### Species frequency: occurence of species per plot/Share of plots by species -----------------------------------------------------
 
 # Count the unique plots (plots) for each species
 species_plot_share <- df_stem_sp_sum %>%
@@ -194,7 +196,7 @@ species_plot_share <- df_stem_sp_sum %>%
 
 # Add a column for the share (percentage) of plots
 species_plot_share <- species_plot_share %>%
-  mutate(share_of_plots = (plot_count / n_total) * 100)
+  mutate(share_of_plots = (plot_count / n_plots_total) * 100)
 
 # Sort the results in descending order of share
 species_plot_share <- species_plot_share %>%
@@ -206,6 +208,68 @@ top_species_plot_share <- species_plot_share %>%
   slice_head(n = 10) # Select the top 10 species
 
 
+top_species_plot_share$Species
+
+
+
+## test for convesion of stem density: ----------------------------------------
+# get total stem density vs stem density per species
+
+dd <- data.frame(plot = c(1,1,1,
+                          2,2,2,
+                          3,3,3),
+                 species = c('p','a', 'b',
+                             'p','a', 'b',
+                             'p','a', 'b'),
+                 count = c(5,5,0,
+                           1,1,0,
+                           0,0,0),
+                 area_m2 = 20)
+
+conv <- 10000 / 20   # = 500, prevod na hectare
+
+total_density <- dd %>%
+  group_by(plot) %>%
+  summarise(
+    stems = sum(count),
+    density_per_ha = stems * (10000 / unique(area_m2))
+  )
+
+total_density
+
+density_species_inc_zeros <- dd %>%
+  mutate(density_per_ha = count * (10000 / area_m2))
+
+density_species_inc_zeros
+
+
+density_species_exc_zeros <- dd %>%
+  filter(count > 0) %>%
+  mutate(density_per_ha = count * (10000 / area_m2))
+
+density_species_exc_zeros
+
+
+# Summary including zeros
+summ_species_inc_zeros <- density_species_inc_zeros %>%
+  group_by(species) %>%
+  summarise(
+    mean_density = mean(density_per_ha),
+    median_density = median(density_per_ha),
+    min_density = min(density_per_ha),
+    max_density = max(density_per_ha)
+  )
+
+
+# summary excluding zeros
+
+
+uncond_density <- dd %>%
+  group_by(species) %>%
+  summarise(
+    total_stems = sum(count),
+    unconditional_density = total_stems * (10000 / unique(area_m2)) / n_distinct(plot)
+  )
 
 
 
