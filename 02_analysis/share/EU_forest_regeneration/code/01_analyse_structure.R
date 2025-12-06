@@ -49,6 +49,54 @@ theme_set(
 )
 
 
+# test example - compare two methodological approaches: calculate average density first, or total stem density from sum?
+dd <- data.frame(
+  subplot = rep(1:3, each = 3 * 3),     # 3 subplots per plot
+  plot    = rep(rep(1:3, each = 3), 3), # plots 1–3, repeated for 3 subplots
+  species = rep(c("p", "a", "b"), 9),   # 3 species repeated for every subplot
+  count   = c(
+    5,5,0,   4,2,0,   3,1,0,   # plot 1 (subplots 1,2,3)
+    1,1,0,   2,0,0,   0,1,0,   # plot 2 (subplots 1,2,3)
+    0,0,0,   0,0,0,   1,0,0    # plot 3 (subplots 1,2,3)
+  ),
+  area_m2 = 4   # subplot area
+) %>% 
+  arrange(plot, subplot)
+dd
+
+density_sum_method <- dd %>%
+  group_by(plot, subplot) %>%
+  summarise(
+    stems_sub = sum(count),
+    area_m2 = unique(area_m2),
+    .groups = "drop"
+  ) %>%
+  group_by(plot) %>%
+  summarise(
+    total_stems = sum(stems_sub),
+    total_area  = sum(area_m2),        # area actually sampled per plot
+    stems_ha    = total_stems / total_area * 10000
+  )
+
+density_sum_method
+
+density_mean_method <- dd %>%
+  group_by(plot, subplot) %>%
+  summarise(
+    stems_sub = sum(count),
+    area_m2 = unique(area_m2),
+    density_sub = stems_sub / area_m2 * 10000,   # stems/ha per subplot
+    .groups = "drop"
+  ) %>%
+  group_by(plot) %>%
+  summarise(
+    mean_density = mean(density_sub)  # average subplot density
+  )
+
+density_mean_method
+
+
+
 
 # Analysis ------------------------------------------------------------
 # desription of current regeneration state
