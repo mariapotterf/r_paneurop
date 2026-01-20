@@ -568,14 +568,14 @@ combined_plot <- cowplot::plot_grid(
 )
 combined_plot
 # Save the combined plot as an image
-ggsave(
-  filename = file.path(public_dir, "figs", "Fig1.png"),    # File name (change extension for different formats, e.g., .pdf)
-  plot = combined_plot,             # Plot object to save
-  width = 7,                       # Width of the saved plot in inches
-  height = 3.5,                       # Height of the saved plot in inches
-  dpi = 300,                        # Resolution (dots per inch)
-  units = "in"                      # Units for width and height
-)
+# ggsave(
+#   filename = file.path(public_dir, "figs", "Fig1.png"),    # File name (change extension for different formats, e.g., .pdf)
+#   plot = combined_plot,             # Plot object to save
+#   width = 7,                       # Width of the saved plot in inches
+#   height = 3.5,                       # Height of the saved plot in inches
+#   dpi = 300,                        # Resolution (dots per inch)
+#   units = "in"                      # Units for width and height
+# )
 
 
 ## Bar plot with error plot ---------------------------------------------------------
@@ -670,8 +670,8 @@ summary_stem_dens_spec <-   df_stem_sp_sum %>%
     max = max(sum_stem_density, na.rm =T),
     mean     = mean(sum_stem_density, na.rm =T),
     sd = sd(sum_stem_density, na.rm =T),
-    Median = median(sum_stem_density, na.rm =T),
-    IQR = IQR(sum_stem_density)#,
+    Median = round(median(sum_stem_density, na.rm =T),0),
+    IQR = round(IQR(sum_stem_density),0)#,
     
   ) %>%
   mutate(Species = recode(Species, !!!species_lookup)) %>% 
@@ -685,22 +685,23 @@ summary_stem_dens_spec
 # Reorder and concatenate columns in the desired format
 summary_stem_dens_spec_formated <- summary_stem_dens_spec %>%
   mutate(
-    #min_max = paste(min, max, sep = " - "),
+    Species = paste0("<i>", Species, "</i>"), # set as itilic
+    min_max = paste(min, max, sep = " - "),
     mean_sd = paste0(round(mean, 0), " ± ", round(sd, 0)),
     median_iqr = paste0(Median, " (", IQR, ")")
   ) %>%
-  dplyr::select(Species, min, max, mean_sd, median_iqr)
+  dplyr::select(Species, min_max, mean_sd, median_iqr)
 
 # Display the updated table
 summary_stem_dens_spec_formated
 
-# Export the table using sjPlot
-sjPlot::tab_df(
-  summary_stem_dens_spec_formated, 
-  file = file.path(public_dir, "tables", "table_species_stem_density_summary.doc"),
-  title = "Summary of Stem Density per Species",
-  show.rownames = FALSE
-)
+# # Export the table using sjPlot
+# sjPlot::tab_df(
+#   summary_stem_dens_spec_formated, 
+#   file = file.path(public_dir, "tables", "table_species_stem_density_summary.doc"),
+#   title = "Summary of Stem Density per Species",
+#   show.rownames = FALSE
+# )
 
 
 #### Unconditional stem density and plots numbers  ----
@@ -711,29 +712,48 @@ df_uncond_density <- df_uncond_density %>%
   mutate(Species = recode(Species, !!!species_lookup))
 
 
-df_uncond_density_formatted <- df_uncond_density %>%
+df_uncond_density_formatted <- 
+  df_uncond_density %>%
   mutate(
     Species = paste0("<i>", Species, "</i>"),
     share_plots = round(share_plots, 1),
-    unconditional_density = round(unconditional_density, 0),
+    uncond_density = round(unconditional_density, 0),
     total_stems = round(total_stems, 0)
   ) %>%
+  mutate(   
+    plot_n_share = paste0(n_plots_present, " (", share_plots , ")")) %>% 
+   # plot_share = paste0(n_plots_present , " (", share_plots, ")") %>% 
+   # median_iqr = 
   select(
     Species,
     total_stems,
-    n_plots_present,
+    #n_plots_present,
     share_plots,
-    unconditional_density
+    plot_n_share,
+    uncond_density
+  ) %>% 
+  left_join(summary_stem_dens_spec_formated) %>% # add the stem density table
+  dplyr::filter(total_stems>0) %>%  # keep only species that we found
+    arrange(desc(share_plots)) %>% # sort by decreasing share of plots
+    #dplyr::select(-share_plots) %>% 
+  select(
+    Species,
+    total_stems,
+    plot_n_share,
+    min_max, 
+    mean_sd, median_iqr,
+    uncond_density  # move this to the end
   )
 
+head(df_uncond_density_formatted)
 
 #4. Export a clean DOC table (sjPlot) 
 
 sjPlot::tab_df(
   df_uncond_density_formatted,
-  file = file.path(public_dir, "tables", "table_unconditional_species_density.doc"),
+  file = file.path(public_dir, "tables", "table_species_density.doc"),
   title = "Plot Occurence  per Species, total number of stems, and 
-  Unconditional Stem Density",
+  Conditional and Unconditional Stem Density",
   show.rownames = FALSE
 )
 
