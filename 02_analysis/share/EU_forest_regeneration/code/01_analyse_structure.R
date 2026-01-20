@@ -398,55 +398,6 @@ p_stem_density_species <-
 
 p_stem_density_species
 
-# 
-# p_stem_density_species <- df_stem_sp_sum_ordered %>%
-#   ggplot(aes(x = log_sum_stem_density, y = Species, group = Species)) +
-#   geom_density_ridges(
-#     aes(fill = Species), 
-#     alpha = 1, 
-#     color = 'NA', 
-#     scale = 0.9, # Adjust the vertical scale of the ridges
-#     quantile_lines = TRUE,
-#     quantiles = c(0.25, 0.5, 0.75)
-#   ) +
-#   scale_fill_manual(values = species_colors) +
-#   stat_summary(
-#     aes(x = log_sum_stem_density, fill = Species),  # Add fill aesthetic for inner color
-#     fun = median,
-#     fun.min = function(x) quantile(x, 0.25),  # 25th percentile (Q1)
-#     fun.max = function(x) quantile(x, 0.75),  # 75th percentile (Q3)
-#     geom = "pointrange",
-#     color = 'black'      ,  # Black outline for points
-#     fill = 'white',
-#     shape = 21,  # Shape 21 is a circle with a fill and border
-#     size = 0.6,
-#     linewidth = 0.6,
-#     stroke = 0.5,
-#     position = position_nudge(y = 0.2)  # No vertical nudge for alignment
-#   ) +
-#  
-#   geom_vline(xintercept =log10(med_stem_dens),
-#              lty = 'dashed', col = 'grey') + 
-#   theme_classic() +
-#   labs(
-#     title = "",
-#     x = expression("\nStem density (log"[10]*") [n ha"^-1*"]"),
-#     # x = "\nStem density (log10) [#/ha]",
-#     y = ""
-#   ) +
-#   scale_x_continuous(
-#     labels = math_format(10^.x)  # Format x-axis labels as 10^3, 10^4, etc.
-#   ) +
-#   
-#   scale_y_discrete(expand = expansion(add = c(0.2, 0.2))) + # Adjust y-axis padding
-#   theme_classic(base_size = 8) +
-#   theme(
-#     axis.text = element_text(size = 8),    # Axis tick labels
-#     axis.title = element_text(size = 8),   # Axis titles
-#     panel.grid.minor = element_blank(),    # Remove minor grid lines
-#     legend.position = 'none'               # Hide the legend
-#   )
-# p_stem_density_species
 
 # % of recorded stems of juveniles and saplings ---------------------
 df_stem_species_class %>% 
