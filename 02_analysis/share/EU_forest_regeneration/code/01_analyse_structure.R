@@ -305,8 +305,8 @@ p_plots_share_species <- species_plot_share %>%
 p_plots_share_species
 
 
-# Added on November 2nd, 2026 for comparability with czechia:--------------------------
-#  Show stem density and and plot occurence ----------------------------------------------
+## Added on November 2nd, 2026 for comparability Pan-Eu with czechia:--------------------------
+###  Show stem density and and plot occurence ----------------------------------------------
 
 # Species summary: share of plots AND share of stems ---------------------
 # Stem share is computed over ALL species, before restricting to the top 10,
@@ -334,7 +334,7 @@ species_top <- species_summary %>%
   filter(Species %in% v_top10_species) %>%
   mutate(Species = factor(Species, levels = rev(sp_order)))  # rev: largest on top
 
-# Plots ----------------------------------------------------------------------
+# Plots 
 base_theme <- theme_classic(base_size = 8) +
   theme(
     legend.position = "none",
@@ -404,10 +404,153 @@ ggsave(
   units = "in"                      # Units for width and height
 )
 
+### Panels [c] & [d]: drought tolerance classes ---------------------------------
+# Built the same way as [a] & [b]: df_stem_sp_sum -> summary table -> plots
+# Values: my_species_traits.csv (Niinemets & Valladares), column Drought_tolerance
+# less drought-tolerant = piab + Drought_tolerance < 2.2 | intermediate = 2.2-3.3 |
+# more drought-tolerant = > 3.3 | species without a value = "other" (not plotted)
+
+my_species_traits <- read.csv(
+  "C:/Users/potterf/OneDrive - CZU v Praze/Dokumenty/2025_CZU_postbrouk/r_post_brouk/outData/my_species_traits.csv"
+)
+
+# Species -> drought class (key column named Species, as in df_stem_sp_sum)
+species_drought <- my_species_traits %>%
+  distinct(species, .keep_all = TRUE) %>%
+  transmute(
+    Species           = species,
+    drought_tolerance = Drought_tolerance,
+    drought_class = case_when(
+      species == "piab"       ~ "less_tolerant",
+      Drought_tolerance < 2.2 ~ "less_tolerant",
+      Drought_tolerance > 3.3 ~ "more_tolerant",
+      TRUE                    ~ "intermediate"
+    )
+  )
+
+
+# Drought class summary: share of plots AND share of stems ----------------------
+# denominators as in species_summary: n_plots_total and ALL stems (incl. "other")
+drought_summary <- df_stem_sp_sum %>%
+  ungroup() %>%
+  left_join(species_drought %>% select(Species, drought_class), by = "Species") %>%
+  mutate(drought_class = replace_na(drought_class, "other")) %>%
+  group_by(drought_class) %>%
+  summarise(
+    plot_count  = n_distinct(plot[sum_stem_density > 0]),
+    total_stems = sum(count, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    share_of_plots = plot_count / n_plots_total * 100,
+    share_of_stems = total_stems / sum(total_stems) * 100
+  )
+
+drought_summary
+
+drought_order <- c("more_tolerant", "intermediate", "less_tolerant")   # first = bottom
+
+drought_top <- drought_summary %>%
+  filter(drought_class != "other") %>%
+  mutate(drought_class = factor(drought_class, levels = drought_order))
+
+drought_colors <- c(less_tolerant = "#1a5c1a",
+                    intermediate  = "#f4a736",
+                    more_tolerant = "#d73027")
+
+drought_labels <- c(less_tolerant = "Less drought-tolerant\n(incl. Norway spruce)",
+                    intermediate  = "Intermediate",
+                    more_tolerant = "More drought-tolerant")
+
+# [c] share of stems
+p_drought_stems <- ggplot(drought_top,
+                          aes(x = share_of_stems, y = drought_class, fill = drought_class)) +
+  geom_col(width = 0.7) +
+  scale_fill_manual(values = drought_colors) +
+  scale_y_discrete(labels = drought_labels) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(x = "Stem share [%]", y = NULL) +
+  base_theme +
+  theme(axis.text.y = element_text(hjust = 1))
+
+# [d] share of plots
+p_drought_plots <- ggplot(drought_top,
+                          aes(x = share_of_plots, y = drought_class, fill = drought_class)) +
+  geom_col(width = 0.7) +
+  scale_fill_manual(values = drought_colors) +
+  scale_y_discrete(labels = drought_labels) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(x = "Plot share [%]", y = NULL) +
+  base_theme +
+  theme(axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank())
+
+p_drought_share <- ggarrange(
+  p_drought_stems, p_drought_plots,
+  ncol = 2, align = "h",
+  widths = c(1.5, 1),
+  labels = c("[c]", "[d]"),
+  font.label = list(size = 10, face = "plain"),
+  label.x = 0.02, label.y = 1.01
+)
+
+p_drought_share
+
+
+### Fig. 1: [a][b] species + [c][d] drought tolerance classes
+library(patchwork)
+
+# shared x-axes per column (stems / plots), so a-c and b-d are directly comparable
+lim_stems <- max(species_top$share_of_stems, drought_top$share_of_stems) * 1.15
+lim_plots <- max(species_top$share_of_plots, drought_top$share_of_plots) * 1.15
+
+grid_x <- theme(panel.grid.major.x = element_line(color = "grey90", linewidth = 0.3))
+
+p_fig1_combined_drought <-
+  (p_share_stems   + coord_cartesian(xlim = c(0, lim_stems)) + grid_x |
+     p_share_plots   + coord_cartesian(xlim = c(0, lim_plots)) + grid_x) /
+  (p_drought_stems + coord_cartesian(xlim = c(0, lim_stems)) + grid_x |
+     p_drought_plots + coord_cartesian(xlim = c(0, lim_plots)) + grid_x) +
+  plot_layout(widths = c(1.5, 1), heights = c(2.2, 1)) +
+  plot_annotation(tag_levels = list(c("[a]", "[b]", "[c]", "[d]"))) &
+  theme(plot.tag = element_text(size = 10, face = "plain"),
+        plot.tag.position = c(0, 1.05))
+
+p_fig1_combined_drought
+
+ggsave(
+  filename = file.path(public_dir, "figs", "Fig1_species_drought_combined.png"),
+  plot = p_fig1_combined_drought,
+  width = 7, height = 6, dpi = 300, units = "in"
+)
 
 
 
 ## Density plot of stem density  ----------------------------------
+
+#### calculate number of stems per plot and subplots on EU level and for czechia---
+# stems per plot, incl. empty plots (df_fin lists all plots) 
+plot_stems_849 <- df_stem_sp_sum %>%
+  ungroup() %>%
+  group_by(plot) %>%
+  summarise(stems = sum(count, na.rm = TRUE), .groups = "drop") %>%
+  right_join(distinct(df_fin, plot), by = "plot") %>%
+  mutate(stems = replace_na(stems, 0))
+
+n_sub <- 5   # assumed subplots per plot (4 m2 each)
+
+plot_stems_849 %>%
+  summarise(
+    n_plots                = n(),
+    mean_stems_plot        = mean(stems),            # per plot (20 m2)
+    sd_stems_plot          = sd(stems),
+    median_stems_plot      = median(stems),
+    mean_stems_subplot     = mean(stems) / n_sub#,    # per subplot (4 m2)
+    #share_empty_plots      = mean(stems == 0) * 100,
+    #mean_stems_plot_nonempty = mean(stems[stems > 0])
+  )
+
+
 
 # Calculate median for each species and reorder the factor levels
 df_stem_sp_sum_ordered <- df_stem_sp_sum %>%
