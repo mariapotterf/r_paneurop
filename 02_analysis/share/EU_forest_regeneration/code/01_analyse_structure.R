@@ -126,8 +126,8 @@ density_mean_method
 n_plots_total <- length(unique(df_fin$plot))
 
 
-med_stem_dens <- median(df_fin$stem_density)  # overall median stem density 4500
-med_reg_stem_dens <- median(df_fin$stem_regeneration) # median stem density for regeneration, 4500
+#med_stem_dens <- median(df_fin$stem_density)  # overall median stem density 4500
+#med_reg_stem_dens <- median(df_fin$stem_regeneration) # median stem density for regeneration, 4500
 
 
 # Categorize richness into bins and calculate proportions
