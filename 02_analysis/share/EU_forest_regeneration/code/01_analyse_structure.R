@@ -305,6 +305,107 @@ p_plots_share_species <- species_plot_share %>%
 p_plots_share_species
 
 
+# Added on November 2nd, 2026 for comparability with czechia:--------------------------
+#  Show stem density and and plot occurence ----------------------------------------------
+
+# Species summary: share of plots AND share of stems ---------------------
+# Stem share is computed over ALL species, before restricting to the top 10,
+# so the denominator is the true total of stems (otherwise shares are inflated).
+
+species_summary <- df_stem_sp_sum %>%
+  group_by(Species) %>%
+  summarise(
+    plot_count  = n_distinct(plot[sum_stem_density > 0]),
+    total_stems = sum(count, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    share_of_plots = plot_count / n_plots_total * 100,
+    share_of_stems = total_stems / sum(total_stems) * 100
+  )
+
+# Common species order (by share of plots, largest on top)
+sp_order <- species_summary %>%
+  filter(Species %in% v_top10_species) %>%
+  arrange(desc(share_of_plots)) %>%
+  pull(Species)
+
+species_top <- species_summary %>%
+  filter(Species %in% v_top10_species) %>%
+  mutate(Species = factor(Species, levels = rev(sp_order)))  # rev: largest on top
+
+# Plots ----------------------------------------------------------------------
+base_theme <- theme_classic(base_size = 8) +
+  theme(
+    legend.position = "none",
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 8),
+    plot.margin = margin(12, 5, 5, 5)
+  )
+
+
+
+# [a] share of stems
+p_share_stems <- ggplot(species_top,
+                        aes(x = share_of_stems, y = Species, fill = Species)) +
+  geom_col(width = 0.7) +
+  # geom_text(aes(label = sprintf("%.1f", share_of_stems)),
+  #           hjust = -0.15, size = 2.5) +
+  scale_fill_manual(values = species_colors) +
+  scale_y_discrete(labels = species_labels) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(x = "Stem share [%]", y = NULL) +
+  base_theme +
+  theme(axis.text.y = element_text(face = "italic", hjust = 1))
+  
+
+
+# [b] share of plots
+p_share_plots <- ggplot(species_top,
+                        aes(x = share_of_plots, y = Species, fill = Species)) +
+  geom_col(width = 0.7) +
+  # geom_text(aes(label = sprintf("%.1f", share_of_plots)),
+  #           hjust = -0.15, size = 2.5) +
+  scale_fill_manual(values = species_colors) +
+  scale_y_discrete(labels = species_labels) +           # Latin names
+  scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(x = "Plot share [%]", y = NULL) +
+  base_theme +
+  theme(axis.text.y = element_blank(),                  # names only on the left panel
+        axis.ticks.y = element_blank())
+
+p_species_share <- ggarrange(
+  p_share_stems, p_share_plots, 
+  ncol = 2, align = "h",
+  widths = c(1.5, 1),
+  labels = c("[a]", "[b]"),
+  font.label = list(size = 10, face = "plain"),
+  label.x = 0.02, label.y = 1.01
+)
+
+p_species_share
+
+# save plot with stem numbers
+# ggsave(
+#   filename = file.path(public_dir, "figs", "Fig1_stem_share_plot_numbers.png"),    # File name (change extension for different formats, e.g., .pdf)
+#   plot = p_species_share,             # Plot object to save
+#   width = 7,                       # Width of the saved plot in inches
+#   height = 3.5,                       # Height of the saved plot in inches
+#   dpi = 300,                        # Resolution (dots per inch)
+#   units = "in"                      # Units for width and height
+# )
+
+ggsave(
+  filename = file.path(public_dir, "figs", "Fig1_stem_share_plot_share.png"),    # File name (change extension for different formats, e.g., .pdf)
+  plot = p_species_share,             # Plot object to save
+  width = 7,                       # Width of the saved plot in inches
+  height = 3.5,                       # Height of the saved plot in inches
+  dpi = 300,                        # Resolution (dots per inch)
+  units = "in"                      # Units for width and height
+)
+
+
+
 
 ## Density plot of stem density  ----------------------------------
 
